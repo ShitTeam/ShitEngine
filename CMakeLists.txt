@@ -15,26 +15,20 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-include(FetchContent)
-FetchContent_Declare(SFML
-    GIT_REPOSITORY https://github.com/SFML/SFML.git
-    GIT_TAG 3.0.2
-    GIT_SHALLOW ON
-    EXCLUDE_FROM_ALL
-    SYSTEM)
-FetchContent_MakeAvailable(SFML)
+add_subdirectory("vendor/SFML")
+add_subdirectory("vendor/spdlog")
 
 # 将源代码添加到此项目的可执行文件。
 add_library(ShitEngine SHARED
     "src/ShitEngine/Game.cpp"
     "include/ShitEngine/Game.h"
-  "include/ShitEngine/Config.h")
+  "include/ShitEngine/Config.h" "include/ShitEngine.h" "include/ShitEngine/Log.h" "src/ShitEngine/Log.cpp")
 
-target_compile_definitions(ShitEngine PRIVATE SHITENGINE_EXPORTS)
+target_compile_definitions(ShitEngine PRIVATE SHIT_EXPORTS)
 
 target_include_directories(ShitEngine PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
-target_link_libraries(ShitEngine PUBLIC SFML::Graphics SFML::Window SFML::System SFML::Audio SFML::Network)
+target_link_libraries(ShitEngine PUBLIC SFML::Graphics SFML::Window SFML::System SFML::Audio SFML::Network spdlog::spdlog)
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET ShitEngine PROPERTY CXX_STANDARD 20)
