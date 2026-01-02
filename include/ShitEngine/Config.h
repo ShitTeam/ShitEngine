@@ -7,3 +7,5 @@
     // 如果别人在使用引擎，导入符号
     #define SHIT_API __declspec(dllimport)
 #endif
+
+#define BIT(x) (1 << x)
