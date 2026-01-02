@@ -24,7 +24,7 @@ add_library(ShitEngine SHARED
     "include/ShitEngine/Game.h"
   "include/ShitEngine/Config.h" "include/ShitEngine.h" "include/ShitEngine/Log.h" "src/ShitEngine/Log.cpp" "include/ShitEngine/pch.h")
 
-target_precompile_headers(ShitEngine PUBLIC "include/pch.h")
+target_precompile_headers(ShitEngine PUBLIC "include/ShitEngine/pch.h")
 
 target_compile_definitions(ShitEngine PRIVATE SHIT_EXPORTS)
 
