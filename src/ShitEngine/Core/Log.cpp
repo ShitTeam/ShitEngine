@@ -1,4 +1,4 @@
-#include "ShitEngine/Log.h"
+#include "ShitEngine/Core/log.h"
 
 namespace Shit {
 	std::shared_ptr<spdlog::logger> Log::s_CoreLogger;

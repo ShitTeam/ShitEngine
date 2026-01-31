@@ -1,6 +1,8 @@
 #pragma once
 #include <SFML/Graphics.hpp>
+#include "ShitEngine/Resource/ResourceManager.h"
 #include "Config.h"
+#include "Time.h"
 #include "Log.h"
 #include "pch.h"
 
@@ -15,10 +17,9 @@ namespace Shit {
 
 	private:
 		void input();  //处理输入
-		void update(sf::Time& deltaTime); //更新游戏状态
+		void update(); //更新游戏状态
 		void render(); //渲染游戏画面
 
-		sf::RenderWindow window; //游戏窗口
-		sf::Clock clock;
+		sf::RenderWindow m_window; //游戏窗口
 	};
 }
