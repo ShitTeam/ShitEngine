@@ -1,25 +1,30 @@
-#pragma once
+ï»¿#pragma once
 #include <SFML/Graphics.hpp>
-#include "ShitEngine/Resource/ResourceManager.h"
-#include "Config.h"
-#include "Time.h"
-#include "Log.h"
+#include "Core.h"
 #include "pch.h"
 
 namespace Shit {
 	class SHIT_API Game {
 	public:
-		Game(const std::string& _title, const unsigned int& _width, const unsigned int& _height);
+		Game();
 		~Game();
 
-		//Æô¶¯ÓÎÏ·
+		//åˆå§‹åŒ–æ¸¸æˆ
+		void init(unsigned int width, unsigned int height, std::string title);
+
+		//å¯åŠ¨æ¸¸æˆ
 		void run();
 
 	private:
-		void input();  //´¦ÀíÊäÈë
-		void update(); //¸üĞÂÓÎÏ·×´Ì¬
-		void render(); //äÖÈ¾ÓÎÏ·»­Ãæ
+		// --- å¤„ç†äº‹ä»¶ ---
+		void handleEvent(const auto&); // é»˜è®¤äº‹ä»¶
+		void handleEvent(const sf::Event::Closed&); // çª—å£å…³é—­äº‹ä»¶
+		void handleEvent(const sf::Event::KeyPressed& keyPressed); // æŒ‰é”®è¢«æŒ‰ä¸‹
+		void handleEvent(const sf::Event::KeyReleased& keyReleased); // æŒ‰é”®è¢«é‡Šæ”¾
+		void handleEvent(const sf::Event::MouseButtonPressed& mouseButtonPressed); // é¼ æ ‡æŒ‰é”®è¢«æŒ‰ä¸‹
+		void handleEvent(const sf::Event::MouseButtonReleased& mouseButtonReleased); // é¼ æ ‡æŒ‰é”®è¢«é‡Šæ”¾
 
-		sf::RenderWindow m_window; //ÓÎÏ·´°¿Ú
+		void update(); // æ›´æ–°æ¸¸æˆçŠ¶æ€
+		void render(); // æ¸²æŸ“æ¸¸æˆç”»é¢
 	};
 }

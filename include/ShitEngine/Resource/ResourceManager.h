@@ -1,14 +1,14 @@
-#pragma once
+ï»¿#pragma once
 
 #include "ShitEngine/Core/pch.h"
-#include "ShitEngine/Core/Config.h"
+#include "ShitEngine/Core/Core.h"
 #include "TextureManager.h"
 #include <SFML/Graphics.hpp>
 #include <SFML/Audio.hpp>
 
 namespace Shit {
 	/**
-	* @brief ×ÊÔ´¹ÜÀíÆ÷
+	* @brief èµ„æºç®¡ç†å™¨
 	*
 	*/
 	class SHIT_API ResourceManager final {
@@ -18,7 +18,7 @@ namespace Shit {
 
 		void clear();
 
-		//×ÊÔ´·ÃÎÊÈë¿Ú
+		//èµ„æºè®¿é—®å…¥å£
 		// Texture
 		sf::Texture* loadTexture(const std::string& filePath) { return m_textureManager->loadTexture(filePath); }
 		sf::Texture* getTexture(const std::string& filePath) { return m_textureManager->getTexture(filePath); }

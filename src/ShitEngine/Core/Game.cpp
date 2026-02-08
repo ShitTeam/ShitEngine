@@ -1,49 +1,85 @@
-#include "ShitEngine/Core/Game.h"
+ï»¿#include "ShitEngine/Core/Game.h"
+#include "ShitEngine/Core/Log.h"
+#include "ShitEngine/Core/Time.h"
+#include "ShitEngine/Resource/ResourceManager.h"
+#include "ShitEngine/Core/Window.h"
+#include "ShitEngine/Core/Input.h"
 
 namespace Shit {
-	Game::Game(const std::string& _title, const unsigned int& _width, const unsigned int& _height)
-		: m_window(sf::VideoMode({ _width, _height }), _title)
-	{
-		m_window.setFramerateLimit(60); //ÉèÖÃÖ¡ÂÊÏŞÖÆÎª60FPS
+	Game::Game() = default;
 
-		//³õÊ¼»¯ÈÕÖ¾ÏµÍ³
+	Game::~Game() = default;
+
+	void Game::init(unsigned int width, unsigned int height, std::string title)
+	{
+		// åˆå§‹åŒ–æ—¥å¿—ç³»ç»Ÿ
 		Log::Init();
-	}
 
-	Game::~Game()
-	{
+		// åˆå§‹åŒ–çª—å£
+		Window::Init(width, height, std::move(title));
+
+		Window::GetWindow().setFramerateLimit(60);
 	}
 
 	void Game::run()
 	{
-		while (m_window.isOpen())
-		{
-			Time::Update(); //¼ÆËãÉÏÒ»Ö¡µ½µ±Ç°Ö¡µÄÊ±¼ä²î
+		ST_CORE_INFO("æ¸¸æˆå¼€å§‹è¿è¡Œ");
 
-			input();
+		while (Window::GetWindow().isOpen())
+		{
+			Time::Update(); //è®¡ç®—ä¸Šä¸€å¸§åˆ°å½“å‰å¸§çš„æ—¶é—´å·®
+
+			Input::Update(); // æ›´æ–° Input
+
+			Window::GetWindow().handleEvents([this](const auto& type) {handleEvent(type); });
+
+			if (!Window::GetWindow().isOpen()) break;
+
 			update();
 			render();
 		}
+
+		ST_CORE_INFO("æ¸¸æˆå·²é€€å‡º");
 	}
 
-	void Game::input() //ÊäÈë´¦Àí
+	void Game::handleEvent(const auto&) {} // é»˜è®¤äº‹ä»¶
+
+	void Game::handleEvent(const sf::Event::Closed&) // çª—å£å…³é—­äº‹ä»¶
 	{
-		while (const std::optional event = m_window.pollEvent())
-		{
-			if (event->is<sf::Event::Closed>())
-				m_window.close();
-		}
+		Window::GetWindow().close();
 	}
 
-	void Game::update() //¸üĞÂÓÎÏ·Êı¾İ
+	void Game::handleEvent(const sf::Event::KeyPressed& keyPressed) // æŒ‰é”®è¢«æŒ‰ä¸‹
 	{
-		ST_CORE_DEBUG(Time::GetDeltaTime());
+		Input::HandleEvent(keyPressed);
+		//ST_CORE_DEBUG("æŒ‰é”®è¢«æŒ‰ä¸‹");
+	}
+
+	void Game::handleEvent(const sf::Event::KeyReleased& keyReleased) // æŒ‰é”®è¢«é‡Šæ”¾
+	{
+		Input::HandleEvent(keyReleased);
+		//ST_CORE_DEBUG("æŒ‰é”®è¢«é‡Šæ”¾");
+	}
+
+	void Game::handleEvent(const sf::Event::MouseButtonPressed& mouseButtonPressed) // é¼ æ ‡æŒ‰é”®è¢«æŒ‰ä¸‹
+	{
+		Input::HandleEvent(mouseButtonPressed);
+	}
+
+	void Game::handleEvent(const sf::Event::MouseButtonReleased& mouseButtonReleased)
+	{
+		Input::HandleEvent(mouseButtonReleased);
+	}
+
+	void Game::update() //æ›´æ–°æ¸¸æˆæ•°æ®
+	{
+
 	}
 
 	void Game::render()
 	{
-		m_window.clear(sf::Color::Black); //ÇåÆÁ£¬ÉèÖÃ±³¾°É«ÎªºÚÉ«
-		// Ò»Ğ©»æÖÆ´úÂë¿ÉÒÔ·ÅÔÚÕâÀï
-		m_window.display(); //ÏÔÊ¾äÖÈ¾½á¹û
+		Window::GetWindow().clear(sf::Color::Black); //æ¸…å±ï¼Œè®¾ç½®èƒŒæ™¯è‰²ä¸ºé»‘è‰²
+		// ä¸€äº›ç»˜åˆ¶ä»£ç å¯ä»¥æ”¾åœ¨è¿™é‡Œ
+		Window::GetWindow().display(); //æ˜¾ç¤ºæ¸²æŸ“ç»“æœ
 	}
 }

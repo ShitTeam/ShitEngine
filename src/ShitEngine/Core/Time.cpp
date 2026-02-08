@@ -1,7 +1,7 @@
-#include "ShitEngine/Core/Time.h"
+ï»¿#include "ShitEngine/Core/Time.h"
 
 namespace Shit {
-	// ³õÊ¼»¯
+	// åˆå§‹åŒ–
 	sf::Clock Time::s_Clock;
 	float Time::s_DeltaTime = 0.0f;
 }

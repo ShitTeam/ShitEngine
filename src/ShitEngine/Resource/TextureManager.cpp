@@ -1,10 +1,11 @@
-#include "ShitEngine/Resource/TextureManager.h"
+ï»¿#include "ShitEngine/Resource/TextureManager.h"
 #include "ShitEngine/Resource/ResourceManager.h"
+#include "ShitEngine/Core/Log.h"
 
 namespace Shit {
 	sf::Texture* TextureManager::loadTexture(const std::string& filePath)
 	{
-		// ¼ì²éÊÇ·ñÒÑ¼ÓÔØ
+		// æ£€æŸ¥æ˜¯å¦å·²åŠ è½½
 		if (auto it = m_textures.find(filePath); it != m_textures.end()) {
 			return it->second.get();
 		}
@@ -12,10 +13,10 @@ namespace Shit {
 		sf::Texture* newTexture = new sf::Texture();
 
 		if (!newTexture->loadFromFile(filePath)) {
-			ST_CORE_ERROR("ÎŞ·¨¼ÓÔØ {}", filePath);
+			ST_CORE_ERROR("æ— æ³•åŠ è½½ {}", filePath);
 		}
 
-		//²åÈëÎÆÀí
+		//æ’å…¥çº¹ç†
 		m_textures.insert({ filePath, std::unique_ptr<sf::Texture>(newTexture)});
 
 		return newTexture;
@@ -23,12 +24,12 @@ namespace Shit {
 
 	sf::Texture* TextureManager::getTexture(const std::string& filePath)
 	{
-		// ¼ì²éÊÇ·ñÒÑ¼ÓÔØ
+		// æ£€æŸ¥æ˜¯å¦å·²åŠ è½½
 		if (auto it = m_textures.find(filePath); it != m_textures.end()) {
 			return it->second.get();
 		}
 
-		ST_CORE_ERROR("Ã»ÓĞÕÒµ½ÎÆÀí {} £¬ÕıÔÚ¼ÓÔØ ...", filePath);
+		ST_CORE_ERROR("æ²¡æœ‰æ‰¾åˆ°çº¹ç† {} ï¼Œæ­£åœ¨åŠ è½½ ...", filePath);
 
 		return loadTexture(filePath);
 	}
@@ -36,18 +37,18 @@ namespace Shit {
 	void TextureManager::unloadTexture(const std::string& filePath)
 	{
 		if (auto it = m_textures.find(filePath); it != m_textures.end()) {
-			ST_CORE_DEBUG("Ğ¶ÔØÎÆÀí {}", filePath);
+			ST_CORE_DEBUG("å¸è½½çº¹ç† {}", filePath);
 			m_textures.erase(it);
 		}
 		else {
-			ST_CORE_WARN("³¢ÊÔĞ¶ÔØ²»´æÔÚµÄÎÆÀí {}", filePath);
+			ST_CORE_WARN("å°è¯•å¸è½½ä¸å­˜åœ¨çš„çº¹ç† {}", filePath);
 		}
 	}
 
 	void TextureManager::clearTexture()
 	{
 		if (!m_textures.empty()) {
-			ST_CORE_DEBUG("ÕıÔÚÇå³ıËùÓĞ {} ¸ö»º´æµÄÎÆÀí¡£", m_textures.size());
+			ST_CORE_DEBUG("æ­£åœ¨æ¸…é™¤æ‰€æœ‰ {} ä¸ªç¼“å­˜çš„çº¹ç†ã€‚", m_textures.size());
 			m_textures.clear();
 		}
 	}

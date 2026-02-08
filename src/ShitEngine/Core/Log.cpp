@@ -1,18 +1,18 @@
-#include "ShitEngine/Core/log.h"
+ï»¿#include "ShitEngine/Core/log.h"
 
 namespace Shit {
 	std::shared_ptr<spdlog::logger> Log::s_CoreLogger;
 	std::shared_ptr<spdlog::logger> Log::s_ClientLogger;
 
 	void Log::Init() {
-		// ÉèÖÃÈÕÖ¾¸ñÊ½£º[Ê±¼ä] [ÈÕÖ¾Ãû] [µÈ¼¶] ÄÚÈÝ
+		// è®¾ç½®æ—¥å¿—æ ¼å¼ï¼š[æ—¶é—´] [æ—¥å¿—å] [ç­‰çº§] å†…å®¹
 		spdlog::set_pattern("%^[%T] %n: %v%$");
 
-		//³õÊ¼»¯CoreÈÕÖ¾
+		//åˆå§‹åŒ–Coreæ—¥å¿—
 		s_CoreLogger = spdlog::stdout_color_mt("Shit");
 		s_CoreLogger->set_level(spdlog::level::trace);
 
-		//³õÊ¼»¯ClientÈÕÖ¾
+		//åˆå§‹åŒ–Clientæ—¥å¿—
 		s_ClientLogger = spdlog::stdout_color_mt("App");
 		s_ClientLogger->set_level(spdlog::level::trace);
 	}
