@@ -10,10 +10,20 @@ namespace Shit {
 		~Game();
 
 		//初始化游戏
-		void init(unsigned int width, unsigned int height, std::string title);
+		void init();
 
 		//启动游戏
 		void run();
+
+		// --- 静态API ---
+		static Game& GetInstance();
+		inline static void Init() { GetInstance().init(); }
+		inline static void Run() { GetInstance().run(); }
+
+		Game(const Game&) = delete;
+		Game& operator=(const Game&) = delete;
+		Game(Game&&) = delete;
+		Game& operator=(Game&&) = delete;
 
 	private:
 		// --- 处理事件 ---

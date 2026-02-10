@@ -4,21 +4,23 @@
 #include "ShitEngine/Resource/ResourceManager.h"
 #include "ShitEngine/Core/Window.h"
 #include "ShitEngine/Core/Input.h"
+#include "ShitEngine/Core/Config.h"
 
 namespace Shit {
 	Game::Game() = default;
 
 	Game::~Game() = default;
 
-	void Game::init(unsigned int width, unsigned int height, std::string title)
+	void Game::init()
 	{
 		// 初始化日志系统
 		Log::Init();
 
-		// 初始化窗口
-		Window::Init(width, height, std::move(title));
+		// 初始化配置
+		Config::Init();
 
-		Window::GetWindow().setFramerateLimit(60);
+		// 初始化窗口
+		Window::Init();
 	}
 
 	void Game::run()
@@ -29,13 +31,15 @@ namespace Shit {
 		{
 			Time::Update(); //计算上一帧到当前帧的时间差
 
-			Input::Update(); // 更新 Input
 
 			Window::GetWindow().handleEvents([this](const auto& type) {handleEvent(type); });
 
 			if (!Window::GetWindow().isOpen()) break;
 
 			update();
+
+			Input::Update(); // 更新 Input
+
 			render();
 		}
 
@@ -73,7 +77,8 @@ namespace Shit {
 
 	void Game::update() //更新游戏数据
 	{
-
+		/*if (Input::IsKeyDown(Mouse::Left))
+			ST_CORE_DEBUG("test");*/
 	}
 
 	void Game::render()
@@ -81,5 +86,10 @@ namespace Shit {
 		Window::GetWindow().clear(sf::Color::Black); //清屏，设置背景色为黑色
 		// 一些绘制代码可以放在这里
 		Window::GetWindow().display(); //显示渲染结果
+	}
+
+	Game& Game::GetInstance() {
+		static Game instance;
+		return instance;
 	}
 }

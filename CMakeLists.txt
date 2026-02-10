@@ -35,7 +35,7 @@ add_definitions(-DGLM_FORCE_DEPTH_ZERO_TO_ONE)
 add_library(ShitEngine SHARED
     "src/ShitEngine/Core/Game.cpp"
     "include/ShitEngine/Core/Game.h"
-  "include/ShitEngine/Core/Core.h" "include/ShitEngine.h" "include/ShitEngine/Core/Log.h" "src/ShitEngine/Core/Log.cpp" "include/ShitEngine/Core/pch.h" "include/ShitEngine/Resource/ResourceManager.h" "src/ShitEngine/Resource/ResourceManager.cpp" "include/ShitEngine/Resource/TextureManager.h" "include/ShitEngine/Resource/AudioManager.h" "include/ShitEngine/Resource/FontManager.h" "src/ShitEngine/Resource/TextureManager.cpp" "include/ShitEngine/Math.h" "src/ShitEngine/Core/Time.cpp" "include/ShitEngine/Core/Window.h" "src/ShitEngine/Core/Window.cpp" "include/ShitEngine/Core/Input.h" "src/ShitEngine/Core/Input.cpp")
+  "include/ShitEngine/Core/Core.h" "include/ShitEngine.h" "include/ShitEngine/Core/Log.h" "src/ShitEngine/Core/Log.cpp" "include/ShitEngine/Core/pch.h" "include/ShitEngine/Resource/ResourceManager.h" "src/ShitEngine/Resource/ResourceManager.cpp" "include/ShitEngine/Resource/TextureManager.h" "include/ShitEngine/Resource/AudioManager.h" "include/ShitEngine/Resource/FontManager.h" "src/ShitEngine/Resource/TextureManager.cpp" "include/ShitEngine/Math.h" "src/ShitEngine/Core/Time.cpp" "include/ShitEngine/Core/Window.h" "src/ShitEngine/Core/Window.cpp" "include/ShitEngine/Core/Input.h" "src/ShitEngine/Core/Input.cpp" "include/ShitEngine/Core/Config.h" "src/ShitEngine/Core/Config.cpp")
 
 target_precompile_headers(ShitEngine PUBLIC "include/ShitEngine/Core/pch.h")
 
