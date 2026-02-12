@@ -20,10 +20,10 @@ namespace Shit {
 
 		//资源访问入口
 		// Texture
-		sf::Texture* loadTexture(const std::string& filePath) { return m_textureManager->loadTexture(filePath); }
+		/*sf::Texture* loadTexture(const std::string& filePath) { return m_textureManager->loadTexture(filePath); }
 		sf::Texture* getTexture(const std::string& filePath) { return m_textureManager->getTexture(filePath); }
 		void unloadTexture(const std::string& filePath) { m_textureManager->unloadTexture(filePath); }
-		void clearTexture() { m_textureManager->clearTexture(); }
+		void clearTexture() { m_textureManager->clearTexture(); }*/
 
 		//// Sound
 		//sf::SoundBuffer* loadSound(const std::string& filePath);
@@ -44,6 +44,6 @@ namespace Shit {
 		//void clearFont();
 		//
 	private:
-		std::unique_ptr<TextureManager> m_textureManager;
+		//std::unique_ptr<TextureManager> m_textureManager;
 	};
 }

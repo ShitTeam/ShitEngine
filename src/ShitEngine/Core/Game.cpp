@@ -11,30 +11,34 @@ namespace Shit {
 
 	Game::~Game() = default;
 
-	void Game::init()
+	bool Game::init()
 	{
 		// 初始化日志系统
-		Log::Init();
+		if (!Log::Init()) return false;
 
 		// 初始化配置
-		Config::Init();
+		if (!Config::Init()) return false;
 
 		// 初始化窗口
-		Window::Init();
+		if (!Window::Init()) return false;
+
+		return true;
 	}
 
 	void Game::run()
 	{
 		ST_CORE_INFO("游戏开始运行");
 
-		while (Window::GetWindow().isOpen())
+		while (Window::GetWindow()->isOpen())
 		{
 			Time::Update(); //计算上一帧到当前帧的时间差
 
 
-			Window::GetWindow().handleEvents([this](const auto& type) {handleEvent(type); });
+			Window::GetWindow()->handleEvents([this](const auto& type) {this->handleEvent(type); });
 
-			if (!Window::GetWindow().isOpen()) break;
+			if (!Window::GetWindow()->isOpen()) break;
+
+			ST_CORE_DEBUG("测试");
 
 			update();
 
@@ -50,7 +54,8 @@ namespace Shit {
 
 	void Game::handleEvent(const sf::Event::Closed&) // 窗口关闭事件
 	{
-		Window::GetWindow().close();
+		Window::GetWindow()->close();
+		ST_CORE_DEBUG("窗口关闭");
 	}
 
 	void Game::handleEvent(const sf::Event::KeyPressed& keyPressed) // 按键被按下
@@ -83,9 +88,13 @@ namespace Shit {
 
 	void Game::render()
 	{
-		Window::GetWindow().clear(sf::Color::Black); //清屏，设置背景色为黑色
+		Window::GetWindow()->clear(sf::Color::Black); //清屏，设置背景色为黑色
 		// 一些绘制代码可以放在这里
-		Window::GetWindow().display(); //显示渲染结果
+		Window::GetWindow()->display(); //显示渲染结果
+	}
+
+	void Game::Destroy() {
+		Window::Destroy(); // 销毁窗口
 	}
 
 	Game& Game::GetInstance() {

@@ -10,15 +10,16 @@ namespace Shit {
 		~Game();
 
 		//初始化游戏
-		void init();
+		bool init();
 
 		//启动游戏
 		void run();
 
 		// --- 静态API ---
 		static Game& GetInstance();
-		inline static void Init() { GetInstance().init(); }
+		inline static bool Init() { return GetInstance().init(); }
 		inline static void Run() { GetInstance().run(); }
+		static void Destroy(); // 销毁函数
 
 		Game(const Game&) = delete;
 		Game& operator=(const Game&) = delete;

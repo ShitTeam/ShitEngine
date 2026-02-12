@@ -26,12 +26,12 @@ namespace Shit {
 	class SHIT_API Config {
 	public:
 		// --- 成员方法 ---
-		void init();
+		bool init();
 		void loadFromJson(Json& j);
 
 		// --- 静态API ---
 		static Config& GetInstance();
-		inline static void Init() { GetInstance().init(); }
+		inline static bool Init() { return GetInstance().init(); }
 		inline static const ProjectConfig& GetProjectConfig() { return GetInstance().m_projectConfig; }
 		inline static const WindowConfig& GetWindowConfig() { return GetInstance().m_windowConfig; }
 

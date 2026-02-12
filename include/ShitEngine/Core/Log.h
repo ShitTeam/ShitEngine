@@ -12,7 +12,7 @@ namespace Shit {
 	 */
 	class SHIT_API Log {
 	public:
-		static void Init(); //初始化日志
+		static bool Init(); //初始化日志
 
 		//静态调用API
 		template<typename... Args>

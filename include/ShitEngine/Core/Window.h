@@ -10,16 +10,20 @@ namespace Shit {
 	class SHIT_API Window {
 	public:
 		// --- 成员方法 ---
-		void init(); // 初始化
-		inline sf::RenderWindow& getWindow() { return m_window; }
+		bool init(); // 初始化
 
 		// --- 静态API ---
 		// 初始化
-		inline static void Init() { GetInstance().init(); }
+		inline static bool Init() { return GetInstance().init(); }
 		// 获取Window
-		inline static sf::RenderWindow& GetWindow() { return GetInstance().m_window; }
+		inline static sf::RenderWindow* GetWindow() { return GetInstance().m_window.get(); }
 		// 获取单例
 		static Window& GetInstance();
+		// 销毁
+		static void Destroy();
+
+		Window() = default;
+		~Window() = default;
 
 		Window(const Window&) = delete;
 		Window& operator=(const Window&) = delete;
@@ -27,10 +31,7 @@ namespace Shit {
 		Window& operator=(Window&&) = delete;
 
 	private:
-		Window() = default;
-		~Window() = default;
 
-
-		sf::RenderWindow m_window; // 渲染窗口
+		std::unique_ptr<sf::RenderWindow> m_window; // 渲染窗口
 	};
 }

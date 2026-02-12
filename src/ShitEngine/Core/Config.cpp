@@ -1,16 +1,18 @@
 ﻿#include "ShitEngine/Core/Config.h"
 
 namespace Shit {
-	void Config::init() // 初始化
+	bool Config::init() // 初始化
 	{
 		std::ifstream file("settings.json");
 		if (!file.is_open()) {
 			ST_CORE_WARN("配置文件无法打开，正在使用默认配置。");
+			return false;
 		}
 
 		Json j;
 		file >> j;
 		loadFromJson(j);
+		return true;
 	}
 
 	void Config::loadFromJson(Json& j) // 读取Json配置
