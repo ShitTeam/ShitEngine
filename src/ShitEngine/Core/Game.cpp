@@ -38,7 +38,7 @@ namespace Shit {
 
 			if (!Window::GetWindow()->isOpen()) break;
 
-			ST_CORE_DEBUG("测试");
+			//ST_CORE_DEBUG("测试");
 
 			update();
 
@@ -55,7 +55,7 @@ namespace Shit {
 	void Game::handleEvent(const sf::Event::Closed&) // 窗口关闭事件
 	{
 		Window::GetWindow()->close();
-		ST_CORE_DEBUG("窗口关闭");
+		//ST_CORE_DEBUG("窗口关闭");
 	}
 
 	void Game::handleEvent(const sf::Event::KeyPressed& keyPressed) // 按键被按下
