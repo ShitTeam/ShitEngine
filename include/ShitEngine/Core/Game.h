@@ -20,6 +20,7 @@ namespace Shit {
 		inline static bool Init() { return GetInstance().init(); }
 		inline static void Run() { GetInstance().run(); }
 		static void Destroy(); // 销毁函数
+		static bool IsRunning() { return GetInstance().m_isRunning; }
 
 		Game(const Game&) = delete;
 		Game& operator=(const Game&) = delete;
@@ -35,7 +36,7 @@ namespace Shit {
 		void handleEvent(const sf::Event::MouseButtonPressed& mouseButtonPressed); // 鼠标按键被按下
 		void handleEvent(const sf::Event::MouseButtonReleased& mouseButtonReleased); // 鼠标按键被释放
 
-		void update(); // 更新游戏状态
-		void render(); // 渲染游戏画面
+		bool m_isRunning = false;
+		bool m_isInited = false;
 	};
 }

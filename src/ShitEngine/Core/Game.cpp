@@ -5,6 +5,8 @@
 #include "ShitEngine/Core/Window.h"
 #include "ShitEngine/Core/Input.h"
 #include "ShitEngine/Core/Config.h"
+#include "ShitEngine/Render/RenderSystem.h"
+#include "ShitEngine/Scene/SceneManager.h"
 
 namespace Shit {
 	Game::Game() = default;
@@ -22,11 +24,18 @@ namespace Shit {
 		// 初始化窗口
 		if (!Window::Init()) return false;
 
+		// 初始化资源管理器
+		ResourceManager::Init();
+
+		// 初始渲染器
+		if (!RenderSystem::Init()) return false;
+
 		return true;
 	}
 
 	void Game::run()
 	{
+		m_isRunning = true;
 		ST_CORE_INFO("游戏开始运行");
 
 		while (Window::GetWindow()->isOpen())
@@ -40,13 +49,14 @@ namespace Shit {
 
 			//ST_CORE_DEBUG("测试");
 
-			update();
+			SceneManager::Update();
 
 			Input::Update(); // 更新 Input
 
-			render();
+			RenderSystem::Render();
 		}
 
+		m_isRunning = false;
 		ST_CORE_INFO("游戏已退出");
 	}
 
@@ -78,19 +88,6 @@ namespace Shit {
 	void Game::handleEvent(const sf::Event::MouseButtonReleased& mouseButtonReleased)
 	{
 		Input::HandleEvent(mouseButtonReleased);
-	}
-
-	void Game::update() //更新游戏数据
-	{
-		/*if (Input::IsKeyDown(Mouse::Left))
-			ST_CORE_DEBUG("test");*/
-	}
-
-	void Game::render()
-	{
-		Window::GetWindow()->clear(sf::Color::Black); //清屏，设置背景色为黑色
-		// 一些绘制代码可以放在这里
-		Window::GetWindow()->display(); //显示渲染结果
 	}
 
 	void Game::Destroy() {

@@ -16,14 +16,20 @@ namespace Shit {
 		ResourceManager();
 		~ResourceManager();
 
-		void clear();
+		ResourceManager(const ResourceManager&) = delete;
+		ResourceManager& operator=(const ResourceManager&) = delete;
+		ResourceManager(ResourceManager&&) = delete;
+		ResourceManager& operator=(ResourceManager&&) = delete;
 
+		// --- 静态API ---
+		static ResourceManager& GetInstance();
+		inline static void Init() { GetInstance().init(); }
 		//资源访问入口
 		// Texture
-		/*sf::Texture* loadTexture(const std::string& filePath) { return m_textureManager->loadTexture(filePath); }
-		sf::Texture* getTexture(const std::string& filePath) { return m_textureManager->getTexture(filePath); }
-		void unloadTexture(const std::string& filePath) { m_textureManager->unloadTexture(filePath); }
-		void clearTexture() { m_textureManager->clearTexture(); }*/
+		static sf::Texture* LoadTexture(const std::string& filePath) { return GetInstance().m_textureManager->loadTexture(filePath); }
+		static sf::Texture* GetTexture(const std::string& filePath) { return GetInstance().m_textureManager->getTexture(filePath); }
+		static void UnloadTexture(const std::string& filePath) { GetInstance().m_textureManager->unloadTexture(filePath); }
+		static void ClearTexture() { GetInstance().m_textureManager->clearTexture(); }
 
 		//// Sound
 		//sf::SoundBuffer* loadSound(const std::string& filePath);
@@ -44,6 +50,9 @@ namespace Shit {
 		//void clearFont();
 		//
 	private:
-		//std::unique_ptr<TextureManager> m_textureManager;
+		void clear();
+		void init();
+
+		std::unique_ptr<TextureManager> m_textureManager;
 	};
 }

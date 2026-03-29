@@ -11,8 +11,8 @@ namespace Shit {
 	class SHIT_API TransformComponent : public Component {
 		friend class GameObject;
 	public:
-		TransformComponent(Vector2 position = { 0.0f, 0.0f }, Vector2 scale = { 1.0f, 1.0f }, float rotation = 0.0f);
-		~TransformComponent() = default;
+		explicit TransformComponent();
+		~TransformComponent() override = default;
 
 		// --- getter & setter ---
 		inline const Vector2& getPosition() { return m_position; }

@@ -13,8 +13,11 @@ namespace Shit {
 		friend class GameObject; // 只能通过GameObject初始化组件
 
 	public:
-		Component() = default;
+		Component();
 		virtual ~Component() = default;
+
+		virtual void onAttach() {} // 挂载时
+		virtual void onDestroy() {} // 销毁时
 
 		// 禁止拷贝和移动
 		Component(const Component&) = delete;
@@ -22,16 +25,13 @@ namespace Shit {
 		Component(Component&&) = delete;
 		Component& operator=(Component&&) = delete;
 
+		inline GameObject* getOwner() const { return m_owner; }
+
 	private:
 		// 只允许 GameObject 设置
-		inline GameObject* getOwner() { return m_owner; }
-		inline void setOwner(GameObject* owner) {
-			if (!m_owner) { // 判断是否存在Owner, 如果没有才设置
-				m_owner = owner;
-			}
-		}
+		inline void setOwner(GameObject* owner) { m_owner = owner; }
 
 	protected:
-		GameObject* m_owner; // 组件的拥有者
+		GameObject* m_owner = nullptr; // 组件的拥有者
 	};
 }

@@ -1,7 +1,7 @@
 ﻿# CMakeList.txt: ShitEngine 的 CMake 项目，在此处包括源代码并定义
 # 项目特定的逻辑。
 #
-cmake_minimum_required (VERSION 3.8)
+cmake_minimum_required (VERSION 3.20)
 
 # UTF-8
 if(MSVC)
@@ -35,7 +35,8 @@ add_definitions(-DGLM_FORCE_DEPTH_ZERO_TO_ONE)
 add_library(ShitEngine SHARED
     "src/ShitEngine/Core/Game.cpp"
     "include/ShitEngine/Core/Game.h"
-  "include/ShitEngine/Core/Core.h" "include/ShitEngine.h" "include/ShitEngine/Core/Log.h" "src/ShitEngine/Core/Log.cpp" "include/ShitEngine/Core/pch.h" "include/ShitEngine/Resource/ResourceManager.h" "src/ShitEngine/Resource/ResourceManager.cpp" "include/ShitEngine/Resource/TextureManager.h" "include/ShitEngine/Resource/AudioManager.h" "include/ShitEngine/Resource/FontManager.h" "src/ShitEngine/Resource/TextureManager.cpp" "include/ShitEngine/Math.h" "src/ShitEngine/Core/Time.cpp" "include/ShitEngine/Core/Window.h" "src/ShitEngine/Core/Window.cpp" "include/ShitEngine/Core/Input.h" "src/ShitEngine/Core/Input.cpp" "include/ShitEngine/Core/Config.h" "src/ShitEngine/Core/Config.cpp" "include/ShitEngine/GameObject/GameObject.h" "include/ShitEngine/Component/Component.h" "include/ShitEngine/Component/Behavior.h"  "src/ShitEngine/Component/Behavior.cpp" "src/ShitEngine/GameObject/GameObject.cpp" "include/ShitEngine/Component/TransformComponent.h" "src/ShitEngine/Component/TransformComponent.cpp")
+  "include/ShitEngine/Core/Core.h" "include/ShitEngine.h" "include/ShitEngine/Core/Log.h" "src/ShitEngine/Core/Log.cpp" "include/ShitEngine/Core/pch.h" "include/ShitEngine/Resource/ResourceManager.h" "src/ShitEngine/Resource/ResourceManager.cpp" "include/ShitEngine/Resource/TextureManager.h" "include/ShitEngine/Resource/AudioManager.h" "include/ShitEngine/Resource/FontManager.h" "src/ShitEngine/Resource/TextureManager.cpp" "include/ShitEngine/Math.h" "src/ShitEngine/Core/Time.cpp" "include/ShitEngine/Core/Window.h" "src/ShitEngine/Core/Window.cpp" "include/ShitEngine/Core/Input.h" "src/ShitEngine/Core/Input.cpp" "include/ShitEngine/Core/Config.h" "src/ShitEngine/Core/Config.cpp" "include/ShitEngine/GameObject/GameObject.h" "include/ShitEngine/Component/Component.h" "include/ShitEngine/Component/Behavior.h"  "src/ShitEngine/Component/Behavior.cpp" "src/ShitEngine/GameObject/GameObject.cpp" "include/ShitEngine/Component/TransformComponent.h" "src/ShitEngine/Component/TransformComponent.cpp" "include/ShitEngine/Render/RenderSystem.h" "src/ShitEngine/Render/RenderSystem.cpp" "include/ShitEngine/Component/SpriteRenderer.h" "src/ShitEngine/Component/SpriteRenderer.cpp" "include/ShitEngine/Render/Sprite.h" "src/ShitEngine/Render/Sprite.cpp" "include/ShitEngine/Scene/Scene.h" "src/ShitEngine/Scene/Scene.cpp" "include/ShitEngine/Scene/SceneManager.h" "src/ShitEngine/Scene/SceneManager.cpp" "include/ShitEngine/Component/RendererComponent.h" "src/ShitEngine/Component/RendererComponent.cpp" "src/ShitEngine/Component/Component.cpp" "include/ShitEngine/Component/CameraComponent.h" "src/ShitEngine/Component/CameraComponent.cpp"
+)
 
 target_precompile_headers(ShitEngine PUBLIC "include/ShitEngine/Core/pch.h")
 
