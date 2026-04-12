@@ -84,7 +84,7 @@ int main() {
 
 ## 📄 许可证
 
-本项目基于 MIT License 许可。
+本项目基于 Apache License 许可。
 
 ---
 
