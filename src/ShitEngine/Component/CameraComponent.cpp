@@ -2,6 +2,7 @@
 #include "ShitEngine/Core/Window.h"
 #include "ShitEngine/Component/TransformComponent.h"
 #include "ShitEngine/GameObject/GameObject.h"
+#include "ShitEngine/Render/RenderSystem.h"
 
 namespace Shit {
 	CameraComponent::CameraComponent() = default;
@@ -10,14 +11,14 @@ namespace Shit {
 		Component::onAttach();
 
 		// 注册相机
-		getOwner()->getScene()->registerCamera(this);
+		m_owner->getScene()->getSystem<RenderSystem>()->registerCamera(this);
 	}
 
 	void CameraComponent::onDestroy() {
 		Component::onDestroy();
 
 		// 注销相机
-		getOwner()->getScene()->unregisterCamera(this);
+		m_owner->getScene()->getSystem<RenderSystem>()->unregisterCamera(this);
 	}
 
 	sf::View &CameraComponent::getView()

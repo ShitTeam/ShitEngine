@@ -6,6 +6,7 @@
 #include "ShitEngine/Component/CameraComponent.h"
 #include "ShitEngine/Component/RendererComponent.h"
 #include "ShitEngine/Render/RenderSystem.h"
+#include "ShitEngine/System/BehaviorSystem.h"
 
 namespace Shit {
 	Scene::Scene(const std::string& name) : m_name(name) {
@@ -14,15 +15,21 @@ namespace Shit {
 	
 	Scene::~Scene() = default;
 
-	void Scene::update() {
-		processPendingBehaviors();
+	void Scene::init() { // 场景初始化
+		registerSystem<BehaviorSystem>();
+		registerSystem<RenderSystem>();
+	}
 
-		for (auto& b : m_behaviors) {
-			if (!b->isStarted()) {
-				b->onStart(); // 启动组件
-				b->setStarted(true);
-			}
-			b->onUpdate();
+	void Scene::update() {
+		if (m_isSystemsNeedSort) { // System 排序
+			std::sort(m_systems.begin(), m_systems.end(), [](System* a, System* b) {
+				return a->getPriority() < b->getPriority();
+			});
+			m_isSystemsNeedSort = false;
+		}
+
+		for (auto* system : m_systems) {
+			system->update();
 		}
 
 		// 删除需要销毁的游戏对象
@@ -39,35 +46,10 @@ namespace Shit {
 		}
 
 		processPendingAdditions();
+		processPendingRemoveSystems();
 	}
 
-	void Scene::render() {
-		// 按照 Priority 从小到大排序
-		if (m_isCamerasNeedSort) {
-			std::sort(m_cameras.begin(), m_cameras.end(), [](CameraComponent* a, CameraComponent* b) {
-				return a->getPriority() < b->getPriority();
-			});
-			m_isCamerasNeedSort = false;
-		}
-
-		// 按照 Z-Index 排序，小的在底部
-		if (m_isRenderersNeedSort) {
-			std::sort(m_renderers.begin(), m_renderers.end(),[](RendererComponent* a, RendererComponent* b) {
-				return a->getZIndex() < b->getZIndex();
-			});
-			m_isRenderersNeedSort = false;
-		}
-
-		for (auto* camera : m_cameras) {
-			RenderSystem::SetView(camera->getView());
-
-			for (auto* renderer : m_renderers) {
-				renderer->onRender();
-			}
-		}
-	}
-
-	void Scene::clean() {
+	void Scene::destroy() {
 		for (auto& go : m_gameObjects) {
 			if (go) go->clean();
 		}
@@ -153,89 +135,23 @@ namespace Shit {
 		m_pendingAdditions.clear();
 	}
 
-	void Scene::processPendingBehaviors()
-	{
-		for (auto& b : m_pendingBehaviors) {
-			if (b) m_behaviors.push_back(b);
-			else ST_CORE_WARN("试图注册 Behavior 空指针！");
+	void Scene::processPendingRemoveSystems() {
+		if (m_pendingRemoveSystems.empty()) return;
+
+		for (const auto& type : m_pendingRemoveSystems) {
+			auto it = m_systemsMap.find(type);
+			if (it != m_systemsMap.end()) {
+				auto system_ptr = it->second.get();
+
+				system_ptr->destroy();
+
+				m_systems.erase(
+					std::remove(m_systems.begin(), m_systems.end(), system_ptr),
+					m_systems.end()
+				);
+				m_systemsMap.erase(it);
+			}
 		}
-		m_pendingBehaviors.clear();
-	}
-
-	void Scene::registerBehavior(Behavior* behavior)
-	{
-		if (!behavior) {
-			ST_CORE_WARN("试图在场景 {} 中注册 Behavior 空指针！", m_name);
-			return;
-		}
-
-		m_pendingBehaviors.push_back(behavior);
-	}
-
-	void Scene::unregisterBehavior(Behavior* behavior)
-	{
-		if (!behavior) {
-			ST_CORE_WARN("试图在场景 {} 中移除 Behavior 空指针！", m_name);
-			return;
-		}
-
-		// 如果在延迟添加列表内
-		m_pendingBehaviors.erase(
-			std::remove(m_pendingBehaviors.begin(), m_pendingBehaviors.end(), behavior),
-			m_pendingBehaviors.end()
-		);
-
-		// 从列表内删除
-		m_behaviors.erase(
-			std::remove(m_behaviors.begin(), m_behaviors.end(), behavior),
-			m_behaviors.end()
-		);
-	}
-
-	void Scene::registerRenderer(RendererComponent* renderer)
-	{
-		if (!renderer) {
-			ST_CORE_WARN("试图在场景 {} 中注册 RendererComponent 空指针！", m_name);
-			return;
-		}
-
-		m_renderers.push_back(renderer);
-		m_isRenderersNeedSort = true; // 有新 RendererComponent 插入，需要排序
-	}
-
-	void Scene::unregisterRenderer(RendererComponent* renderer)
-	{
-		if (!renderer) {
-			ST_CORE_WARN("试图在场景 {} 中移除 RendererComponent 空指针！", m_name);
-			return;
-		}
-
-		// 从列表内删除
-		m_renderers.erase(
-			std::remove(m_renderers.begin(), m_renderers.end(), renderer),
-			m_renderers.end()
-		);
-	}
-
-	void Scene::registerCamera(CameraComponent *camera) {
-		if (!camera) {
-			ST_CORE_WARN("试图在场景 {} 中注册 CameraComponent 空指针！", m_name);
-			return;
-		}
-
-		m_cameras.push_back(camera);
-		m_isCamerasNeedSort = true;
-	}
-
-	void Scene::unregisterCamera(CameraComponent *camera) {
-		if (!camera) {
-			ST_CORE_WARN("试图在场景 {} 中移除 CameraComponent 空指针！", m_name);
-			return;
-		}
-
-		m_cameras.erase(
-			std::remove(m_cameras.begin(), m_cameras.end(), camera),
-			m_cameras.end()
-			);
+		m_pendingRemoveSystems.clear();
 	}
 }

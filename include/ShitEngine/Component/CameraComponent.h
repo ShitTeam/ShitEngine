@@ -17,7 +17,7 @@ namespace Shit {
 		// 获取 View
 		sf::View &getView();
 
-		const Vector2& getSize() const { return Math::ToGLM(m_view.getSize()); }
+		Vector2 getSize() const { return Math::ToGLM(m_view.getSize()); }
 
 		int getPriority() const { return m_priority; };
 

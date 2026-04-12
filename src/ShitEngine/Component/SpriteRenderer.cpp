@@ -7,17 +7,32 @@
 #include "ShitEngine/Render/RenderSystem.h"
 
 namespace Shit {
-	SpriteRenderer::SpriteRenderer(const std::string& texturePath, const std::optional<sf::IntRect>& rect) : m_sprite(texturePath, rect)
+	void SpriteRenderer::onRender(sf::RenderWindow* window) const
 	{
+		window->draw(m_sprite.value());
 	}
 
-	void SpriteRenderer::onRender() const
-	{
+	void SpriteRenderer::setTexturePath(const std::string &texturePath) {
+		auto texture = ResourceManager::GetTexture(texturePath);
+
+		if (!texture) {
+			ST_CORE_ERROR("无法获取路径为 {} 的纹理！", texturePath);
+			return;
+		}
+
+		m_sprite = std::make_optional<sf::Sprite>(*texture);
+	}
+
+	sf::FloatRect SpriteRenderer::getGlobalBounds() {
 		auto* transform = getOwner()->getComponent<TransformComponent>();
 		Vector2 position = transform->getPosition();
 		Vector2 scale = transform->getScale();
 		float angle = transform->getRotation();
 
-		RenderSystem::DrawSprite(m_sprite, position, scale, angle);
+		m_sprite->setPosition({ position.x, position.y });
+		m_sprite->setScale({ scale.x, scale.y });
+		m_sprite->setRotation(sf::degrees(angle));
+
+		return m_sprite->getGlobalBounds();
 	}
 }

@@ -12,14 +12,17 @@ namespace Shit {
 		friend class GameObject;
 	public:
 		SpriteRenderer() = default;
-		SpriteRenderer(const std::string& texturePath, const std::optional<sf::IntRect>& rect = std::nullopt);
+
 		~SpriteRenderer() override = default;
 
-		void onRender() const override; // 重写渲染函数
+		void onRender(sf::RenderWindow* window) const override; // 重写渲染函数
 
-		void setTexturePath(const std::string& texturePath) { m_sprite.setTexturePath(texturePath); } // 设置纹理
+		// --- setter & getter ---
+		void setTexturePath(const std::string& texturePath); // 设置纹理
 		//void setOrigin(const sf::Vector2f& origin); // 设置原点
+
+		sf::FloatRect getGlobalBounds() override;
 	private:
-		Sprite m_sprite; // 精灵
+		std::optional<sf::Sprite> m_sprite = std::nullopt;
 	};
 }

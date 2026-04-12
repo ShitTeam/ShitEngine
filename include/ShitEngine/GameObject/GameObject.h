@@ -25,13 +25,12 @@ namespace Shit {
 		GameObject(GameObject&&) = delete;
 		GameObject& operator=(GameObject&&) = delete;
 
-		void update(); // 更新
 		void destroy(); // 销毁
 
 		// --- getter & setter ---
 		inline std::string& getName() { return m_name; }
 		inline std::string& getTag() { return m_tag; }
-		inline Scene* getScene() { return m_scene; }
+		inline Scene* getScene() const { return m_scene; }
 		inline bool isNeedDestroy() const { return m_needDestroy; }
 
 		inline void setName(std::string& name) { m_name = name; }
@@ -51,7 +50,7 @@ namespace Shit {
 			// 检查 T 是不是继承自 Component
 			static_assert(std::is_base_of_v<Component, T>, "添加的组件必须继承自 Component！");
 
-			std::type_index type_index = std::type_index(typeid(T));
+			auto type_index = std::type_index(typeid(T));
 
 			if (hasComponent<T>()) { // 是否已经存在
 				return getComponent<T>();
@@ -121,7 +120,6 @@ namespace Shit {
 		std::string m_tag; // 标签
 		Scene* m_scene = nullptr; // 所在 Scene 指针
 		std::unordered_map<std::type_index, std::unique_ptr<Component>> m_components; // 挂载的组件
-		std::vector<Behavior*> m_behaviors; // 挂载的行为组件
 		bool m_needDestroy = false; // 是否需要销毁（由 Scene 负责销毁）
 	};
 }

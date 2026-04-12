@@ -1,6 +1,7 @@
 ﻿#include "ShitEngine/Component/Behavior.h"
 
 #include "ShitEngine/GameObject/GameObject.h"
+#include "ShitEngine/System/BehaviorSystem.h"
 
 namespace Shit {
 	// 因为是DLL库，必须有cpp文件
@@ -9,7 +10,7 @@ namespace Shit {
 		Component::onAttach();
 
 		// 注册 Behavior
-		getOwner()->getScene()->registerBehavior(this);
+		m_owner->getScene()->getSystem<BehaviorSystem>()->registerBehavior(this);
 	}
 
 	void Behavior::onStart() {}
@@ -19,6 +20,6 @@ namespace Shit {
 		Component::onDestroy();
 
 		// 注销 Behavior
-		getOwner()->getScene()->unregisterBehavior(this);
+		m_owner->getScene()->getSystem<BehaviorSystem>()->unregisterBehavior(this);
 	}
 }

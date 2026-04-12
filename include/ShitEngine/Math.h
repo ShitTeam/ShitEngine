@@ -9,7 +9,7 @@ namespace Shit {
 
 	namespace Math {
 		// SFML 和 GLM 的转换函数
-		inline sf::Vector2f ToSF(const Vector2& v) { return { v.x, v.y }; }
-		inline Vector2 ToGLM(const sf::Vector2f& v) { return { v.x, v.y }; }
+		inline sf::Vector2f ToSF(const Shit::Vector2& v) { return { v.x, v.y }; }
+		inline Shit::Vector2 ToGLM(const sf::Vector2f& v) { return { v.x, v.y }; }
 	}
 }

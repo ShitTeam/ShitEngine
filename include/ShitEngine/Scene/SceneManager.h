@@ -19,7 +19,6 @@ namespace Shit {
 		// --- 静态API ---
 		static SceneManager& GetInstance();
 		inline static void Update() { GetInstance().update(); }
-		inline static void Render() { GetInstance().render(); }
 		inline static void Destroy() { GetInstance().destroy(); }
 		inline static void PushScene(std::unique_ptr<Scene>&& scene) { GetInstance().pushScene(std::move(scene)); }
 		inline static void PopScene() { GetInstance().popScene(); }
@@ -36,7 +35,6 @@ namespace Shit {
 		void replaceScene(std::unique_ptr<Scene>&& scene); // 清空场景栈并压入一个新场景
 
 		void update();
-		void render();
 		void destroy();
 
 		void processPendingActions(); // 处理延迟行为

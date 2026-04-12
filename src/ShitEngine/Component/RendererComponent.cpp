@@ -1,5 +1,6 @@
 ﻿#include "ShitEngine/Component/RendererComponent.h"
 #include "ShitEngine/GameObject/GameObject.h"
+#include "ShitEngine/Render/RenderSystem.h"
 #include "ShitEngine/Scene/Scene.h"
 
 namespace Shit {
@@ -13,13 +14,13 @@ namespace Shit {
 		Component::onAttach();
 
 		// 注册 RendererComponent
-		getOwner()->getScene()->registerRenderer(this);
+		m_owner->getScene()->getSystem<RenderSystem>()->registerRenderer(this);
 	}
 
 	void RendererComponent::onDestroy() {
 		Component::onDestroy();
 
 		// 注销 RendererComponent
-		getOwner()->getScene()->unregisterRenderer(this);
+		m_owner->getScene()->getSystem<RenderSystem>()->unregisterRenderer(this);
 	}
 }

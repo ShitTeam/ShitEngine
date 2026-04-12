@@ -5,7 +5,6 @@
 #include "ShitEngine/Core/Window.h"
 #include "ShitEngine/Core/Input.h"
 #include "ShitEngine/Core/Config.h"
-#include "ShitEngine/Render/RenderSystem.h"
 #include "ShitEngine/Scene/SceneManager.h"
 
 namespace Shit {
@@ -26,9 +25,6 @@ namespace Shit {
 
 		// 初始化资源管理器
 		ResourceManager::Init();
-
-		// 初始渲染器
-		if (!RenderSystem::Init()) return false;
 
 		return true;
 	}
@@ -52,8 +48,6 @@ namespace Shit {
 			SceneManager::Update();
 
 			Input::Update(); // 更新 Input
-
-			RenderSystem::Render();
 		}
 
 		m_isRunning = false;

@@ -26,20 +26,12 @@ namespace Shit {
 		processPendingActions();
 	}
 
-	void SceneManager::render() {
-		for (auto& scene : m_sceneStack) {
-			if (scene) {
-				scene->render();
-			}
-		}
-	}
-
 	void SceneManager::destroy() {
 		ST_CORE_TRACE("正在销毁场景管理器。");
 		while (!m_sceneStack.empty()) {
 			if (m_sceneStack.back()) {
 				spdlog::debug("正在清理场景 {} 。", m_sceneStack.back()->getName());
-				m_sceneStack.back()->clean();
+				m_sceneStack.back()->destroy();
 			}
 			m_sceneStack.pop_back();
 		}
@@ -91,7 +83,7 @@ namespace Shit {
 		ST_CORE_DEBUG("正在从场景栈中弹出场景 {} 。", m_sceneStack.back()->getName());
 
 		if (m_sceneStack.back()) {
-			m_sceneStack.back()->clean();
+			m_sceneStack.back()->destroy();
 		}
 		m_sceneStack.pop_back();
 	}
@@ -107,7 +99,7 @@ namespace Shit {
 
 		while (!m_sceneStack.empty()) {
 			if (m_sceneStack.back()) {
-				m_sceneStack.back()->clean();
+				m_sceneStack.back()->destroy();
 			}
 			m_sceneStack.pop_back();
 		}

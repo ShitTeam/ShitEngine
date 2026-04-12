@@ -1,6 +1,11 @@
 ﻿#pragma once
 #include "../Core/Core.h"
 #include "Component.h"
+#include "SFML/Graphics/Rect.hpp"
+
+namespace sf {
+	class RenderWindow;
+}
 
 namespace Shit {
 	/**
@@ -14,12 +19,13 @@ namespace Shit {
 		~RendererComponent() override = default;
 
 		void onAttach() override;
-		virtual void onRender() const = 0; // 渲染虚函数
+		virtual void onRender(sf::RenderWindow* window) const = 0; // 渲染虚函数
 		void onDestroy() override;
 
 		// --- getter & setter ---
 		int getZIndex() const { return m_zIndex; }
 		bool isVisible() const { return m_isVisible; }
+		virtual sf::FloatRect getGlobalBounds() = 0;
 
 		void setZIndex(int zIndex) { m_zIndex = zIndex; }
 		void setVisible(bool isVisible) { m_isVisible = isVisible; }
