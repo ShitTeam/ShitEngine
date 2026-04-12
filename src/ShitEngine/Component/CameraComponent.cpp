@@ -11,14 +11,24 @@ namespace Shit {
 		Component::onAttach();
 
 		// 注册相机
-		m_owner->getScene()->getSystem<RenderSystem>()->registerCamera(this);
+
+		if (auto* system = m_owner->getScene()->getSystem<RenderSystem>()) {
+			system->registerCamera(this);
+
+			m_isRegistered = true;
+		}
 	}
 
 	void CameraComponent::onDestroy() {
 		Component::onDestroy();
 
 		// 注销相机
-		m_owner->getScene()->getSystem<RenderSystem>()->unregisterCamera(this);
+
+		if (auto* system = m_owner->getScene()->getSystem<RenderSystem>()) {
+			system->unregisterCamera(this);
+		}
+
+		m_isRegistered = false;
 	}
 
 	sf::View &CameraComponent::getView()

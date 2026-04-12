@@ -8,6 +8,7 @@
 #include "ShitEngine/Scene/Scene.h"
 #include "ShitEngine/Scene/SceneManager.h"
 #include "ShitEngine/Component/RendererComponent.h"
+#include "ShitEngine/GameObject/GameObject.h"
 
 namespace Shit {
 	RenderSystem::RenderSystem() : System(114514) {

@@ -37,6 +37,7 @@ namespace Shit {
 		inline void setTag(std::string& tag) { m_tag = tag; }
 		inline void setScene(Scene* scene) { m_scene = scene; }
 		inline void setNeedDestroy(bool needDestroy) { m_needDestroy = needDestroy; }
+		inline std::unordered_map<std::type_index, std::unique_ptr<Component>>& getComponents() { return m_components; }
 
 		/**
 		 * @brief 添加组件

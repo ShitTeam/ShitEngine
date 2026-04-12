@@ -2,6 +2,7 @@
 
 #include "ShitEngine/Component/Behavior.h"
 #include "ShitEngine/Core/Log.h"
+#include "ShitEngine/GameObject/GameObject.h"
 #include "ShitEngine/Scene/Scene.h"
 
 namespace Shit {

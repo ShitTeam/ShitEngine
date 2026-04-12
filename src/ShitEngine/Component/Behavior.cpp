@@ -10,7 +10,12 @@ namespace Shit {
 		Component::onAttach();
 
 		// 注册 Behavior
-		m_owner->getScene()->getSystem<BehaviorSystem>()->registerBehavior(this);
+
+		if (auto* system = m_owner->getScene()->getSystem<BehaviorSystem>()) {
+			system->registerBehavior(this);
+
+			m_isRegistered = true;
+		}
 	}
 
 	void Behavior::onStart() {}
@@ -20,6 +25,12 @@ namespace Shit {
 		Component::onDestroy();
 
 		// 注销 Behavior
-		m_owner->getScene()->getSystem<BehaviorSystem>()->unregisterBehavior(this);
+
+		if (auto* system = m_owner->getScene()->getSystem<BehaviorSystem>()) {
+			system->unregisterBehavior(this);
+		}
+
+		m_isStarted = false;
+		m_isRegistered = false;
 	}
 }

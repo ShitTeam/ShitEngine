@@ -14,13 +14,22 @@ namespace Shit {
 		Component::onAttach();
 
 		// 注册 RendererComponent
-		m_owner->getScene()->getSystem<RenderSystem>()->registerRenderer(this);
+
+		if (auto* system = m_owner->getScene()->getSystem<RenderSystem>()) {
+			system->registerRenderer(this);
+
+			m_isRegistered = true;
+		}
 	}
 
 	void RendererComponent::onDestroy() {
 		Component::onDestroy();
 
 		// 注销 RendererComponent
-		m_owner->getScene()->getSystem<RenderSystem>()->unregisterRenderer(this);
+		if (auto* system = m_owner->getScene()->getSystem<RenderSystem>()) {
+			system->unregisterRenderer(this);
+		}
+
+		m_isRegistered = false;
 	}
 }

@@ -25,7 +25,8 @@ namespace Shit {
 		Component(Component&&) = delete;
 		Component& operator=(Component&&) = delete;
 
-		inline GameObject* getOwner() const { return m_owner; }
+		GameObject* getOwner() const { return m_owner; }
+		bool isRegistered() const { return m_isRegistered; }
 
 	private:
 		// 只允许 GameObject 设置
@@ -33,5 +34,7 @@ namespace Shit {
 
 	protected:
 		GameObject* m_owner = nullptr; // 组件的拥有者
+
+		bool m_isRegistered = false;
 	};
 }

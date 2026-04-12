@@ -51,6 +51,7 @@ namespace Shit {
 			auto new_system = std::make_unique<T>();
 			T* new_system_ptr = new_system.get(); // 返回的指针
 
+			new_system_ptr->setScene(this);
 			new_system_ptr->init();
 
 			m_systemsMap[type_index] = std::unique_ptr<System>(new_system.release());
