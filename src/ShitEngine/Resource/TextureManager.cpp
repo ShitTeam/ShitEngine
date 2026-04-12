@@ -10,17 +10,17 @@ namespace Shit {
 			return it->second.get();
 		}
 		
-		auto newTexture = std::make_unique<sf::Texture>();
+		auto new_texture = std::make_unique<sf::Texture>();
 
-		if (!newTexture->loadFromFile(filePath)) {
+		if (!new_texture->loadFromFile(filePath)) {
 			ST_CORE_ERROR("无法加载 {}", filePath);
 			return nullptr;
 		}
 
-		sf::Texture* ptr = newTexture.get();
+		sf::Texture* ptr = new_texture.get();
 
 		//插入纹理
-		m_textures.insert({ filePath, std::move(newTexture)});
+		m_textures.insert({ filePath, std::move(new_texture)});
 
 		return ptr;
 	}
