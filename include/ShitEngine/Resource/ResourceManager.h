@@ -1,10 +1,19 @@
 ﻿#pragma once
 
-#include "ShitEngine/Core/pch.h"
+#include <memory>
+#include <string>
+
 #include "ShitEngine/Core/Core.h"
 #include "TextureManager.h"
-#include <SFML/Graphics.hpp>
-#include <SFML/Audio.hpp>
+#include "AudioManager.h"
+#include "FontManager.h"
+
+namespace sf {
+	class Texture;
+	class SoundBuffer;
+	class Music;
+	class Font;
+}
 
 namespace Shit {
 	/**
@@ -25,34 +34,30 @@ namespace Shit {
 		static ResourceManager& GetInstance();
 		inline static void Init() { GetInstance().init(); }
 		//资源访问入口
-		// Texture
+		// Textures
 		static sf::Texture* LoadTexture(const std::string& filePath) { return GetInstance().m_textureManager->loadTexture(filePath); }
 		static sf::Texture* GetTexture(const std::string& filePath) { return GetInstance().m_textureManager->getTexture(filePath); }
 		static void UnloadTexture(const std::string& filePath) { GetInstance().m_textureManager->unloadTexture(filePath); }
 		static void ClearTexture() { GetInstance().m_textureManager->clearTexture(); }
 
-		//// Sound
-		//sf::SoundBuffer* loadSound(const std::string& filePath);
-		//sf::SoundBuffer* getSound(const std::string& filePath);
-		//void unloadSound(const std::string& filePath);
-		//void clearSound();
+		// Sounds
+		static sf::SoundBuffer* LoadSound(const std::string& filePath) { return GetInstance().m_audioManager->loadSound(filePath); }
+		static sf::SoundBuffer* GetSound(const std::string& filePath) { return GetInstance().m_audioManager->getSound(filePath); }
+		static void UnloadSound(const std::string& filePath) { GetInstance().m_audioManager->unloadSound(filePath); }
+		static void ClearSound() { GetInstance().m_audioManager->clearSound(); }
 
-		//// Music
-		//sf::Music* loadMusic(const std::string& filePath);
-		//sf::Music* getMusic(const std::string& filePath);
-		//void unloadMusic(const std::string& filePath);
-		//void clearMusic();
-
-		//// Fonts
-		//sf::Font* loadFont(const std::string& filePath);
-		//sf::Font* getFont(const std::string& filePath);
-		//void unloadFont(const std::string& filePath);
-		//void clearFont();
-		//
+		// Fonts
+		static sf::Font* LoadFont(const std::string& filePath) { return GetInstance().m_fontManager->loadFont(filePath); }
+		static sf::Font* GetFont(const std::string& filePath) { return GetInstance().m_fontManager->getFont(filePath); }
+		static void UnloadFont(const std::string& filePath) { GetInstance().m_fontManager->unloadFont(filePath); }
+		static void ClearFont() { GetInstance().m_fontManager->clearFont(); }
+		
 	private:
 		void clear();
 		void init();
 
 		std::unique_ptr<TextureManager> m_textureManager;
+		std::unique_ptr<AudioManager> m_audioManager;
+		std::unique_ptr<FontManager> m_fontManager;
 	};
 }

@@ -4,7 +4,7 @@
 #include "ShitEngine/Scene/Scene.h"
 
 namespace Shit {
-    System::System(int priority) : m_priority(priority) {}
+    System::System(int priority = 0) : m_priority(priority) {}
     System::~System() = default;
 
     void System::init() {

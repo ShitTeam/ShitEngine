@@ -11,7 +11,7 @@
 #include "ShitEngine/GameObject/GameObject.h"
 
 namespace Shit {
-	RenderSystem::RenderSystem() : System(114514) {
+	RenderSystem::RenderSystem(int priority = 100) : System(priority) {
 		m_window = Window::GetWindow(); // 获取窗口
 	}
 

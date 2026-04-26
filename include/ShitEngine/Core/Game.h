@@ -1,7 +1,6 @@
 ﻿#pragma once
 #include <SFML/Graphics.hpp>
 #include "Core.h"
-#include "pch.h"
 
 namespace Shit {
 	class SHIT_API Game {

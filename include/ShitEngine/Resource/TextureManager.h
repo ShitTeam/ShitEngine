@@ -1,8 +1,14 @@
 ﻿#pragma once
 
-#include "ShitEngine/Core/pch.h"
+#include <string>
+#include <unordered_map>
+#include <memory>
+
 #include "ShitEngine/Core/Core.h"
-#include <SFML/Graphics.hpp>
+
+namespace sf {
+	class Texture;
+}
 
 namespace Shit {
 	/**
@@ -12,14 +18,15 @@ namespace Shit {
 		friend class ResourceManager; //设置ResourceManager为友类，只能通过ResourceManager来管理
 	
 	public:
-		TextureManager() = default;
-		~TextureManager() = default;
 		TextureManager(const TextureManager&) = delete;
 		TextureManager& operator=(const TextureManager&) = delete;
 		TextureManager(TextureManager&&) = default;
 		TextureManager& operator=(TextureManager&&) = default;
-
+	
 	private:
+		TextureManager() = default;
+		~TextureManager() = default;
+
 		sf::Texture* loadTexture(const std::string& filePath);
 		sf::Texture* getTexture(const std::string& filePath);
 		void unloadTexture(const std::string& filePath);

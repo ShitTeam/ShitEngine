@@ -2,6 +2,8 @@
 #include "ShitEngine/Resource/ResourceManager.h"
 #include "ShitEngine/Core/Log.h"
 
+#include <SFML/Graphics.hpp>
+
 namespace Shit {
 	sf::Texture* TextureManager::loadTexture(const std::string& filePath)
 	{

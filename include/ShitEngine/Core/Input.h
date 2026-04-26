@@ -1,6 +1,8 @@
 ﻿#pragma once
+#include <unordered_map>
+#include <variant>
+
 #include "Core.h"
-#include "pch.h"
 #include "../Math.h"
 #include "Window.h"
 #include <SFML/Window.hpp>

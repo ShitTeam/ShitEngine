@@ -1,6 +1,6 @@
 ﻿#pragma once
 #include "../Core/Core.h"
-#include "../Core/pch.h"
+#include <string>
 #include <SFML/Graphics.hpp>
 #include <optional>
 

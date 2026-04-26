@@ -17,7 +17,7 @@ namespace Shit {
 	 */
 	class SHIT_API RenderSystem final : public System {
 	public:
-		RenderSystem();
+		RenderSystem(int priority = 100);
 		~RenderSystem() override;
 
 		void update() override;

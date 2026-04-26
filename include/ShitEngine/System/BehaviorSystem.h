@@ -11,7 +11,7 @@ namespace Shit {
      */
     class SHIT_API BehaviorSystem final : public System {
     public:
-        BehaviorSystem();
+        BehaviorSystem(int priority = 0);
 
         ~BehaviorSystem() override;
 

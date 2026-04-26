@@ -1,11 +1,15 @@
 ﻿#pragma once
+#include <string>
+#include <unordered_map>
+#include <typeindex>
+#include <memory>
+#include <utility>
+
 #include "../Core/Config.h"
-#include "../Core/pch.h"
 #include "../Component/Component.h"
 #include "../Component/Behavior.h"
 #include "../Component/RendererComponent.h"
 #include "../Scene/Scene.h"
-#include <typeindex>
 
 namespace Shit {
 	class Scene; // 前向声明

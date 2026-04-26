@@ -1,5 +1,5 @@
 ﻿#pragma once
-#include "pch.h"
+#include <memory>
 #include "Core.h"
 #include <SFML/Graphics.hpp>
 

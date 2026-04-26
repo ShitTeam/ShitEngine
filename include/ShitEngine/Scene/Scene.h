@@ -1,8 +1,11 @@
 ﻿#pragma once
 #include <typeindex>
+#include <vector>
+#include <memory>
+#include <unordered_map>
+#include <string>
 
 #include "../Core/Core.h"
-#include "../Core/pch.h"
 #include "SFML/Window/Keyboard.hpp"
 #include "ShitEngine/Core/log.h"
 #include "ShitEngine/System/System.h"
