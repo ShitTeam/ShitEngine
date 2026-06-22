@@ -17,7 +17,7 @@ namespace Shit
         void onDestroy() override;
 
         // 添加动画
-        void addAnimation(const std::string& name, Animation& animation);
+        void addAnimation(const std::string& name, std::unique_ptr<Animation> animation);
 
         void play(const std::string& name);
         void stop();
@@ -25,8 +25,8 @@ namespace Shit
         void resume();
     
     private:
-        std::unordered_map<std::string, Animation> m_animations; // 动画
-        Animation& m_currentAnimation; // 当前动画
+        std::unordered_map<std::string, std::unique_ptr<Animation>> m_animations; // 动画
+        Animation* m_currentAnimation = nullptr; // 当前动画
         std::string m_currentAnimationName; // 当前动画名称
         float m_currentTime = 0.0f; // 当前播放时间
 

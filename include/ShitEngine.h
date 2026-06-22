@@ -11,6 +11,10 @@
 // Render
 #include "ShitEngine/Render/RenderSystem.h"
 
+// Audio
+#include "ShitEngine/Audio/AudioPlayer.h"
+#include "ShitEngine/Audio/AudioSystem.h"
+
 // GameObject-Component
 #include "ShitEngine/GameObject/GameObject.h"
 #include "ShitEngine/Component/Component.h"

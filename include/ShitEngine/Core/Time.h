@@ -1,6 +1,6 @@
 ﻿#pragma once
-#include <SFML/Graphics.hpp>
 #include "Core.h"
+#include <SDL3/SDL_stdinc.h>
 
 namespace Shit {
 	class Game;
@@ -11,13 +11,27 @@ namespace Shit {
 	class SHIT_API Time {
 		friend class Game; // 只允许Game使用Update
 	public:
-		inline static float GetDeltaTime() { return s_DeltaTime; } // 获取DeltaTime
-	private:
-		inline static void Update() { // 更新DeltaTime
-			s_DeltaTime = s_Clock.restart().asSeconds();
-		}
+		Time(const Time&) = delete;
+		Time& operator=(const Time&) = delete;
+		Time(Time&&) = delete;
+		Time& operator=(Time&&) = delete;
 
-		static sf::Clock s_Clock; // 计时器
-		static float s_DeltaTime;
+		// --- 静态API ---
+		static Time& GetInstance();
+		static void Init() { GetInstance().init(); }
+		static void Update() { GetInstance().update(); }
+		static float GetDeltaTime() { return GetInstance().m_deltaTime; } // 获取DeltaTime
+		static double GetTotalTime() { return GetInstance().m_totalTime; } // 获取TotalTime
+	private:
+		Time();
+		~Time();
+
+		void init();
+		void update();
+		
+		float m_deltaTime = 0.0f;
+    	double m_totalTime = 0.0f;
+    	Uint64 m_lastTime;
+    	Uint64 m_currentTime;
 	};
 }

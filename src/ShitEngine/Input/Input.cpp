@@ -1,0 +1,106 @@
+﻿#include "ShitEngine/Input/Input.h"
+#include "ShitEngine/Core/Log.h"
+#include "ShitEngine/Core/pch.h"
+
+namespace Shit {
+	Input::Input() = default;
+
+	Input::~Input() = default;
+
+	Input& Input::GetInstance() { // 获取单例
+		static Input instance;
+		return instance;
+	}
+
+	bool Input::isKeyDown(const KeyCode code) { // 按键被按下
+		int scancode = static_cast<int>(code);
+		if (scancode < 0 || scancode >= SDL_SCANCODE_COUNT) return false;
+		return m_currentKeys[scancode] && !m_previousKeys[scancode];
+	}
+
+	bool Input::isKeyPressed(const KeyCode code) { // 按键被持续按下
+		int scancode = static_cast<int>(code);
+		if (scancode < 0 || scancode >= SDL_SCANCODE_COUNT) return false;
+		return m_currentKeys[scancode];
+	}
+
+	bool Input::isKeyReleased(const KeyCode code) { // 按键被释放
+		int scancode = static_cast<int>(code);
+		if (scancode < 0 || scancode >= SDL_SCANCODE_COUNT) return false;
+		return !m_currentKeys[scancode] && m_previousKeys[scancode];
+	}
+
+	bool Input::isMouseButtonDown(const MouseButton code)
+	{
+		int buttonIndex = static_cast<int>(code);
+		if (buttonIndex < 0 || buttonIndex >= 8) return false;
+		return m_currentMouseButtons[buttonIndex] && !m_previousMouseButtons[buttonIndex];
+	}
+
+	bool Input::isMouseButtonPressed(const MouseButton code)
+	{
+		int buttonIndex = static_cast<int>(code);
+		if (buttonIndex < 0 || buttonIndex >= 8) return false;
+		return m_currentMouseButtons[buttonIndex];
+	}
+
+	bool Input::isMouseButtonReleased(const MouseButton code)
+	{
+		int buttonIndex = static_cast<int>(code);
+		if (buttonIndex < 0 || buttonIndex >= 8) return false;
+		return !m_currentMouseButtons[buttonIndex] && m_previousMouseButtons[buttonIndex];
+	}
+
+	Vector2 Input::getMousePosition()
+	{
+		float x, y;
+		SDL_GetMouseState(&x, &y);
+		return { x, y };
+	}
+
+	void Input::update() { // 更新
+		m_previousKeys = m_currentKeys;
+		m_previousMouseButtons = m_currentMouseButtons;
+
+		m_mouseScroll = { 0.0f, 0.0f };
+	}
+
+	void Input::handleEvent(const SDL_Event& event) {
+		switch (event.type) {
+			// --- 键盘按键事件 ---
+			case SDL_EVENT_KEY_DOWN:
+				if (event.key.scancode < SDL_SCANCODE_COUNT) {
+					// 如果是按键重复触发（长按），忽略它，由我们的轮询逻辑自己处理
+					if (!event.key.repeat) {
+						m_currentKeys[event.key.scancode] = true;
+					}
+				}
+				break;
+
+			case SDL_EVENT_KEY_UP:
+				if (event.key.scancode < SDL_SCANCODE_COUNT) {
+					m_currentKeys[event.key.scancode] = false;
+				}
+				break;
+
+			// --- 鼠标按键事件 ---
+			case SDL_EVENT_MOUSE_BUTTON_DOWN:
+				if (event.button.button < 8) {
+					m_currentMouseButtons[event.button.button] = true;
+				}
+				break;
+
+			case SDL_EVENT_MOUSE_BUTTON_UP:
+				if (event.button.button < 8) {
+					m_currentMouseButtons[event.button.button] = false;
+				}
+				break;
+
+			// --- 鼠标滚轮事件 ---
+			case SDL_EVENT_MOUSE_WHEEL:
+				m_mouseScroll.x = event.wheel.x;
+				m_mouseScroll.y = event.wheel.y;
+				break;
+		}
+	}
+}

@@ -20,10 +20,13 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-add_subdirectory("vendor/SFML")
-add_subdirectory("vendor/spdlog")
-add_subdirectory("vendor/glm")
-add_subdirectory("vendor/nlohmann_json")
+option(BUILD_SHARED_LIBS "依赖库默认编译为动态库" OFF)
+
+include(cmake/DependencyManager.cmake)
+
+# 配置和构建依赖项
+setup_project_dependencies()
+
 
 # GLM
 # 强制 GLM 使用弧度制
@@ -35,13 +38,55 @@ add_definitions(-DGLM_FORCE_DEPTH_ZERO_TO_ONE)
 add_library(ShitEngine SHARED
     "src/ShitEngine/Core/Game.cpp"
     "include/ShitEngine/Core/Game.h"
-  "include/ShitEngine/Core/Core.h" "include/ShitEngine.h" "include/ShitEngine/Core/Log.h" "src/ShitEngine/Core/Log.cpp" "include/ShitEngine/Core/pch.h" "include/ShitEngine/Resource/ResourceManager.h" "src/ShitEngine/Resource/ResourceManager.cpp" "include/ShitEngine/Resource/TextureManager.h" "include/ShitEngine/Resource/AudioManager.h" "include/ShitEngine/Resource/FontManager.h" "src/ShitEngine/Resource/TextureManager.cpp" "include/ShitEngine/Math.h" "src/ShitEngine/Core/Time.cpp" "include/ShitEngine/Core/Window.h" "src/ShitEngine/Core/Window.cpp" "include/ShitEngine/Core/Input.h" "src/ShitEngine/Core/Input.cpp" "include/ShitEngine/Core/Config.h" "src/ShitEngine/Core/Config.cpp" "include/ShitEngine/GameObject/GameObject.h" "include/ShitEngine/Component/Component.h" "include/ShitEngine/Component/Behavior.h"  "src/ShitEngine/Component/Behavior.cpp" "src/ShitEngine/GameObject/GameObject.cpp" "include/ShitEngine/Component/TransformComponent.h" "src/ShitEngine/Component/TransformComponent.cpp" "include/ShitEngine/Render/RenderSystem.h" "src/ShitEngine/Render/RenderSystem.cpp" "include/ShitEngine/Component/SpriteRenderer.h" "src/ShitEngine/Component/SpriteRenderer.cpp" "include/ShitEngine/Render/Sprite.h" "src/ShitEngine/Render/Sprite.cpp" "include/ShitEngine/Scene/Scene.h" "src/ShitEngine/Scene/Scene.cpp" "include/ShitEngine/Scene/SceneManager.h" "src/ShitEngine/Scene/SceneManager.cpp" "include/ShitEngine/Component/RendererComponent.h" "src/ShitEngine/Component/RendererComponent.cpp" "src/ShitEngine/Component/Component.cpp" "include/ShitEngine/Component/CameraComponent.h" "src/ShitEngine/Component/CameraComponent.cpp"
-        src/ShitEngine/System/System.cpp
-        include/ShitEngine/System/System.h
-        src/ShitEngine/System/BehaviorSystem.cpp
-        include/ShitEngine/System/BehaviorSystem.h
-        src/ShitEngine/System/BehaviorSystem.cpp
-        src/ShitEngine/System/BehaviorSystem.cpp
+    "include/ShitEngine/Core/Core.h"
+    "include/ShitEngine.h"
+    "include/ShitEngine/Core/Log.h"
+    "src/ShitEngine/Core/Log.cpp"
+    "include/ShitEngine/Core/pch.h"
+    "include/ShitEngine/Resource/ResourceManager.h"
+    "src/ShitEngine/Resource/ResourceManager.cpp"
+    "include/ShitEngine/Resource/TextureManager.h"
+    "include/ShitEngine/Resource/AudioManager.h"
+    "include/ShitEngine/Resource/FontManager.h"
+    "src/ShitEngine/Resource/TextureManager.cpp"
+    "include/ShitEngine/Math.h"
+    "include/ShitEngine/Core/Time.h"
+    "src/ShitEngine/Core/Time.cpp"
+    "include/ShitEngine/Core/Window.h"
+    "src/ShitEngine/Core/Window.cpp"
+    "include/ShitEngine/Input/Input.h"
+    "src/ShitEngine/Input/Input.cpp"
+    "include/ShitEngine/Core/Config.h"
+    "src/ShitEngine/Core/Config.cpp"
+    "include/ShitEngine/GameObject/GameObject.h"
+    "src/ShitEngine/GameObject/GameObject.cpp"
+    "include/ShitEngine/Component/Component.h"
+    "src/ShitEngine/Component/Component.cpp"
+    "include/ShitEngine/Component/Behavior.h"
+    "src/ShitEngine/Component/Behavior.cpp"
+    "include/ShitEngine/Component/TransformComponent.h"
+    "src/ShitEngine/Component/TransformComponent.cpp"
+    "include/ShitEngine/Component/RendererComponent.h"
+    "src/ShitEngine/Component/RendererComponent.cpp"
+    "include/ShitEngine/Component/SpriteRenderer.h"
+    "src/ShitEngine/Component/SpriteRenderer.cpp"
+    "include/ShitEngine/Component/CameraComponent.h"
+    "src/ShitEngine/Component/CameraComponent.cpp"
+    "include/ShitEngine/Render/RenderSystem.h"
+    "src/ShitEngine/Render/RenderSystem.cpp"
+    "include/ShitEngine/Render/Sprite.h"
+    "src/ShitEngine/Render/Sprite.cpp"
+    "include/ShitEngine/Scene/Scene.h"
+    "src/ShitEngine/Scene/Scene.cpp"
+    "include/ShitEngine/Scene/SceneManager.h"
+    "src/ShitEngine/Scene/SceneManager.cpp"
+    "include/ShitEngine/System/System.h"
+    "src/ShitEngine/System/System.cpp"
+    "include/ShitEngine/System/BehaviorSystem.h"
+    "src/ShitEngine/System/BehaviorSystem.cpp"
+    "include/ShitEngine/Audio/AudioPlayer.h"
+    "src/ShitEngine/Audio/AudioPlayer.cpp"
+        src/ShitEngine/Render/Renderer.cpp
 )
 
 target_precompile_headers(ShitEngine PUBLIC "include/ShitEngine/Core/pch.h")
@@ -50,7 +95,14 @@ target_compile_definitions(ShitEngine PRIVATE SHIT_EXPORTS)
 
 target_include_directories(ShitEngine PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
-target_link_libraries(ShitEngine PUBLIC SFML::Graphics SFML::Window SFML::System SFML::Audio SFML::Network spdlog::spdlog glm::glm nlohmann_json::nlohmann_json)
+target_link_libraries(ShitEngine PUBLIC
+    SDL3::SDL3
+    SDL3_mixer::SDL3_mixer
+    SDL3_image::SDL3_image
+    SDL3_ttf::SDL3_ttf
+    spdlog::spdlog
+    glm::glm
+    nlohmann_json::nlohmann_json)
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET ShitEngine PROPERTY CXX_STANDARD 20)

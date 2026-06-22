@@ -1,4 +1,7 @@
-﻿#include "ShitEngine/Core/Window.h"
+﻿#include "ShitEngine/Core/pch.h"
+
+#include "ShitEngine/Core/Window.h"
+
 #include "ShitEngine/Core/Config.h"
 
 namespace Shit {
@@ -10,22 +13,30 @@ namespace Shit {
 
 	void Window::Destroy()
 	{
-		if (GetInstance().m_window->isOpen()) {
-			GetInstance().m_window->close();
-		}
-
-		GetInstance().m_window.reset();
+		if (IsOpen())
+			Close();
 	}
 
 	bool Window::init() { // 初始化
-		m_window = std::make_unique<sf::RenderWindow>(sf::VideoMode({ Config::GetWindowConfig().width, Config::GetWindowConfig().height }), Config::GetWindowConfig().title);
-		m_window->setFramerateLimit(Config::GetWindowConfig().framerateLimit);
-
-		if (!m_window->isOpen()) {
-			ST_CORE_ERROR("窗口创建失败");
+		m_window = std::unique_ptr<SDL_Window, SDLWindowDeleter>(SDL_CreateWindow(Config::GetWindowConfig().title.c_str(), Config::GetWindowConfig().width, Config::GetWindowConfig().height, 0));
+		if (!m_window) {
+			ST_CORE_ERROR("窗口创建失败: {0}", SDL_GetError());
 			return false;
 		}
 
+		m_isOpen = true;
+
 		return true;
+	}
+
+	void Window::handleEvent(const SDL_Event& event) {
+		if (event.type == SDL_EVENT_QUIT) {
+			close();
+		}
+	}
+
+	void Window::close() {
+		m_isOpen = false;
+		m_window.reset();
 	}
 }

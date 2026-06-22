@@ -1,15 +1,18 @@
-﻿#include "ShitEngine/Core/Game.h"
+﻿#include "ShitEngine/Core/pch.h"
+
+#include "ShitEngine/Core/Game.h"
+
 #include "ShitEngine/Core/Log.h"
 #include "ShitEngine/Core/Time.h"
 #include "ShitEngine/Resource/ResourceManager.h"
 #include "ShitEngine/Core/Window.h"
-#include "ShitEngine/Core/Input.h"
+#include "ShitEngine/Input/Input.h"
 #include "ShitEngine/Core/Config.h"
+#include "ShitEngine/Render/Renderer.h"
 #include "ShitEngine/Scene/SceneManager.h"
 
 namespace Shit {
 	Game::Game() = default;
-
 	Game::~Game() = default;
 
 	bool Game::init()
@@ -20,8 +23,17 @@ namespace Shit {
 		// 初始化配置
 		if (!Config::Init()) return false;
 
+		// 初始SDL3
+		if (!SDL_Init(SDL_INIT_VIDEO)) {
+			ST_CORE_ERROR("SDL 初始化失败: {0}", SDL_GetError());
+			return false;
+		}
+
 		// 初始化窗口
 		if (!Window::Init()) return false;
+
+		// 初始化 Time
+		Time::Init();
 
 		// 初始化资源管理器
 		ResourceManager::Init();
@@ -31,57 +43,36 @@ namespace Shit {
 
 	void Game::run()
 	{
+		SDL_Event event;
 		m_isRunning = true;
 		ST_CORE_INFO("游戏开始运行");
 
-		while (Window::GetWindow()->isOpen())
+		while (Window::IsOpen())
 		{
 			Time::Update(); //计算上一帧到当前帧的时间差
 
 
-			Window::GetWindow()->handleEvents([this](const auto& type) {this->handleEvent(type); });
+			// 获取SDL3的Event
+			while (SDL_PollEvent(&event))
+			{
+				Window::HandleEvent(event);
+				Input::HandleEvent(event);
+			}
+			
 
-			if (!Window::GetWindow()->isOpen()) break;
+			if (!Window::IsOpen()) break;
 
 			//ST_CORE_DEBUG("测试");
 
 			SceneManager::Update();
 
 			Input::Update(); // 更新 Input
+
+			Renderer::LimitFPS(); // 限制帧率
 		}
 
 		m_isRunning = false;
 		ST_CORE_INFO("游戏已退出");
-	}
-
-	void Game::handleEvent(const auto&) {} // 默认事件
-
-	void Game::handleEvent(const sf::Event::Closed&) // 窗口关闭事件
-	{
-		Window::GetWindow()->close();
-		//ST_CORE_DEBUG("窗口关闭");
-	}
-
-	void Game::handleEvent(const sf::Event::KeyPressed& keyPressed) // 按键被按下
-	{
-		Input::HandleEvent(keyPressed);
-		//ST_CORE_DEBUG("按键被按下");
-	}
-
-	void Game::handleEvent(const sf::Event::KeyReleased& keyReleased) // 按键被释放
-	{
-		Input::HandleEvent(keyReleased);
-		//ST_CORE_DEBUG("按键被释放");
-	}
-
-	void Game::handleEvent(const sf::Event::MouseButtonPressed& mouseButtonPressed) // 鼠标按键被按下
-	{
-		Input::HandleEvent(mouseButtonPressed);
-	}
-
-	void Game::handleEvent(const sf::Event::MouseButtonReleased& mouseButtonReleased)
-	{
-		Input::HandleEvent(mouseButtonReleased);
 	}
 
 	void Game::Destroy() {

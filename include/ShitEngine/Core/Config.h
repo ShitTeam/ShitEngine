@@ -17,7 +17,7 @@ namespace Shit {
 		std::string title = "Example"; // 窗口标题
 		unsigned int width = 1280;   // 宽
 		unsigned int height = 720;  // 高
-		unsigned int framerateLimit = 144; // 帧率限制
+		unsigned int targetFPS = 144; // 帧率限制
 	};
 
 	/**

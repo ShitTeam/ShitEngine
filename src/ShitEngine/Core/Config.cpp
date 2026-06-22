@@ -30,8 +30,8 @@ namespace Shit {
 			if (j["window"].contains("height")) {
 				m_windowConfig.height = j["window"]["height"].get<unsigned int>();
 			}
-			if (j["window"].contains("framerateLimit")) {
-				m_windowConfig.framerateLimit = j["window"]["framerateLimit"].get<unsigned int>();
+			if (j["window"].contains("targetFPS")) {
+				m_windowConfig.targetFPS = j["window"]["targetFPS"].get<unsigned int>();
 			}
 		}
 	}

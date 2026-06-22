@@ -15,6 +15,6 @@
 #include <unordered_map>
 #include <unordered_set>
 
-// SFML
-#include <SFML/Audio.hpp>
-#include <SFML/Graphics.hpp>
+// SDL
+#include <SDL3/SDL.h>
+#include <SDL3_mixer/SDL_mixer.h>

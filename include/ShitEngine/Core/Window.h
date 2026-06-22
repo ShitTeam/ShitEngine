@@ -1,7 +1,8 @@
 ﻿#pragma once
 #include <memory>
 #include "Core.h"
-#include <SFML/Graphics.hpp>
+
+struct SDL_Window;
 
 namespace Shit {
 	/**
@@ -13,12 +14,18 @@ namespace Shit {
 		bool init(); // 初始化
 
 		// --- 静态API ---
-		// 初始化
-		inline static bool Init() { return GetInstance().init(); }
-		// 获取Window
-		inline static sf::RenderWindow* GetWindow() { return GetInstance().m_window.get(); }
 		// 获取单例
 		static Window& GetInstance();
+		// 初始化
+		static bool Init() { return GetInstance().init(); }
+		// 获取Window
+		static SDL_Window* GetWindow() { return GetInstance().m_window.get(); }
+		// 处理事件
+		static void HandleEvent(const SDL_Event& event) { GetInstance().handleEvent(event); }
+		// 是否Window打开
+		static bool IsOpen() { return GetInstance().isOpen(); }
+		// 关闭Window
+		static void Close() { GetInstance().close(); }
 		// 销毁
 		static void Destroy();
 
@@ -31,7 +38,19 @@ namespace Shit {
 		Window& operator=(Window&&) = delete;
 
 	private:
+		void handleEvent(const SDL_Event& event); // 处理事件
+		bool isOpen() { return m_isOpen; }
+		void close();
 
-		std::unique_ptr<sf::RenderWindow> m_window; // 渲染窗口
+		struct SDLWindowDeleter {
+			void operator()(SDL_Window* window) const {
+				if (window) {
+					SDL_DestroyWindow(window);
+				}
+			}
+		};
+		
+		std::unique_ptr<SDL_Window, SDLWindowDeleter> m_window; // 窗口
+		bool m_isOpen = false;
 	};
 }
