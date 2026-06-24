@@ -1,8 +1,8 @@
-﻿#pragma once
+#pragma once
 #include "../Core/Core.h"
 #include "Component.h"
 #include "../Math.h"
-#include <SFML/Graphics.hpp>
+#include <SDL3/SDL_rect.h>
 
 namespace Shit {
 	class SHIT_API CameraComponent : public Component {
@@ -14,24 +14,23 @@ namespace Shit {
 		void onDestroy() override;
 
 		// --- getter & setter ---
-		// 获取 View
-		sf::View &getView();
+		Vector2 getPosition() const { return m_position; }
+		Vector2 getSize() const { return m_size; }
+		float getRotation() const { return m_rotation; }
+		float getZoom() const { return m_zoom; }
+		int getPriority() const { return m_priority; }
 
-		Vector2 getSize() const { return Math::ToGLM(m_view.getSize()); }
-
-		int getPriority() const { return m_priority; };
-
-		// 设置大小
-		void setSize(Vector2& size) { m_view.setSize({ size.x, size.y }); }
-
-		// 设置相机优先值
-		void setPriority(int priority) { m_priority = priority; };
-
-		// 设置缩放
-		void setZoom(float zoom) { m_view.zoom(zoom); }
+		void setPosition(const Vector2& pos) { m_position = pos; }
+		void setSize(const Vector2& size) { m_size = size; }
+		void setRotation(float rotation) { m_rotation = rotation; }
+		void setZoom(float zoom) { m_zoom = zoom; }
+		void setPriority(int priority) { m_priority = priority; }
 
 	private:
-		sf::View m_view;
+		Vector2 m_position{ 0.0f, 0.0f };
+		Vector2 m_size{ 1280.0f, 720.0f };
+		float m_rotation = 0.0f;
+		float m_zoom = 1.0f;
 		int m_priority = 0; // 相机优先值
 	};
 }

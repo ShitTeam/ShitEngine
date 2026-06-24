@@ -6,7 +6,7 @@
 #include "ShitEngine/Scene/Scene.h"
 
 namespace Shit {
-    BehaviorSystem::BehaviorSystem(int priority = 0) : System(priority) {
+    BehaviorSystem::BehaviorSystem(int priority) : System(priority) {
     }
 
     BehaviorSystem::~BehaviorSystem() = default;

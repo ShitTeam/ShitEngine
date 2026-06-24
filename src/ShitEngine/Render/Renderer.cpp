@@ -13,6 +13,7 @@ namespace Shit {
     }
 
     bool Renderer::init() {
+        // 创建 SDL 渲染器
         m_renderer = std::unique_ptr<SDL_Renderer, SDLRendererDeleter>(SDL_CreateRenderer(Window::GetWindow(), nullptr));
 
         if (!m_renderer) {
@@ -20,23 +21,23 @@ namespace Shit {
             return false;
         }
 
+        // 从配置读取目标帧率
         m_targetFPS = Config::GetWindowConfig().targetFPS;
 
         return true;
     }
 
     void Renderer::limitFPS() {
-        if (m_targetFPS > 0) {
-            Uint64 currentTime = SDL_GetTicks();
-            Uint64 totalTime = static_cast<Uint64>(Time::GetTotalTime() * 1000000000.0f);
-            Uint64 deltaTime = currentTime - totalTime;
+        if (m_targetFPS == 0) return;
 
-            // 计算需要等待的时间
-            Uint64 timeToWait = static_cast<Uint64>(1.0f / static_cast<float>(m_targetFPS) * 1000000000.0f) - deltaTime;
+        Uint64 currentTime = SDL_GetTicksNS();
+        Uint64 totalTime = static_cast<Uint64>(Time::GetTotalTime() * 1000000000.0f);
+        Uint64 frameTime = currentTime - totalTime; // 当前帧的时间
 
-            if (timeToWait > 0) {
-                SDL_DelayNS(timeToWait);
-            }
+        Uint64 targetFrameTime = 1000000000ULL / m_targetFPS;
+
+        if (targetFrameTime > frameTime) {
+            SDL_DelayNS(targetFrameTime - frameTime);
         }
     }
 }

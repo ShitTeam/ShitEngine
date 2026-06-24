@@ -1,26 +1,32 @@
-﻿#include "ShitEngine/Render/RenderSystem.h"
+#include "ShitEngine/Render/RenderSystem.h"
 
 #include "ShitEngine/Component/CameraComponent.h"
 #include "ShitEngine/Core/Window.h"
+#include "ShitEngine/Render/Renderer.h"
 #include "ShitEngine/Resource/ResourceManager.h"
-#include "ShitEngine/Render/Sprite.h"
 #include "ShitEngine/Core/Log.h"
 #include "ShitEngine/Scene/Scene.h"
 #include "ShitEngine/Scene/SceneManager.h"
 #include "ShitEngine/Component/RendererComponent.h"
 #include "ShitEngine/GameObject/GameObject.h"
 
+#include <SDL3/SDL_render.h>
+
 namespace Shit {
-	RenderSystem::RenderSystem(int priority = 100) : System(priority) {
-		m_window = Window::GetWindow(); // 获取窗口
+	RenderSystem::RenderSystem(int priority) : System(priority) {
+		m_renderer = Renderer::GetRenderer();
 	}
 
 	RenderSystem::~RenderSystem() = default;
 
 	void RenderSystem::update() {
-		m_window->clear(sf::Color::Black); //清屏，设置背景色为黑色
+		if (!m_renderer) return;
 
-		// 按照 Priority 从小到大排序
+		// 清屏
+		SDL_SetRenderDrawColor(m_renderer, 0, 0, 0, 255);
+		SDL_RenderClear(m_renderer);
+
+		// 按优先级排序相机（低优先级先渲染）
 		if (m_isCamerasNeedSort) {
 			std::sort(m_cameras.begin(), m_cameras.end(), [](CameraComponent* a, CameraComponent* b) {
 				return a->getPriority() < b->getPriority();
@@ -28,60 +34,82 @@ namespace Shit {
 			m_isCamerasNeedSort = false;
 		}
 
-		// 按照 Z-Index 排序，小的在底部
+		// 按 Z-Index 排序渲染器
 		if (m_isRenderersNeedSort) {
-			std::sort(m_renderers.begin(), m_renderers.end(),[](RendererComponent* a, RendererComponent* b) {
+			std::sort(m_renderers.begin(), m_renderers.end(), [](RendererComponent* a, RendererComponent* b) {
 				return a->getZIndex() < b->getZIndex();
 			});
 			m_isRenderersNeedSort = false;
 		}
 
+		// 逐相机渲染
 		for (auto* camera : m_cameras) {
-			m_window->setView(camera->getView());
+			SDL_SetRenderViewport(m_renderer, nullptr);
 
-			// 获取相机在世界坐标系中的矩形
-			sf::FloatRect viewBounds = getViewBounds(m_window->getView());
+			// 获取相机参数
+			Vector2 cameraPosition = camera->getPosition();
+			Vector2 cameraSize = camera->getSize();
+			float cameraZoom = camera->getZoom();
 
+			// 应用相机缩放
+			SDL_SetRenderScale(m_renderer, cameraZoom, cameraZoom);
+
+			// 计算相机可见区域（世界坐标）
+			SDL_FRect viewBounds = {
+				cameraPosition.x - cameraSize.x / 2.0f,
+				cameraPosition.y - cameraSize.y / 2.0f,
+				cameraSize.x,
+				cameraSize.y
+			};
+
+			// 渲染可见的物体
 			for (auto* renderer : m_renderers) {
-				if (viewBounds.findIntersection(renderer->getGlobalBounds()).has_value()) // 是否在相机范围内
-					renderer->onRender(m_window);
+				if (!renderer->isVisible()) continue;
+
+				// 视锥体裁剪
+				SDL_FRect bounds = renderer->getGlobalBounds();
+				SDL_FRect intersection;
+				if (SDL_GetRectIntersectionFloat(&viewBounds, &bounds, &intersection)) {
+					renderer->onRender(m_renderer);
+				}
 			}
+
+			// 重置缩放
+			SDL_SetRenderScale(m_renderer, 1.0f, 1.0f);
 		}
 
-		m_window->display(); //显示渲染结果
+		SDL_RenderPresent(m_renderer);
 	}
 
 	void RenderSystem::destroy() {
-		// 清空列表
 		m_cameras.clear();
 		m_renderers.clear();
+		m_renderer = nullptr;
 	}
 
-	void RenderSystem::registerRenderer(RendererComponent *renderer) {
+	void RenderSystem::registerRenderer(RendererComponent* renderer) {
 		if (!renderer) {
 			ST_CORE_WARN("试图在场景 {} 中注册 RendererComponent 空指针！", getScene()->getName());
 			return;
 		}
 
-		m_renderers.push_back(static_cast<RendererComponent*>(renderer));
-		m_isRenderersNeedSort = true; // 有新 RendererComponent 插入，需要排序
-
+		m_renderers.push_back(renderer);
+		m_isRenderersNeedSort = true;
 	}
 
-	void RenderSystem::unregisterRenderer(RendererComponent *renderer) {
+	void RenderSystem::unregisterRenderer(RendererComponent* renderer) {
 		if (!renderer) {
 			ST_CORE_WARN("试图在场景 {} 中移除 RendererComponent 空指针！", getScene()->getName());
 			return;
 		}
 
-		// 从列表内删除
 		m_renderers.erase(
 			std::remove(m_renderers.begin(), m_renderers.end(), renderer),
 			m_renderers.end()
 		);
 	}
 
-	void RenderSystem::registerCamera(CameraComponent *camera) {
+	void RenderSystem::registerCamera(CameraComponent* camera) {
 		if (!camera) {
 			ST_CORE_WARN("试图在场景 {} 中注册 CameraComponent 空指针！", getScene()->getName());
 			return;
@@ -91,7 +119,7 @@ namespace Shit {
 		m_isCamerasNeedSort = true;
 	}
 
-	void RenderSystem::unregisterCamera(CameraComponent *camera) {
+	void RenderSystem::unregisterCamera(CameraComponent* camera) {
 		if (!camera) {
 			ST_CORE_WARN("试图在场景 {} 中移除 CameraComponent 空指针！", getScene()->getName());
 			return;
@@ -100,13 +128,6 @@ namespace Shit {
 		m_cameras.erase(
 			std::remove(m_cameras.begin(), m_cameras.end(), camera),
 			m_cameras.end()
-			);
-	}
-
-	sf::FloatRect RenderSystem::getViewBounds(const sf::View &view) {
-		sf::Vector2f center = view.getCenter();
-		sf::Vector2f size = view.getSize();
-		// 计算左上角坐标
-		return {{center.x - size.x / 2.f, center.y - size.y / 2.f}, size};
+		);
 	}
 }

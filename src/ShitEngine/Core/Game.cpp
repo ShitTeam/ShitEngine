@@ -32,6 +32,9 @@ namespace Shit {
 		// 初始化窗口
 		if (!Window::Init()) return false;
 
+		// 初始化渲染器
+		if (!Renderer::Init()) return false;
+
 		// 初始化 Time
 		Time::Init();
 

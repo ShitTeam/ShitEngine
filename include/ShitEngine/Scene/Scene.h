@@ -6,7 +6,6 @@
 #include <string>
 
 #include "../Core/Core.h"
-#include "SFML/Window/Keyboard.hpp"
 #include "ShitEngine/Core/log.h"
 #include "ShitEngine/System/System.h"
 

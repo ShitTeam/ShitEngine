@@ -1,4 +1,4 @@
-﻿# CMakeList.txt: ShitEngine 的 CMake 项目，在此处包括源代码并定义
+# CMakeList.txt: ShitEngine 的 CMake 项目，在此处包括源代码并定义
 # 项目特定的逻辑。
 #
 cmake_minimum_required (VERSION 3.20)
@@ -27,72 +27,90 @@ include(cmake/DependencyManager.cmake)
 # 配置和构建依赖项
 setup_project_dependencies()
 
-
 # GLM
-# 强制 GLM 使用弧度制
 add_definitions(-DGLM_FORCE_RADIANS)
-# 强制使用 0 到 1 的深度范围
 add_definitions(-DGLM_FORCE_DEPTH_ZERO_TO_ONE)
 
 # 将源代码添加到此项目的可执行文件。
 add_library(ShitEngine SHARED
+    # Core
     "src/ShitEngine/Core/Game.cpp"
+    "src/ShitEngine/Core/Log.cpp"
+    "src/ShitEngine/Core/Time.cpp"
+    "src/ShitEngine/Core/Window.cpp"
+    "src/ShitEngine/Core/Config.cpp"
     "include/ShitEngine/Core/Game.h"
     "include/ShitEngine/Core/Core.h"
-    "include/ShitEngine.h"
     "include/ShitEngine/Core/Log.h"
-    "src/ShitEngine/Core/Log.cpp"
     "include/ShitEngine/Core/pch.h"
-    "include/ShitEngine/Resource/ResourceManager.h"
+    "include/ShitEngine/Core/Time.h"
+    "include/ShitEngine/Core/Window.h"
+    "include/ShitEngine/Core/Config.h"
+
+    # Math
+    "include/ShitEngine/Math.h"
+
+    # Input
+    "src/ShitEngine/Input/Input.cpp"
+    "include/ShitEngine/Input/Input.h"
+    "include/ShitEngine/Input/KeyCode.h"
+
+    # Scene
+    "src/ShitEngine/Scene/Scene.cpp"
+    "src/ShitEngine/Scene/SceneManager.cpp"
+    "include/ShitEngine/Scene/Scene.h"
+    "include/ShitEngine/Scene/SceneManager.h"
+
+    # GameObject
+    "src/ShitEngine/GameObject/GameObject.cpp"
+    "include/ShitEngine/GameObject/GameObject.h"
+
+    # Component
+    "src/ShitEngine/Component/Component.cpp"
+    "src/ShitEngine/Component/Behavior.cpp"
+    "src/ShitEngine/Component/TransformComponent.cpp"
+    "src/ShitEngine/Component/RendererComponent.cpp"
+    "src/ShitEngine/Component/SpriteRenderer.cpp"
+    "src/ShitEngine/Component/CameraComponent.cpp"
+    "src/ShitEngine/Component/AnimationComponent.cpp"
+    "include/ShitEngine/Component/Component.h"
+    "include/ShitEngine/Component/Behavior.h"
+    "include/ShitEngine/Component/TransformComponent.h"
+    "include/ShitEngine/Component/RendererComponent.h"
+    "include/ShitEngine/Component/SpriteRenderer.h"
+    "include/ShitEngine/Component/CameraComponent.h"
+    "include/ShitEngine/Component/AnimationComponent.h"
+
+    # Render
+    "src/ShitEngine/Render/RenderSystem.cpp"
+    "src/ShitEngine/Render/Renderer.cpp"
+    "src/ShitEngine/Render/Sprite.cpp"
+    "src/ShitEngine/Render/Animation.cpp"
+    "include/ShitEngine/Render/RenderSystem.h"
+    "include/ShitEngine/Render/Renderer.h"
+    "include/ShitEngine/Render/Sprite.h"
+    "include/ShitEngine/Render/Animation.h"
+
+    # Resource
     "src/ShitEngine/Resource/ResourceManager.cpp"
+    "src/ShitEngine/Resource/TextureManager.cpp"
+    "include/ShitEngine/Resource/ResourceManager.h"
     "include/ShitEngine/Resource/TextureManager.h"
     "include/ShitEngine/Resource/AudioManager.h"
     "include/ShitEngine/Resource/FontManager.h"
-    "src/ShitEngine/Resource/TextureManager.cpp"
-    "include/ShitEngine/Math.h"
-    "include/ShitEngine/Core/Time.h"
-    "src/ShitEngine/Core/Time.cpp"
-    "include/ShitEngine/Core/Window.h"
-    "src/ShitEngine/Core/Window.cpp"
-    "include/ShitEngine/Input/Input.h"
-    "src/ShitEngine/Input/Input.cpp"
-    "include/ShitEngine/Core/Config.h"
-    "src/ShitEngine/Core/Config.cpp"
-    "include/ShitEngine/GameObject/GameObject.h"
-    "src/ShitEngine/GameObject/GameObject.cpp"
-    "include/ShitEngine/Component/Component.h"
-    "src/ShitEngine/Component/Component.cpp"
-    "include/ShitEngine/Component/Behavior.h"
-    "src/ShitEngine/Component/Behavior.cpp"
-    "include/ShitEngine/Component/TransformComponent.h"
-    "src/ShitEngine/Component/TransformComponent.cpp"
-    "include/ShitEngine/Component/RendererComponent.h"
-    "src/ShitEngine/Component/RendererComponent.cpp"
-    "include/ShitEngine/Component/SpriteRenderer.h"
-    "src/ShitEngine/Component/SpriteRenderer.cpp"
-    "include/ShitEngine/Component/CameraComponent.h"
-    "src/ShitEngine/Component/CameraComponent.cpp"
-    "include/ShitEngine/Render/RenderSystem.h"
-    "src/ShitEngine/Render/RenderSystem.cpp"
-    "include/ShitEngine/Render/Sprite.h"
-    "src/ShitEngine/Render/Sprite.cpp"
-    "include/ShitEngine/Scene/Scene.h"
-    "src/ShitEngine/Scene/Scene.cpp"
-    "include/ShitEngine/Scene/SceneManager.h"
-    "src/ShitEngine/Scene/SceneManager.cpp"
-    "include/ShitEngine/System/System.h"
+
+    # System
     "src/ShitEngine/System/System.cpp"
-    "include/ShitEngine/System/BehaviorSystem.h"
     "src/ShitEngine/System/BehaviorSystem.cpp"
-    "include/ShitEngine/Audio/AudioPlayer.h"
-    "src/ShitEngine/Audio/AudioPlayer.cpp"
-        src/ShitEngine/Render/Renderer.cpp
+    "include/ShitEngine/System/System.h"
+    "include/ShitEngine/System/BehaviorSystem.h"
+
+    # Umbrella
+    "include/ShitEngine.h"
 )
 
 target_precompile_headers(ShitEngine PUBLIC "include/ShitEngine/Core/pch.h")
-
 target_compile_definitions(ShitEngine PRIVATE SHIT_EXPORTS)
-
 target_include_directories(ShitEngine PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 target_link_libraries(ShitEngine PUBLIC
@@ -107,5 +125,3 @@ target_link_libraries(ShitEngine PUBLIC
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET ShitEngine PROPERTY CXX_STANDARD 20)
 endif()
-
-# TODO: 如有需要，请添加测试并安装目标。

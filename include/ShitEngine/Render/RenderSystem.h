@@ -1,19 +1,16 @@
-﻿#pragma once
+#pragma once
 #include "../Core/Core.h"
 #include "../Math.h"
 #include "ShitEngine/System/System.h"
 
-namespace sf {
-
-}
+struct SDL_Renderer;
 
 namespace Shit {
 	class CameraComponent;
 	class RendererComponent;
-	class Sprite;
 
 	/**
-	 * @brief 渲染器
+	 * @brief 渲染系统
 	 */
 	class SHIT_API RenderSystem final : public System {
 	public:
@@ -32,14 +29,12 @@ namespace Shit {
 		void unregisterCamera(CameraComponent *camera);
 
 	private:
-		sf::FloatRect getViewBounds(const sf::View& view); // 获取相机在世界坐标系中的矩形
+		SDL_Renderer* m_renderer = nullptr;
 
-		sf::RenderWindow* m_window = nullptr; // 缓存的窗口
+		std::vector<RendererComponent*> m_renderers;
+		bool m_isRenderersNeedSort = false;
 
-		std::vector<RendererComponent*> m_renderers; // 挂载的渲染组件
-		bool m_isRenderersNeedSort = false; // 是否需要排序
-
-		std::vector<CameraComponent*> m_cameras; // 挂载的相机组件
-		bool m_isCamerasNeedSort = false; // 是否需要排序
+		std::vector<CameraComponent*> m_cameras;
+		bool m_isCamerasNeedSort = false;
 	};
 }

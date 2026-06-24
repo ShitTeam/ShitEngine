@@ -11,7 +11,7 @@ namespace Shit {
 	ResourceManager::~ResourceManager() = default;
 
 	void ResourceManager::init() {
-		m_textureManager = std::make_unique<TextureManager>();
+		m_textureManager = std::unique_ptr<TextureManager>(new TextureManager());
 		// m_audioManager = std::make_unique<AudioManager>();
 
 		ST_CORE_TRACE("资源管理器初始化成功。");
