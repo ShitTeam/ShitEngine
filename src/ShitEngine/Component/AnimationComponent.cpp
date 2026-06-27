@@ -3,6 +3,7 @@
 
 namespace Shit {
     AnimationComponent::AnimationComponent() = default;
+    AnimationComponent::~AnimationComponent() = default;
 
     void AnimationComponent::onAttach() {
 

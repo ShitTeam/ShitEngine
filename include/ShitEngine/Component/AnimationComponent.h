@@ -10,7 +10,7 @@ namespace Shit
     class SHIT_API AnimationComponent : public Component {
     public:
         AnimationComponent();
-        ~AnimationComponent() override = default;
+        ~AnimationComponent() override;
 
         // 生命周期
         void onAttach() override;

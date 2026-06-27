@@ -22,11 +22,8 @@ namespace Shit {
 	void RenderSystem::update() {
 		if (!m_renderer) return;
 
-		// 清屏
-		SDL_SetRenderDrawColor(m_renderer, 0, 0, 0, 255);
-		SDL_RenderClear(m_renderer);
+		Renderer::ClearScreen();
 
-		// 按优先级排序相机（低优先级先渲染）
 		if (m_isCamerasNeedSort) {
 			std::sort(m_cameras.begin(), m_cameras.end(), [](CameraComponent* a, CameraComponent* b) {
 				return a->getPriority() < b->getPriority();
@@ -34,7 +31,6 @@ namespace Shit {
 			m_isCamerasNeedSort = false;
 		}
 
-		// 按 Z-Index 排序渲染器
 		if (m_isRenderersNeedSort) {
 			std::sort(m_renderers.begin(), m_renderers.end(), [](RendererComponent* a, RendererComponent* b) {
 				return a->getZIndex() < b->getZIndex();
@@ -42,43 +38,45 @@ namespace Shit {
 			m_isRenderersNeedSort = false;
 		}
 
-		// 逐相机渲染
+		float logicalW = static_cast<float>(Renderer::GetLogicalWidth());
+		float logicalH = static_cast<float>(Renderer::GetLogicalHeight());
+
 		for (auto* camera : m_cameras) {
-			SDL_SetRenderViewport(m_renderer, nullptr);
+			SDL_FRect vpRatio = camera->getViewportRatio();
 
-			// 获取相机参数
-			Vector2 cameraPosition = camera->getPosition();
-			Vector2 cameraSize = camera->getSize();
-			float cameraZoom = camera->getZoom();
+			SDL_Rect viewport;
+			viewport.x = static_cast<int>(vpRatio.x * logicalW);
+			viewport.y = static_cast<int>(vpRatio.y * logicalH);
+			viewport.w = static_cast<int>(vpRatio.w * logicalW);
+			viewport.h = static_cast<int>(vpRatio.h * logicalH);
 
-			// 应用相机缩放
-			SDL_SetRenderScale(m_renderer, cameraZoom, cameraZoom);
+			if (viewport.w <= 0 || viewport.h <= 0) continue;
 
-			// 计算相机可见区域（世界坐标）
-			SDL_FRect viewBounds = {
-				cameraPosition.x - cameraSize.x / 2.0f,
-				cameraPosition.y - cameraSize.y / 2.0f,
-				cameraSize.x,
-				cameraSize.y
-			};
+			// 设置视口（控制渲染原点）
+			SDL_SetRenderViewport(m_renderer, &viewport);
 
-			// 渲染可见的物体
+			// 精准裁剪：Letterbox 纯画面区域，不让精灵溢出到黑边
+			Vector2 worldSize = camera->getSize();
+			float basePpu = (std::min)(static_cast<float>(viewport.w) / worldSize.x, static_cast<float>(viewport.h) / worldSize.y);
+			SDL_Rect clipRect;
+			clipRect.x = viewport.x + static_cast<int>((static_cast<float>(viewport.w) - worldSize.x * basePpu) / 2.0f);
+			clipRect.y = viewport.y + static_cast<int>((static_cast<float>(viewport.h) - worldSize.y * basePpu) / 2.0f);
+			clipRect.w = static_cast<int>(worldSize.x * basePpu);
+			clipRect.h = static_cast<int>(worldSize.y * basePpu);
+
+			SDL_SetRenderClipRect(m_renderer, &clipRect);
+
 			for (auto* renderer : m_renderers) {
 				if (!renderer->isVisible()) continue;
-
-				// 视锥体裁剪
-				SDL_FRect bounds = renderer->getGlobalBounds();
-				SDL_FRect intersection;
-				if (SDL_GetRectIntersectionFloat(&viewBounds, &bounds, &intersection)) {
-					renderer->onRender(m_renderer);
-				}
+				renderer->onRender(m_renderer, camera);
 			}
-
-			// 重置缩放
-			SDL_SetRenderScale(m_renderer, 1.0f, 1.0f);
 		}
 
-		SDL_RenderPresent(m_renderer);
+		// 清除裁剪和视口，恢复全屏
+		SDL_SetRenderClipRect(m_renderer, nullptr);
+		SDL_SetRenderViewport(m_renderer, nullptr);
+
+		Renderer::Present();
 	}
 
 	void RenderSystem::destroy() {
@@ -92,7 +90,6 @@ namespace Shit {
 			ST_CORE_WARN("试图在场景 {} 中注册 RendererComponent 空指针！", getScene()->getName());
 			return;
 		}
-
 		m_renderers.push_back(renderer);
 		m_isRenderersNeedSort = true;
 	}
@@ -102,7 +99,6 @@ namespace Shit {
 			ST_CORE_WARN("试图在场景 {} 中移除 RendererComponent 空指针！", getScene()->getName());
 			return;
 		}
-
 		m_renderers.erase(
 			std::remove(m_renderers.begin(), m_renderers.end(), renderer),
 			m_renderers.end()
@@ -114,7 +110,6 @@ namespace Shit {
 			ST_CORE_WARN("试图在场景 {} 中注册 CameraComponent 空指针！", getScene()->getName());
 			return;
 		}
-
 		m_cameras.push_back(camera);
 		m_isCamerasNeedSort = true;
 	}
@@ -124,7 +119,6 @@ namespace Shit {
 			ST_CORE_WARN("试图在场景 {} 中移除 CameraComponent 空指针！", getScene()->getName());
 			return;
 		}
-
 		m_cameras.erase(
 			std::remove(m_cameras.begin(), m_cameras.end(), camera),
 			m_cameras.end()

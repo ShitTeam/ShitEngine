@@ -6,7 +6,9 @@
 struct SDL_Texture;
 
 namespace Shit {
+	class CameraComponent;
 	class GameObject;
+
 	/**
 	 * @brief 精灵组件
 	 */
@@ -16,7 +18,7 @@ namespace Shit {
 		SpriteRenderer() = default;
 		~SpriteRenderer() override = default;
 
-		void onRender(SDL_Renderer* renderer) const override;
+		void onRender(SDL_Renderer* renderer, const CameraComponent* camera) const override;
 
 		// --- setter & getter ---
 		void setTexturePath(const std::string& texturePath);

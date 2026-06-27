@@ -1,11 +1,14 @@
 #pragma once
 #include "../Core/Core.h"
 #include "Component.h"
+#include "../Math.h"
 #include <SDL3/SDL_rect.h>
 
 struct SDL_Renderer;
 
 namespace Shit {
+	class CameraComponent;
+
 	/**
 	 * @brief 渲染组件基类
 	 *
@@ -17,7 +20,7 @@ namespace Shit {
 		~RendererComponent() override = default;
 
 		void onAttach() override;
-		virtual void onRender(SDL_Renderer* renderer) const = 0; // 渲染虚函数
+		virtual void onRender(SDL_Renderer* renderer, const CameraComponent* camera) const = 0;
 		void onDestroy() override;
 
 		// --- getter & setter ---
