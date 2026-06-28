@@ -55,12 +55,12 @@ namespace Shit {
 			// 设置视口（控制渲染原点）
 			SDL_SetRenderViewport(m_renderer, &viewport);
 
-			// 精准裁剪：Letterbox 纯画面区域，不让精灵溢出到黑边
+			// 精准裁剪：Letterbox 纯画面区域（相对于视口原点）
 			Vector2 worldSize = camera->getSize();
 			float basePpu = (std::min)(static_cast<float>(viewport.w) / worldSize.x, static_cast<float>(viewport.h) / worldSize.y);
 			SDL_Rect clipRect;
-			clipRect.x = viewport.x + static_cast<int>((static_cast<float>(viewport.w) - worldSize.x * basePpu) / 2.0f);
-			clipRect.y = viewport.y + static_cast<int>((static_cast<float>(viewport.h) - worldSize.y * basePpu) / 2.0f);
+			clipRect.x = static_cast<int>((static_cast<float>(viewport.w) - worldSize.x * basePpu) / 2.0f);
+			clipRect.y = static_cast<int>((static_cast<float>(viewport.h) - worldSize.y * basePpu) / 2.0f);
 			clipRect.w = static_cast<int>(worldSize.x * basePpu);
 			clipRect.h = static_cast<int>(worldSize.y * basePpu);
 

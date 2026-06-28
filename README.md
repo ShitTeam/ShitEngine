@@ -1,80 +1,137 @@
-# ShitEngine
+<div align="center">
+  <img src="logo.png" alt="ShitEngine Logo" width="256"/>
+  <h1>ShitEngine</h1>
+  <p><strong>基于 C++20 和 SDL3 的轻量级 2D 游戏引擎</strong></p>
+</div>
 
-ShitEngine 是一个基于 C++ 的轻量级游戏引擎，采用现代组件化架构，支持组件化开发和资源管理，适合 2D 游戏快速原型和学习研究。
+## 概述
 
-## ✨ 特性
+ShitEngine 是一个从零开始设计的轻量级 2D 游戏引擎，采用面向对象的组件化架构（Component + System）。引擎基于 SDL3 渲染，内置完整的生命周期管理、场景栈、资源缓存、多相机渲染管线等基础设施，适合 2D 像素风游戏的快速原型开发和学习研究。
 
-- 现代组件化架构，灵活的组件与系统扩展
-- 场景与游戏对象管理
-- 资源自动缓存与管理（纹理、音频等）
-- 支持 SFML 渲染
-- 日志、配置、输入等基础系统
-- 易于扩展的系统注册与事件分发
+## 特性
 
-## 🚀 快速开始
+- **组件化架构** — `GameObject` 挂载 `Component`，`System` 负责更新逻辑，职责清晰
+- **多相机渲染管线** — 支持分屏、多视口、比例视口（类似 SFML 的 Viewport），等比 Letterbox 不变形
+- **全局逻辑分辨率** — 固定 1280x720 逻辑坐标，SDL3 自动缩放适配任意窗口
+- **像素完美渲染** — 最近邻缩放 + 像素对齐，像素风无模糊无抖动
+- **场景栈管理** — 场景推入/弹出/替换，支持延迟操作，安全切换
+- **资源自动缓存** — 纹理自动管理与引用缓存
+- **完整输入系统** — 键盘和鼠标的 Down/Pressed/Released 三态检测
+- **日志系统** — 基于 spdlog 的多级日志，引擎/用户日志分离
+- **JSON 配置** — 通过 `settings.json` 配置窗口、帧率等参数
 
-### 依赖
+## 架构
 
-- C++17 或更高
-- [SFML](https://www.sfml-dev.org/)
-- [spdlog](https://github.com/gabime/spdlog)
-- [glm](https://github.com/g-truc/glm)
-- [nlohmann/json](https://github.com/nlohmann/json)
+```
+Game
+├── Window          SDL3 窗口管理
+├── Renderer        SDL3 渲染器封装（逻辑分辨率、绘制 API）
+├── Time            DeltaTime / TotalTime
+├── Input           键盘 & 鼠标三态输入
+├── Config          JSON 配置读取
+├── ResourceManager 纹理等资源缓存
+├── SceneManager    场景栈
+│   └── Scene
+│       ├── BehaviorSystem  执行 Behavior 生命周期
+│       ├── RenderSystem    多相机渲染管线
+│       ├── GameObject
+│       │   ├── TransformComponent
+│       │   ├── SpriteRenderer
+│       │   ├── CameraComponent
+│       │   └── Behavior（用户继承）
+```
+
+## 快速开始
+
+### 环境要求
+
+- C++20 编译器
+- CMake 3.20+
+- Ninja 构建系统
+
+> 第三方依赖（SDL3、spdlog、glm、nlohmann-json）由 CMake `FetchContent` 自动拉取，无需手动安装。
 
 ### 构建
 
-1. 克隆仓库并初始化子模块（如有）：
-	```
-	git clone https://your.repo.url/ShitEngine.git
-	cd ShitEngine
-	```
-
-2. 使用 CMake 构建：
-	```
-	mkdir build
-	cd build
-	cmake ..
-	cmake --build .
-	```
-
-3. 可执行文件在 `build/bin/` 目录下。
+```bash
+git clone https://github.com/your-repo/ShitEngine.git
+cd ShitEngine
+cmake -B build -G Ninja
+cmake --build build
+```
 
 ### 示例代码
 
 ```cpp
 #include <ShitEngine.h>
 
-#ifdef _WIN32
-	#include <Windows.h>
-#endif // _WIN32
+class Player : public Shit::Behavior {
+    Shit::TransformComponent* transform;
+    float speed = 200.0f;
+
+    void onStart() override {
+        transform = getOwner()->getComponent<Shit::TransformComponent>();
+    }
+
+    void onUpdate() override {
+        Shit::Vector2 pos = transform->getPosition();
+        if (Shit::Input::IsKeyPressed(Shit::KeyCode::W)) pos.y -= speed * Shit::Time::GetDeltaTime();
+        if (Shit::Input::IsKeyPressed(Shit::KeyCode::S)) pos.y += speed * Shit::Time::GetDeltaTime();
+        if (Shit::Input::IsKeyPressed(Shit::KeyCode::A)) pos.x -= speed * Shit::Time::GetDeltaTime();
+        if (Shit::Input::IsKeyPressed(Shit::KeyCode::D)) pos.x += speed * Shit::Time::GetDeltaTime();
+        transform->setPosition(pos);
+    }
+};
 
 int main() {
-#ifdef _WIN32
-	// 强制控制台输出使用 UTF-8 编码
-	SetConsoleOutputCP(65001);
-#endif
+    if (Shit::Game::Init()) {
+        auto scene = std::make_unique<Shit::Scene>("example");
+        scene->init();
 
-	if (Shit::Game::Init()) {
-		Shit::Game::Run();
-	}
+        auto go = std::make_unique<Shit::GameObject>("player");
+        go->addComponent<Shit::TransformComponent>();
+        go->addComponent<Shit::SpriteRenderer>()->setTexturePath("textures/player.png");
+        go->addComponent<Player>();
+        scene->addGameObject(std::move(go));
 
-	Shit::Game::Destroy();
-	return 0;
+        auto camera = std::make_unique<Shit::GameObject>("camera");
+        camera->addComponent<Shit::TransformComponent>();
+        camera->addComponent<Shit::CameraComponent>();
+        scene->addGameObject(std::move(camera));
+
+        Shit::SceneManager::PushScene(std::move(scene));
+        Shit::Game::Run();
+    }
+    Shit::Game::Destroy();
 }
 ```
 
-## 🛠️ 贡献
+### 配置
 
-欢迎提交 issue 和 PR！请遵循以下流程：
+创建 `settings.json` 与可执行文件同目录：
 
-1. Fork 本仓库
-2. 新建分支进行开发
-3. 提交 PR 并描述你的更改
+```json
+{
+    "project": "MyGame",
+    "window": {
+        "title": "My Game",
+        "width": 1024,
+        "height": 720,
+        "targetFPS": 144
+    }
+}
+```
 
-## 📄 许可证
+## 多相机分屏
 
-本项目基于 Apache License 许可。
+```cpp
+// 左半屏相机（世界大小 200x200）
+camera1->getComponent<Shit::CameraComponent>()->setViewportRatio({0.0f, 0.0f, 0.5f, 1.0f});
 
----
+// 右半屏相机（世界大小 100x100）
+camera2->getComponent<Shit::CameraComponent>()->setViewportRatio({0.5f, 0.0f, 0.5f, 1.0f});
+```
 
-如需更详细的 API 文档或使用示例，请查阅 `include/` 目录和源码注释。
+## 许可证
+
+Apache License 2.0
