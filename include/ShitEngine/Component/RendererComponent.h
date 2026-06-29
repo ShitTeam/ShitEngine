@@ -32,7 +32,7 @@ namespace Shit {
 		void setVisible(bool isVisible) { m_isVisible = isVisible; }
 
 	protected:
-		int m_zIndex; // 渲染顺序
-		bool m_isVisible; // 是否显示
+		int m_zIndex = 0; // 渲染顺序
+		bool m_isVisible = true; // 是否显示
 	};
 }

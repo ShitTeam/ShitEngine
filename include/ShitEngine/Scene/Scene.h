@@ -6,7 +6,7 @@
 #include <string>
 
 #include "../Core/Core.h"
-#include "ShitEngine/Core/log.h"
+#include "ShitEngine/Core/Log.h"
 #include "ShitEngine/System/System.h"
 
 namespace Shit {

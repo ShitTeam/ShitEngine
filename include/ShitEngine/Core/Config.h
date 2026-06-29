@@ -27,7 +27,7 @@ namespace Shit {
 	public:
 		// --- 成员方法 ---
 		bool init();
-		void loadFromJson(Json& j);
+		void loadFromJson(const Json& j);
 
 		// --- 静态API ---
 		static Config& GetInstance();

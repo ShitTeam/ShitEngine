@@ -32,13 +32,13 @@ namespace Shit {
 		void destroy(); // 销毁
 
 		// --- getter & setter ---
-		inline std::string& getName() { return m_name; }
-		inline std::string& getTag() { return m_tag; }
+		inline const std::string& getName() const { return m_name; }
+		inline const std::string& getTag() const { return m_tag; }
 		inline Scene* getScene() const { return m_scene; }
 		inline bool isNeedDestroy() const { return m_needDestroy; }
 
-		inline void setName(std::string& name) { m_name = name; }
-		inline void setTag(std::string& tag) { m_tag = tag; }
+		inline void setName(const std::string& name) { m_name = name; }
+		inline void setTag(const std::string& tag) { m_tag = tag; }
 		inline void setScene(Scene* scene) { m_scene = scene; }
 		inline void setNeedDestroy(bool needDestroy) { m_needDestroy = needDestroy; }
 		inline std::unordered_map<std::type_index, std::unique_ptr<Component>>& getComponents() { return m_components; }

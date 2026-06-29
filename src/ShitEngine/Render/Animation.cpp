@@ -19,8 +19,8 @@ namespace Shit {
 
     SDL_FRect Animation::getFrame(float elapsedTime) const
     {
-        if (m_frames.empty()) {
-            return SDL_FRect{};
+        if (m_frames.empty() || m_duration <= 0.0f) {
+            return m_frames.empty() ? SDL_FRect{} : m_frames[0];
         }
 
         // 循环模式下对周期取模

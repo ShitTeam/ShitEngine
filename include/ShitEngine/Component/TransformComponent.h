@@ -15,10 +15,10 @@ namespace Shit {
 		~TransformComponent() override = default;
 
 		// --- getter & setter ---
-		inline const Vector2& getPosition() { return m_position; }
+		inline const Vector2& getPosition() const { return m_position; }
 		inline void setPosition(const Vector2& position) { m_position = position; }
 
-		inline const Vector2& getScale() { return m_scale; }
+		inline const Vector2& getScale() const { return m_scale; }
 		inline void setScale(const Vector2& scale) { m_scale = scale; }
 
 		inline float getRotation() const { return m_rotation; }

@@ -1,4 +1,5 @@
 ﻿#include "ShitEngine/Core/Config.h"
+#include <fstream>
 
 namespace Shit {
 	bool Config::init() // 初始化
@@ -15,7 +16,7 @@ namespace Shit {
 		return true;
 	}
 
-	void Config::loadFromJson(Json& j) // 读取Json配置
+	void Config::loadFromJson(const Json& j) // 读取Json配置
 	{
 		if (j.contains("project")) {
 			m_projectConfig.name = j["project"].get<std::string>();

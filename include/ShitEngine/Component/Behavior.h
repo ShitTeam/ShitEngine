@@ -19,7 +19,7 @@ namespace Shit {
 		void onAttach() override;
 		virtual void onStart();		  // 组件更新时前，执行一次
 		virtual void onUpdate();	  // 组件更新时，每帧执行一次
-		void onDestroy() override;;
+		void onDestroy() override;
 
 		bool isStarted() const { return m_isStarted; }
 		void setStarted(bool isStarted) { m_isStarted = isStarted; }
