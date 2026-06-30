@@ -1,0 +1,75 @@
+name: Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  windows-mingw:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: ShitEngine
+
+      - name: Setup Ninja
+        run: |
+          curl -L -o ninja.zip https://github.com/ninja-build/ninja/releases/download/v1.12.1/ninja-win.zip
+          7z x ninja.zip -oninja > nul
+          echo "${{ github.workspace }}/ninja" >> $env:GITHUB_PATH
+
+      - name: Configure
+        working-directory: ShitEngine
+        run: >
+          cmake -B build -G Ninja
+          -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++
+          -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build
+        working-directory: ShitEngine
+        run: cmake --build build --parallel
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: ShitEngine
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build build-essential
+
+      - name: Configure
+        working-directory: ShitEngine
+        run: >
+          cmake -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build
+        working-directory: ShitEngine
+        run: cmake --build build --parallel
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: ShitEngine
+
+      - name: Install dependencies
+        run: |
+          brew install cmake ninja
+
+      - name: Configure
+        working-directory: ShitEngine
+        run: >
+          cmake -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build
+        working-directory: ShitEngine
+        run: cmake --build build --parallel
