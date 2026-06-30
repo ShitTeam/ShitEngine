@@ -27,12 +27,9 @@ namespace Shit {
 		// --- 静态API ---
 		static Renderer& GetInstance();
 		static bool Init() { return GetInstance().init(); }
-		static void LimitFPS() { GetInstance().limitFPS(); }
 		static void ClearScreen() { GetInstance().clearScreen(); }
 		static void Present() { GetInstance().present(); }
 		static SDL_Renderer* GetRenderer() { return GetInstance().m_renderer.get(); }
-		static unsigned int GetTargetFPS() { return GetInstance().getTargetFPS(); }
-		static void SetTargetFPS(unsigned int fps) { GetInstance().setTargetFPS(fps); }
 
 		// 逻辑分辨率
 		static int GetLogicalWidth() { return GetInstance().m_logicalWidth; }
@@ -51,12 +48,8 @@ namespace Shit {
 		~Renderer() = default;
 
 		bool init();
-		void limitFPS();
 		void clearScreen();
 		void present();
-
-		unsigned int getTargetFPS() const { return m_targetFPS; }
-		void setTargetFPS(unsigned int fps) { m_targetFPS = fps; }
 
 		struct SDLRendererDeleter {
 			void operator()(SDL_Renderer* renderer) const {
@@ -67,8 +60,6 @@ namespace Shit {
 		};
 
 		std::unique_ptr<SDL_Renderer, SDLRendererDeleter> m_renderer;
-		unsigned int m_targetFPS = 144;
-		Uint64 m_lastFrameTimeNS = 0;
 		int m_logicalWidth = 1280;
 		int m_logicalHeight = 720;
 	};

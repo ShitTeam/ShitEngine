@@ -28,24 +28,7 @@ namespace Shit {
         // 全局逻辑分辨率
         SDL_SetRenderLogicalPresentation(m_renderer.get(), m_logicalWidth, m_logicalHeight, SDL_LOGICAL_PRESENTATION_LETTERBOX);
 
-        m_targetFPS = Config::GetWindowConfig().targetFPS;
-        m_lastFrameTimeNS = SDL_GetTicksNS();
-
         return true;
-    }
-
-    void Renderer::limitFPS() {
-        if (m_targetFPS == 0) return;
-
-        Uint64 now = SDL_GetTicksNS();
-        Uint64 frameElapsed = now - m_lastFrameTimeNS;
-        Uint64 targetFrameTime = static_cast<Uint64>(1.0e9f / static_cast<float>(m_targetFPS));
-
-        if (frameElapsed < targetFrameTime) {
-            SDL_DelayNS(targetFrameTime - frameElapsed);
-        }
-
-        m_lastFrameTimeNS = SDL_GetTicksNS();
     }
 
     void Renderer::clearScreen() {

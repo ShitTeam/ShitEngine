@@ -70,8 +70,6 @@ namespace Shit {
 			SceneManager::Update();
 
 			Input::Update(); // 更新 Input
-
-			Renderer::LimitFPS(); // 限制帧率
 		}
 
 		m_isRunning = false;

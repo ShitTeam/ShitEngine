@@ -24,8 +24,19 @@ namespace Shit {
 	void Time::update() {
 		m_currentTime = SDL_GetTicksNS();
 
-		m_deltaTime = static_cast<float>(m_currentTime - m_lastTime) / 1000000000.0f;
+		// 先限制帧率：确保上一帧结束后已过至少 targetFrameTime
+		if (m_targetFPS > 0) {
+			Uint64 frameElapsed = m_currentTime - m_lastTime;
+			Uint64 targetFrameTime = static_cast<Uint64>(1.0e9f / static_cast<float>(m_targetFPS));
 
+			if (frameElapsed < targetFrameTime) {
+				SDL_DelayNS(targetFrameTime - frameElapsed);
+			}
+		}
+
+		// 再计算 deltaTime（包含等待时间）
+		m_currentTime = SDL_GetTicksNS();
+		m_deltaTime = static_cast<float>(m_currentTime - m_lastTime) / 1000000000.0f;
 		m_totalTime = static_cast<double>(m_currentTime) / 1000000000.0f;
 
 		m_lastTime = m_currentTime;
