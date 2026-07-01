@@ -39,12 +39,16 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
+<<<<<<< HEAD
           sudo apt-get install -y cmake ninja-build build-essential ccache \
             libx11-dev libxft-dev libxext-dev \
             libwayland-dev libegl-dev \
             libxkbcommon-dev libdbus-1-dev \
             libpulse-dev libpipewire-0.3-dev \
             libgl1-mesa-dev libgles2-mesa-dev
+=======
+          sudo apt-get install -y cmake ninja-build build-essential ccache
+>>>>>>> dc25c1b7cd3edb67775576d35a9f61f2bee88b88
 
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
