@@ -173,7 +173,7 @@ namespace Shit {
         Middle = SDL_BUTTON_MIDDLE,
         XButton1 = SDL_BUTTON_X1,
         XButton2 = SDL_BUTTON_X2,
-        Count = 5
+        Count = 6
     };
 
 }

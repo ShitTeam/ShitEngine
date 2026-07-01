@@ -33,21 +33,21 @@ namespace Shit {
 	bool Input::isMouseButtonDown(const MouseButton code)
 	{
 		int buttonIndex = static_cast<int>(code);
-		if (buttonIndex < 0 || buttonIndex >= 8) return false;
+		if (buttonIndex < 0 || buttonIndex >= static_cast<int>(MouseButton::Count)) return false;
 		return m_currentMouseButtons[buttonIndex] && !m_previousMouseButtons[buttonIndex];
 	}
 
 	bool Input::isMouseButtonPressed(const MouseButton code)
 	{
 		int buttonIndex = static_cast<int>(code);
-		if (buttonIndex < 0 || buttonIndex >= 8) return false;
+		if (buttonIndex < 0 || buttonIndex >= static_cast<int>(MouseButton::Count)) return false;
 		return m_currentMouseButtons[buttonIndex];
 	}
 
 	bool Input::isMouseButtonReleased(const MouseButton code)
 	{
 		int buttonIndex = static_cast<int>(code);
-		if (buttonIndex < 0 || buttonIndex >= 8) return false;
+		if (buttonIndex < 0 || buttonIndex >= static_cast<int>(MouseButton::Count)) return false;
 		return !m_currentMouseButtons[buttonIndex] && m_previousMouseButtons[buttonIndex];
 	}
 
@@ -85,13 +85,13 @@ namespace Shit {
 
 			// --- 鼠标按键事件 ---
 			case SDL_EVENT_MOUSE_BUTTON_DOWN:
-				if (event.button.button < 8) {
+				if (event.button.button < static_cast<int>(MouseButton::Count)) {
 					m_currentMouseButtons[event.button.button] = true;
 				}
 				break;
 
 			case SDL_EVENT_MOUSE_BUTTON_UP:
-				if (event.button.button < 8) {
+				if (event.button.button < static_cast<int>(MouseButton::Count)) {
 					m_currentMouseButtons[event.button.button] = false;
 				}
 				break;
