@@ -30,16 +30,17 @@ jobs:
             deps-setup: |
               sudo apt-get update
               sudo apt-get install -y cmake ninja-build build-essential ccache \
-                libx11-dev libxft-dev libxext-dev \
-                libwayland-dev libegl-dev \
-                libxkbcommon-dev libdbus-1-dev \
-                libpulse-dev libpipewire-0.3-dev \
-                libgl1-mesa-dev libgles2-mesa-dev
+                libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev \
+                libwayland-dev libegl1-mesa-dev libgles2-mesa-dev libgl1-mesa-dev \
+                libxkbcommon-dev libdbus-1-dev libibus-1.0-dev \
+                libpulse-dev libpipewire-0.3-dev libasound2-dev \
+                libdrm-dev libgbm-dev libudev-dev libthai-dev
 
           - os: macos-latest
             cc: gcc
             cxx: g++
             artifact: ShitEngine-macos
+            # macOS 不需要额外依赖，Xcode/CLT 自带全部所需
             deps-setup: |
               brew install cmake ninja ccache
 
