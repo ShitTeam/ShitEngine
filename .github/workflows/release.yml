@@ -26,8 +26,8 @@ jobs:
             archive: tar.gz
 
           - os: macos-latest
-            cc: gcc
-            cxx: g++
+            cc: clang
+            cxx: clang++
             artifact: ShitEngine-macos
             archive: tar.gz
 
@@ -50,7 +50,7 @@ jobs:
         if: runner.os == 'macOS'
         # macOS 不需要额外依赖，Xcode/CLT 自带全部所需
         run: |
-          brew install cmake ninja ccache
+          brew install ninja ccache
 
       - name: Setup Ninja (Windows)
         if: runner.os == 'Windows'

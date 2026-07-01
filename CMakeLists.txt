@@ -111,7 +111,12 @@ add_library(ShitEngine SHARED
 
 target_precompile_headers(ShitEngine PUBLIC "include/ShitEngine/Core/pch.h")
 target_compile_definitions(ShitEngine PRIVATE SHIT_EXPORTS)
-target_include_directories(ShitEngine PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_include_directories(ShitEngine PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+
+# 第三方依赖不导出（install EXPORT 只导出 ShitEngine 本身）
+set_target_properties(ShitEngine PROPERTIES EXPORT_NAME ShitEngine)
 
 target_link_libraries(ShitEngine PUBLIC
     SDL3::SDL3
@@ -146,9 +151,10 @@ install(TARGETS ShitEngine
         LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
-# 安装 CMake config，方便他人 find_package
+# 安装 CMake config（要求用户 find_package 第三方库）
 install(EXPORT ShitEngineTargets
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ShitEngine)
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ShitEngine
+        NAMESPACE ShitEngine::)
 
 # 生成并安装 ShitEngineConfig.cmake
 include(CMakePackageConfigHelpers)
