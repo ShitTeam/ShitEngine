@@ -125,3 +125,46 @@ target_link_libraries(ShitEngine PUBLIC
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET ShitEngine PROPERTY CXX_STANDARD 20)
 endif()
+
+# ── Install ──────────────────────────────────────────────
+include(GNUInstallDirs)
+
+# 安装头文件（保留目录结构）
+install(DIRECTORY include/ShitEngine
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+        FILES_MATCHING PATTERN "*.h"
+        PATTERN "pch.h" EXCLUDE)
+
+# 安装 umbrella header
+install(FILES include/ShitEngine.h
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+# 安装库文件
+install(TARGETS ShitEngine
+        EXPORT ShitEngineTargets
+        RUNTIME  DESTINATION ${CMAKE_INSTALL_BINDIR}
+        LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+# 安装 CMake config，方便他人 find_package
+install(EXPORT ShitEngineTargets
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ShitEngine)
+
+# 生成并安装 ShitEngineConfig.cmake
+include(CMakePackageConfigHelpers)
+configure_package_config_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/ShitEngineConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/ShitEngineConfig.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ShitEngine)
+
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/ShitEngineConfig.cmake
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ShitEngine)
+
+# 生成版本文件
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/ShitEngineConfigVersion.cmake
+    VERSION 1.0.0
+    COMPATIBILITY AnyNewerVersion)
+
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/ShitEngineConfigVersion.cmake
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ShitEngine)

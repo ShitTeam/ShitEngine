@@ -1,0 +1,97 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            cc: gcc
+            cxx: g++
+            artifact: ShitEngine-windows-mingw
+            archive: zip
+
+          - os: ubuntu-latest
+            cc: gcc
+            cxx: g++
+            artifact: ShitEngine-linux
+            archive: tar.gz
+
+          - os: macos-latest
+            cc: gcc
+            cxx: g++
+            artifact: ShitEngine-macos
+            archive: tar.gz
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build build-essential ccache
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install cmake ninja ccache
+
+      - name: Setup Ninja (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          curl -L -o ninja.zip https://github.com/ninja-build/ninja/releases/download/v1.12.1/ninja-win.zip
+          7z x ninja.zip -oninja > nul
+          echo "${{ github.workspace }}/ninja" >> $env:GITHUB_PATH
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ${{ runner.os }}
+
+      - name: Restore CMake cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ github.workspace }}/build/_deps
+          key: ${{ runner.os }}-deps-${{ hashFiles('cmake/DependencyManager.cmake', 'CMakeLists.txt') }}
+          restore-keys: ${{ runner.os }}-deps-
+
+      - name: Configure
+        run: >
+          cmake -B build -G Ninja
+          -DCMAKE_C_COMPILER=${{ matrix.cc }}
+          -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Install
+        run: cmake --install build --prefix install/ShitEngine-${{ env.BUILD_TYPE }}
+
+      - name: Pack
+        shell: bash
+        run: |
+          cd install
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            7z a -r ../ShitEngine-${{ env.BUILD_TYPE }}-${{ matrix.artifact }}.zip ShitEngine-${{ env.BUILD_TYPE }}
+          else
+            tar czf ../ShitEngine-${{ env.BUILD_TYPE }}-${{ matrix.artifact }}.tar.gz ShitEngine-${{ env.BUILD_TYPE }}
+          fi
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ShitEngine-${{ env.BUILD_TYPE }}-${{ matrix.artifact }}.*
