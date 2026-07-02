@@ -40,7 +40,6 @@ jobs:
             cc: clang
             cxx: clang++
             artifact: ShitEngine-macos
-            # macOS 不需要额外依赖，Xcode/CLT 自带 CMake 和 Clang
             deps-setup: |
               brew install ninja ccache
 
@@ -77,6 +76,18 @@ jobs:
 
       - name: Install
         run: cmake --install build --prefix install
+
+      - name: Copy shared libs
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            # 复制 SDL3 和第三方动态库
+            find build/_deps -name "*.dll" -exec cp -n {} install/bin/ \;
+          elif [ "$RUNNER_OS" = "Linux" ]; then
+            find build/_deps -name "*.so*" -exec cp -n {} install/lib/ \;
+          elif [ "$RUNNER_OS" = "macOS" ]; then
+            find build/_deps -name "*.dylib" -exec cp -n {} install/lib/ \;
+          fi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

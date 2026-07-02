@@ -1,6 +1,11 @@
 out/
-.vs
-.idea
-cmake-build-debug/
-cmake-build-release/
+.vs/
+.idea/
+cmake-build-*/
+build/
 external/
+*.user
+*.swp
+*.swo
+.DS_Store
+Thumbs.db

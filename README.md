@@ -43,22 +43,44 @@ Game
 
 ## 快速开始
 
-### 环境要求
+### 方式一：CMake FetchContent（推荐）
 
-- C++20 编译器
-- CMake 3.20+
-- Ninja 构建系统
+```cmake
+cmake_minimum_required(VERSION 3.20)
+project(MyGame)
 
-> 第三方依赖（SDL3、spdlog、glm、nlohmann-json）由 CMake `FetchContent` 自动拉取，无需手动安装。
+include(FetchContent)
+FetchContent_Declare(
+    ShitEngine
+    GIT_REPOSITORY https://github.com/ShitTeam/ShitEngine.git
+    GIT_TAG main
+    GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(ShitEngine)
 
-### 构建
-
-```bash
-git clone https://github.com/your-repo/ShitEngine.git
-cd ShitEngine
-cmake -B build -G Ninja
-cmake --build build
+add_executable(MyGame main.cpp)
+target_link_libraries(MyGame PRIVATE ShitEngine)
 ```
+
+所有依赖由 CMake 自动拉取，无需手动安装。
+
+### 方式二：add_subdirectory（本地源码）
+
+```cmake
+add_subdirectory("path/to/ShitEngine" "${CMAKE_BINARY_DIR}/ShitEngine_Build")
+target_link_libraries(MyGame PRIVATE ShitEngine)
+```
+
+### 方式三：find_package（预编译库）
+
+从 GitHub Release 下载后：
+
+```cmake
+find_package(ShitEngine REQUIRED PATHS /path/to/ShitEngine NO_DEFAULT_PATH)
+target_link_libraries(MyGame PRIVATE ShitEngine::ShitEngine)
+```
+
+预编译包附带了 `ShitEngineConfig.cmake`，会自动查找 SDL3、spdlog 等依赖。
 
 ### 示例代码
 
@@ -131,6 +153,11 @@ camera1->getComponent<Shit::CameraComponent>()->setViewportRatio({0.0f, 0.0f, 0.
 // 右半屏相机（世界大小 100x100）
 camera2->getComponent<Shit::CameraComponent>()->setViewportRatio({0.5f, 0.0f, 0.5f, 1.0f});
 ```
+
+## 更多
+
+- [GitHub 仓库](https://github.com/ShitTeam/ShitEngine) — 源代码和 Issues
+- [文档网站](https://shitteam.github.io/ShitEngine) — API 参考和教程
 
 ## 许可证
 

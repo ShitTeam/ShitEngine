@@ -109,11 +109,12 @@ add_library(ShitEngine SHARED
     "include/ShitEngine.h"
 )
 
-target_precompile_headers(ShitEngine PUBLIC "include/ShitEngine/Core/pch.h")
-target_compile_definitions(ShitEngine PRIVATE SHIT_EXPORTS)
 target_include_directories(ShitEngine PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+
+target_precompile_headers(ShitEngine PUBLIC "include/ShitEngine/Core/pch.h")
+target_compile_definitions(ShitEngine PRIVATE SHIT_EXPORTS)
 
 target_link_libraries(ShitEngine PUBLIC
     SDL3::SDL3
@@ -142,3 +143,28 @@ install(TARGETS ShitEngine
         RUNTIME  DESTINATION ${CMAKE_INSTALL_BINDIR}
         LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+# 生成并安装 ShitEngineConfig.cmake（手动 imported target，无需 EXPORT 第三方依赖）
+include(CMakePackageConfigHelpers)
+configure_package_config_file(
+    ${CMAKE_SOURCE_DIR}/cmake/ShitEngineConfig.cmake.in
+    ${CMAKE_BINARY_DIR}/ShitEngineConfig.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ShitEngine
+    PATH_VARS CMAKE_INSTALL_INCLUDEDIR CMAKE_INSTALL_LIBDIR)
+
+install(FILES ${CMAKE_BINARY_DIR}/ShitEngineConfig.cmake
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ShitEngine)
+
+write_basic_package_version_file(
+    ${CMAKE_BINARY_DIR}/ShitEngineConfigVersion.cmake
+    VERSION 1.0.0
+    COMPATIBILITY AnyNewerVersion)
+
+install(FILES ${CMAKE_BINARY_DIR}/ShitEngineConfigVersion.cmake
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ShitEngine)
+
+# 卸载时自动清理
+set(CPACK_PACKAGE_NAME ShitEngine)
+set(CPACK_PACKAGE_VERSION 1.0.0)
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Lightweight 2D game engine based on C++20 and SDL3")
+include(CPack)

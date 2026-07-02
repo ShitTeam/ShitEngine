@@ -87,6 +87,17 @@ jobs:
       - name: Install
         run: cmake --install build --prefix install/ShitEngine-${{ env.BUILD_TYPE }}
 
+      - name: Copy shared libs
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            find build/_deps -name "*.dll" -exec cp -n {} install/ShitEngine-${{ env.BUILD_TYPE }}/bin/ \;
+          elif [ "$RUNNER_OS" = "Linux" ]; then
+            find build/_deps -name "*.so*" -exec cp -n {} install/ShitEngine-${{ env.BUILD_TYPE }}/lib/ \;
+          elif [ "$RUNNER_OS" = "macOS" ]; then
+            find build/_deps -name "*.dylib" -exec cp -n {} install/ShitEngine-${{ env.BUILD_TYPE }}/lib/ \;
+          fi
+
       - name: Pack
         shell: bash
         run: |
