@@ -63,6 +63,9 @@ endif()
 if(NOT TARGET glm::glm)
     add_library(glm::glm INTERFACE IMPORTED)
 endif()
+if(NOT TARGET nlohmann_json::nlohmann_json)
+    add_library(nlohmann_json::nlohmann_json INTERFACE IMPORTED)
+endif()
 
 # ============================================================
 # 创建 ShitEngine 自身
