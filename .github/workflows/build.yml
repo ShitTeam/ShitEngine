@@ -81,10 +81,10 @@ jobs:
         shell: bash
         run: |
           if [ "$RUNNER_OS" = "Windows" ]; then
-            # 复制 SDL3 和第三方动态库
             find build/_deps -name "*.dll" -exec cp -n {} install/bin/ \;
+            find build/_deps -name "*.dll.a" -exec cp -n {} install/lib/ \;
           elif [ "$RUNNER_OS" = "Linux" ]; then
-            find build/_deps -name "*.so*" -exec cp -n {} install/lib/ \;
+            find build/_deps -name "*.so*" ! -name "*.so.t*" -exec cp -n {} install/lib/ \;
           elif [ "$RUNNER_OS" = "macOS" ]; then
             find build/_deps -name "*.dylib" -exec cp -n {} install/lib/ \;
           fi
