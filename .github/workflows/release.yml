@@ -5,9 +5,6 @@ on:
     tags:
       - "v*"
 
-env:
-  BUILD_TYPE: Release
-
 jobs:
   build:
     strategy:
@@ -17,6 +14,12 @@ jobs:
             cc: gcc
             cxx: g++
             artifact: ShitEngine-windows-mingw
+            archive: zip
+
+          - os: windows-latest
+            cc: cl
+            cxx: cl
+            artifact: ShitEngine-windows-msvc
             archive: zip
 
           - os: ubuntu-latest
@@ -48,7 +51,6 @@ jobs:
 
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
-        # macOS 不需要额外依赖，Xcode/CLT 自带全部所需
         run: |
           brew install ninja ccache
 
@@ -67,49 +69,72 @@ jobs:
       - name: Restore CMake cache
         uses: actions/cache@v4
         with:
-          path: |
-            ${{ github.workspace }}/build/_deps
-          key: ${{ runner.os }}-deps-${{ hashFiles('cmake/DependencyManager.cmake', 'CMakeLists.txt') }}
-          restore-keys: ${{ runner.os }}-deps-
+          path: ${{ github.workspace }}/build
+          key: ${{ matrix.artifact }}-${{ hashFiles('cmake/DependencyManager.cmake', 'CMakeLists.txt') }}
+          restore-keys: ${{ matrix.artifact }}-
 
-      - name: Configure
-        run: >
-          cmake -B build -G Ninja
-          -DCMAKE_C_COMPILER=${{ matrix.cc }}
-          -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
-          -DCMAKE_C_COMPILER_LAUNCHER=ccache
-          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+      - name: Setup MSVC
+        if: matrix.cc == 'cl'
+        uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Build
-        run: cmake --build build --parallel
+      - name: Configure + Build Debug
+        run: |
+          cmake -B build/debug -G Ninja `
+            -DCMAKE_C_COMPILER=${{ matrix.cc }} `
+            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} `
+            -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build/debug --parallel
+
+      - name: Configure + Build Release
+        run: |
+          cmake -B build/release -G Ninja `
+            -DCMAKE_C_COMPILER=${{ matrix.cc }} `
+            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} `
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/release --parallel
 
       - name: Install
-        run: cmake --install build --prefix install/ShitEngine-${{ env.BUILD_TYPE }}
+        shell: bash
+        run: |
+          cmake --install build/debug  --prefix install/Debug
+          cmake --install build/release --prefix install/Release
 
       - name: Copy shared libs
         shell: bash
         run: |
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            find build/_deps -name "*.dll" -exec cp -n {} install/ShitEngine-${{ env.BUILD_TYPE }}/bin/ \;
-            find build/_deps -name "*.dll.a" -exec cp -n {} install/ShitEngine-${{ env.BUILD_TYPE }}/lib/ \;
-          elif [ "$RUNNER_OS" = "Linux" ]; then
-            find build/_deps -name "*.so*" ! -name "*.so.t*" -exec cp -n {} install/ShitEngine-${{ env.BUILD_TYPE }}/lib/ \;
-          elif [ "$RUNNER_OS" = "macOS" ]; then
-            find build/_deps -name "*.dylib" -exec cp -n {} install/ShitEngine-${{ env.BUILD_TYPE }}/lib/ \;
-          fi
+          for CONFIG in Debug Release; do
+            BUILD="build/$(echo $CONFIG | tr '[:upper:]' '[:lower:]')"
+            if [ "$RUNNER_OS" = "Windows" ]; then
+              find "$BUILD/_deps" -name "*.dll" -exec cp -n {} install/$CONFIG/bin/ \;
+              find "$BUILD/_deps" -name "*.dll.a" -exec cp -n {} install/$CONFIG/lib/ \;
+            elif [ "$RUNNER_OS" = "Linux" ]; then
+              find "$BUILD/_deps" -name "*.so*" ! -name "*.so.t*" -exec cp -n {} install/$CONFIG/lib/ \;
+            elif [ "$RUNNER_OS" = "macOS" ]; then
+              find "$BUILD/_deps" -name "*.dylib" -exec cp -n {} install/$CONFIG/lib/ \;
+            fi
+          done
 
-      - name: Pack
+      - name: Pack Debug
         shell: bash
         run: |
           cd install
           if [ "${{ matrix.archive }}" = "zip" ]; then
-            7z a -r ../ShitEngine-${{ env.BUILD_TYPE }}-${{ matrix.artifact }}.zip ShitEngine-${{ env.BUILD_TYPE }}
+            7z a -r ../ShitEngine-Debug-${{ matrix.artifact }}.zip Debug/
           else
-            tar czf ../ShitEngine-${{ env.BUILD_TYPE }}-${{ matrix.artifact }}.tar.gz ShitEngine-${{ env.BUILD_TYPE }}
+            tar czf ../ShitEngine-Debug-${{ matrix.artifact }}.tar.gz Debug/
+          fi
+
+      - name: Pack Release
+        shell: bash
+        run: |
+          cd install
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            7z a -r ../ShitEngine-Release-${{ matrix.artifact }}.zip Release/
+          else
+            tar czf ../ShitEngine-Release-${{ matrix.artifact }}.tar.gz Release/
           fi
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ShitEngine-${{ env.BUILD_TYPE }}-${{ matrix.artifact }}.*
+          files: ShitEngine-*-*

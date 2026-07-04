@@ -4,62 +4,71 @@ set_and_check(ShitEngine_INCLUDE_DIR "@PACKAGE_CMAKE_INSTALL_INCLUDEDIR@")
 set_and_check(ShitEngine_LIB_DIR     "@PACKAGE_CMAKE_INSTALL_LIBDIR@")
 
 # ============================================================
-# 创建第三方依赖的 imported target，指向下载的 .dll/.so
-# 这样用户不需要自己安装 SDL3 等依赖
+# 自动根据 CMAKE_BUILD_TYPE 选择正确的 Debug/Release 目录
 # ============================================================
-set(_DEPS_BIN_DIR "${ShitEngine_INCLUDE_DIR}/../bin")
-set(_DEPS_LIB_DIR "${ShitEngine_LIB_DIR}")
+if(CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+    set(_SHIT_CONFIG "Debug")
+else()
+    set(_SHIT_CONFIG "Release")
+endif()
 
-macro(_create_imported_dll _target _dll_name)
+set(_BIN_DIR "${ShitEngine_LIB_DIR}/../${_SHIT_CONFIG}/bin")
+set(_LIB_DIR "${ShitEngine_LIB_DIR}/../${_SHIT_CONFIG}/lib")
+set(_INC_DIR "${ShitEngine_LIB_DIR}/../${_SHIT_CONFIG}/include")
+
+# 兼容没有 Debug/Release 子目录的情况（单配置安装）
+if(NOT EXISTS "${_BIN_DIR}")
+    set(_BIN_DIR "${ShitEngine_INCLUDE_DIR}/../bin")
+    set(_LIB_DIR "${ShitEngine_LIB_DIR}")
+    set(_INC_DIR "${ShitEngine_INCLUDE_DIR}")
+endif()
+
+# ============================================================
+# 第三方依赖 imported target
+# ============================================================
+macro(_create_dll _target _dll_name)
     if(WIN32)
-        set(_loc "${_DEPS_BIN_DIR}/${_dll_name}")
+        set(_loc "${_BIN_DIR}/${_dll_name}")
     elseif(APPLE)
-        set(_loc "${_DEPS_LIB_DIR}/lib${_dll_name}.dylib")
+        set(_loc "${_LIB_DIR}/lib${_dll_name}.dylib")
     else()
-        set(_loc "${_DEPS_LIB_DIR}/lib${_dll_name}.so")
+        set(_loc "${_LIB_DIR}/lib${_dll_name}.so")
+    endif()
+    if(NOT EXISTS "${_loc}")
+        message(WARNING "Library not found: ${_loc}, skipping ${_target}")
+        return()
     endif()
     add_library(${_target} SHARED IMPORTED)
     set_target_properties(${_target} PROPERTIES IMPORTED_LOCATION "${_loc}")
-    if(MSVC AND EXISTS "${_DEPS_LIB_DIR}/${_dll_name}.lib")
-        set_target_properties(${_target} PROPERTIES IMPORTED_IMPLIB "${_DEPS_LIB_DIR}/${_dll_name}.lib")
+    if(MINGW)
+        set(_implib "${_LIB_DIR}/lib${_dll_name}.dll.a")
+        if(EXISTS "${_implib}")
+            set_target_properties(${_target} PROPERTIES IMPORTED_IMPLIB "${_implib}")
+        endif()
+    elseif(MSVC)
+        set(_implib "${_LIB_DIR}/${_dll_name}.lib")
+        if(EXISTS "${_implib}")
+            set_target_properties(${_target} PROPERTIES IMPORTED_IMPLIB "${_implib}")
+        endif()
     endif()
 endmacro()
 
-# 只创建 ShitEngine 直接链接的必需依赖（静态/头文件库特殊处理）
 if(NOT TARGET SDL3::SDL3)
-    add_library(SDL3::SDL3 SHARED IMPORTED)
-    if(WIN32)
-        set_target_properties(SDL3::SDL3 PROPERTIES IMPORTED_LOCATION "${_DEPS_BIN_DIR}/SDL3.dll")
-        if(MSVC)
-            set_target_properties(SDL3::SDL3 PROPERTIES IMPORTED_IMPLIB "${_DEPS_LIB_DIR}/SDL3.lib")
-        elseif(MINGW)
-            set_target_properties(SDL3::SDL3 PROPERTIES IMPORTED_IMPLIB "${_DEPS_LIB_DIR}/libSDL3.dll.a")
-        endif()
-    elseif(APPLE)
-        set_target_properties(SDL3::SDL3 PROPERTIES IMPORTED_LOCATION "${_DEPS_LIB_DIR}/libSDL3.dylib")
-    else()
-        set_target_properties(SDL3::SDL3 PROPERTIES IMPORTED_LOCATION "${_DEPS_LIB_DIR}/libSDL3.so")
-    endif()
+    _create_dll(SDL3::SDL3 "SDL3.dll")
 endif()
-
 if(NOT TARGET SDL3_mixer::SDL3_mixer)
-    _create_imported_dll(SDL3_mixer::SDL3_mixer "SDL3_mixer")
+    _create_dll(SDL3_mixer::SDL3_mixer "SDL3_mixer.dll")
 endif()
-
 if(NOT TARGET SDL3_image::SDL3_image)
-    _create_imported_dll(SDL3_image::SDL3_image "SDL3_image")
+    _create_dll(SDL3_image::SDL3_image "SDL3_image.dll")
 endif()
-
 if(NOT TARGET SDL3_ttf::SDL3_ttf)
-    _create_imported_dll(SDL3_ttf::SDL3_ttf "SDL3_ttf")
+    _create_dll(SDL3_ttf::SDL3_ttf "SDL3_ttf.dll")
 endif()
 
-# spdlog 可能被编译为静态库
 if(NOT TARGET spdlog::spdlog)
     add_library(spdlog::spdlog UNKNOWN IMPORTED)
 endif()
-
-# glm 和 nlohmann_json 是 header-only，不需要库文件
 if(NOT TARGET glm::glm)
     add_library(glm::glm INTERFACE IMPORTED)
 endif()
@@ -68,30 +77,28 @@ if(NOT TARGET nlohmann_json::nlohmann_json)
 endif()
 
 # ============================================================
-# 创建 ShitEngine 自身
+# ShitEngine 自身
 # ============================================================
 add_library(ShitEngine::ShitEngine SHARED IMPORTED)
 
 if(WIN32)
     if(MINGW)
-        set(_SE_DLL  "${_DEPS_BIN_DIR}/libShitEngine.dll")
-        set(_SE_LIB  "${ShitEngine_LIB_DIR}/libShitEngine.dll.a")
+        set(_SE_DLL "${_BIN_DIR}/libShitEngine.dll")
+        set(_SE_LIB "${_LIB_DIR}/libShitEngine.dll.a")
     elseif(MSVC)
-        set(_SE_DLL  "${_DEPS_BIN_DIR}/ShitEngine.dll")
-        set(_SE_LIB  "${ShitEngine_LIB_DIR}/ShitEngine.lib")
+        set(_SE_DLL "${_BIN_DIR}/ShitEngine.dll")
+        set(_SE_LIB "${_LIB_DIR}/ShitEngine.lib")
     endif()
 elseif(APPLE)
-    set(_SE_DLL  "${ShitEngine_LIB_DIR}/libShitEngine.dylib")
-    set(_SE_LIB  "")
+    set(_SE_DLL "${_LIB_DIR}/libShitEngine.dylib")
 else()
-    set(_SE_DLL  "${ShitEngine_LIB_DIR}/libShitEngine.so")
-    set(_SE_LIB  "")
+    set(_SE_DLL "${_LIB_DIR}/libShitEngine.so")
 endif()
 
 set_target_properties(ShitEngine::ShitEngine PROPERTIES
     IMPORTED_LOCATION             "${_SE_DLL}"
     IMPORTED_IMPLIB               "${_SE_LIB}"
-    INTERFACE_INCLUDE_DIRECTORIES "${ShitEngine_INCLUDE_DIR}"
+    INTERFACE_INCLUDE_DIRECTORIES "${_INC_DIR}"
     INTERFACE_LINK_LIBRARIES      "SDL3::SDL3;SDL3_mixer::SDL3_mixer;SDL3_image::SDL3_image;SDL3_ttf::SDL3_ttf;spdlog::spdlog;glm::glm;nlohmann_json::nlohmann_json"
 )
 

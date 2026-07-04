@@ -80,7 +80,17 @@ find_package(ShitEngine REQUIRED PATHS /path/to/ShitEngine NO_DEFAULT_PATH)
 target_link_libraries(MyGame PRIVATE ShitEngine::ShitEngine)
 ```
 
-预编译包附带了 `ShitEngineConfig.cmake`，会自动查找 SDL3、spdlog 等依赖。
+Config.cmake 会根据 `CMAKE_BUILD_TYPE` 自动选择 Debug 或 Release 版本：
+
+```bash
+# Debug 模式（带调试符号）
+cmake -B build -DCMAKE_BUILD_TYPE=Debug
+
+# Release 模式（优化）
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+```
+
+每个平台提供 Debug 和 Release 两个配置。Debug 带调试符号，Release 优化后用于发布。预编译包自带第三方动态库，无需额外安装。
 
 ### 示例代码
 
