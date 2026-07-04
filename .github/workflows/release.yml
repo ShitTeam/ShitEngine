@@ -78,6 +78,7 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
 
       - name: Configure + Build Debug
+        shell: bash
         run: |
           cmake -B build/debug -G Ninja \
             -DCMAKE_C_COMPILER=${{ matrix.cc }} \
@@ -86,6 +87,7 @@ jobs:
           cmake --build build/debug --parallel
 
       - name: Configure + Build Release
+        shell: bash
         run: |
           cmake -B build/release -G Ninja \
             -DCMAKE_C_COMPILER=${{ matrix.cc }} \
