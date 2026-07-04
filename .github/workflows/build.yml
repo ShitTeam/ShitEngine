@@ -75,17 +75,17 @@ jobs:
 
       - name: Configure + Build Debug
         run: |
-          cmake -B build/debug -G Ninja `
-            -DCMAKE_C_COMPILER=${{ matrix.cc }} `
-            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} `
+          cmake -B build/debug -G Ninja \
+            -DCMAKE_C_COMPILER=${{ matrix.cc }} \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
             -DCMAKE_BUILD_TYPE=Debug
           cmake --build build/debug --parallel
 
       - name: Configure + Build Release
         run: |
-          cmake -B build/release -G Ninja `
-            -DCMAKE_C_COMPILER=${{ matrix.cc }} `
-            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} `
+          cmake -B build/release -G Ninja \
+            -DCMAKE_C_COMPILER=${{ matrix.cc }} \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
             -DCMAKE_BUILD_TYPE=Release
           cmake --build build/release --parallel
 
