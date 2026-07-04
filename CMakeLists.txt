@@ -16,6 +16,13 @@ endif()
 
 project ("ShitEngine")
 
+# MinGW: 允许 COFF 目标文件超过 65535 段（harfbuzz 等大文件需要）
+# 必须在 project() 之后，确保传播到 FetchContent 子项目
+if(MINGW)
+    set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -Wa,-mbig-obj")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wa,-mbig-obj")
+endif()
+
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
