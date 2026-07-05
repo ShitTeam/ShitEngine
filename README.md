@@ -36,12 +36,21 @@ Game
 │       ├── RenderSystem    多相机渲染管线
 │       ├── GameObject
 │       │   ├── TransformComponent
-│       │   ├── SpriteRenderer
-│       │   ├── CameraComponent
+│       │   ├── RendererComponent（渲染组件基类）
+│       │   │   ├── SpriteRenderer
+│       │   │   └── CameraComponent
+│       │   ├── AnimationComponent
 │       │   └── Behavior（用户继承）
 ```
 
 ## 快速开始
+
+### 环境要求
+
+- C++20 编译器（GCC 10+、Clang 11+、MSVC 2019+）
+- CMake 3.20+
+
+> 第三方依赖（SDL3、spdlog、glm 等）由 CMake 自动拉取或在预编译包中自带。
 
 ### 方式一：CMake FetchContent（推荐）
 
@@ -73,24 +82,33 @@ target_link_libraries(MyGame PRIVATE ShitEngine)
 
 ### 方式三：find_package（预编译库）
 
-从 GitHub Release 下载后：
+从 GitHub Release 下载解压后，artifact 结构如下：
+
+```
+ShitEngine/
+├── bin/          # ShitEngine.dll (Release) + ShitEngine-d.dll (Debug) + 第三方 DLL
+├── lib/          # 导入库 + ShitEngineConfig.cmake
+└── include/      # 头文件
+```
+
+在你的 CMakeLists.txt 中：
 
 ```cmake
-find_package(ShitEngine REQUIRED PATHS /path/to/ShitEngine NO_DEFAULT_PATH)
+find_package(ShitEngine REQUIRED
+    PATHS /path/to/ShitEngine/lib/cmake
+    NO_DEFAULT_PATH)
+add_executable(MyGame main.cpp)
 target_link_libraries(MyGame PRIVATE ShitEngine::ShitEngine)
 ```
 
-Config.cmake 会根据 `CMAKE_BUILD_TYPE` 自动选择 Debug 或 Release 版本：
+Config.cmake 会根据 `-DCMAKE_BUILD_TYPE=Debug` 或 `Release` 自动选择对应的库文件（Debug 版本文件名带 `-d` 后缀）。
 
-```bash
-# Debug 模式（带调试符号）
-cmake -B build -DCMAKE_BUILD_TYPE=Debug
+预编译包自带第三方动态库，无需额外安装 SDL3 等依赖。
 
-# Release 模式（优化）
-cmake -B build -DCMAKE_BUILD_TYPE=Release
-```
-
-每个平台提供 Debug 和 Release 两个配置。Debug 带调试符号，Release 优化后用于发布。预编译包自带第三方动态库，无需额外安装。
+> **Linux 用户**：运行前需设置动态库路径：
+> ```bash
+> export LD_LIBRARY_PATH=/path/to/ShitEngine/lib:$LD_LIBRARY_PATH
+> ```
 
 ### 示例代码
 

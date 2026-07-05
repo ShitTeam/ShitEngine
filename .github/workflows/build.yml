@@ -56,11 +56,15 @@ jobs:
       - name: Install dependencies
         run: ${{ matrix.deps-setup }}
 
+      - name: Setup MSVC
+        if: matrix.cc == 'cl'
+        uses: ilammy/msvc-dev-cmd@v1
+
       - name: Setup ccache
         if: runner.os != 'Windows'
         uses: hendrikmuhs/ccache-action@v1.2
         with:
-          key: ${{ runner.os }}
+          key: ${{ matrix.artifact }}
 
       - name: Restore CMake cache
         uses: actions/cache@v4
@@ -69,50 +73,46 @@ jobs:
           key: ${{ matrix.artifact }}-${{ hashFiles('cmake/DependencyManager.cmake', 'CMakeLists.txt') }}
           restore-keys: ${{ matrix.artifact }}-
 
-      - name: Setup MSVC
-        if: matrix.cc == 'cl'
-        uses: ilammy/msvc-dev-cmd@v1
-
-      - name: Configure + Build Debug
-        shell: bash
-        run: |
-          cmake -B build/debug -G Ninja \
-            -DCMAKE_C_COMPILER=${{ matrix.cc }} \
-            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
-            -DCMAKE_BUILD_TYPE=Debug
-          cmake --build build/debug --parallel
-
-      - name: Configure + Build Release
+      # Release
+      - name: Configure Release
         shell: bash
         run: |
           cmake -B build/release -G Ninja \
             -DCMAKE_C_COMPILER=${{ matrix.cc }} \
             -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
             -DCMAKE_BUILD_TYPE=Release
-          cmake --build build/release --parallel
+      - name: Build Release
+        run: cmake --build build/release --parallel
+      - name: Install Release
+        run: cmake --install build/release --prefix install
 
-      - name: Install
+      # Debug
+      - name: Configure Debug
         shell: bash
         run: |
-          cmake --install build/debug  --prefix install/Debug
-          cmake --install build/release --prefix install/Release
+          cmake -B build/debug -G Ninja \
+            -DCMAKE_C_COMPILER=${{ matrix.cc }} \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
+            -DCMAKE_BUILD_TYPE=Debug
+      - name: Build Debug
+        run: cmake --build build/debug --parallel
+      - name: Install Debug
+        run: cmake --install build/debug --prefix install
 
+      # 复制第三方动态库
       - name: Copy shared libs
         shell: bash
         run: |
-          for CONFIG in Debug Release; do
-            BUILD="build/$(echo $CONFIG | tr '[:upper:]' '[:lower:]')"
-            if [ "$RUNNER_OS" = "Windows" ]; then
-              find "$BUILD/_deps" -name "*.dll" -exec cp -n {} install/$CONFIG/bin/ \;
-              find "$BUILD/_deps" -name "*.dll.a" -exec cp -n {} install/$CONFIG/lib/ \;
-            elif [ "$RUNNER_OS" = "Linux" ]; then
-              find "$BUILD/_deps" -name "*.so*" ! -name "*.so.t*" -exec cp -n {} install/$CONFIG/lib/ \;
-            elif [ "$RUNNER_OS" = "macOS" ]; then
-              find "$BUILD/_deps" -name "*.dylib" -exec cp -n {} install/$CONFIG/lib/ \;
-            fi
-          done
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            find build/release/_deps -name "*.dll" -exec cp -n {} install/bin/ \;
+            find build/release/_deps -name "*.dll.a" -exec cp -n {} install/lib/ \;
+          elif [ "$RUNNER_OS" = "Linux" ]; then
+            find build/release/_deps -name "*.so*" ! -name "*.so.t*" -exec cp -n {} install/lib/ \;
+          elif [ "$RUNNER_OS" = "macOS" ]; then
+            find build/release/_deps -name "*.dylib" -exec cp -n {} install/lib/ \;
+          fi
 
-      - name: Upload artifacts
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
