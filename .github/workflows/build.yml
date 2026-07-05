@@ -80,7 +80,8 @@ jobs:
           cmake -B build/release -G Ninja \
             -DCMAKE_C_COMPILER=${{ matrix.cc }} \
             -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
-            -DCMAKE_BUILD_TYPE=Release
+            -DCMAKE_BUILD_TYPE=Release \
+            ${{ runner.os == 'macOS' && '-DCMAKE_OSX_SYSROOT=macosx' || '' }}
       - name: Build Release
         run: cmake --build build/release --parallel
       - name: Install Release
@@ -93,7 +94,8 @@ jobs:
           cmake -B build/debug -G Ninja \
             -DCMAKE_C_COMPILER=${{ matrix.cc }} \
             -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
-            -DCMAKE_BUILD_TYPE=Debug
+            -DCMAKE_BUILD_TYPE=Debug \
+            ${{ runner.os == 'macOS' && '-DCMAKE_OSX_SYSROOT=macosx' || '' }}
       - name: Build Debug
         run: cmake --build build/debug --parallel
       - name: Install Debug
