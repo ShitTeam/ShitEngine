@@ -54,9 +54,10 @@ _create_dll(SDL3_mixer::SDL3_mixer "SDL3_mixer")
 _create_dll(SDL3_image::SDL3_image "SDL3_image")
 _create_dll(SDL3_ttf::SDL3_ttf "SDL3_ttf")
 
-# header-only / 静态依赖
+# header-only / 可能静态链接的依赖
+# spdlog: 可能静态编入 ShitEngine.dll，不需要用户链接
 if(NOT TARGET spdlog::spdlog)
-    add_library(spdlog::spdlog UNKNOWN IMPORTED)
+    add_library(spdlog::spdlog INTERFACE IMPORTED)
 endif()
 if(NOT TARGET glm::glm)
     add_library(glm::glm INTERFACE IMPORTED)
