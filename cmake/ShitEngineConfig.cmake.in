@@ -4,9 +4,7 @@ set_and_check(ShitEngine_INCLUDE_DIR "@PACKAGE_CMAKE_INSTALL_INCLUDEDIR@")
 set_and_check(ShitEngine_LIB_DIR     "@PACKAGE_CMAKE_INSTALL_LIBDIR@")
 
 # ============================================================
-# 根据 CMAKE_BUILD_TYPE 选择正确的库文件
-# Debug 版本带 -d 后缀：ShitEngine-d.dll / libShitEngine-d.so
-# Release 版本无后缀：  ShitEngine.dll   / libShitEngine.so
+# Debug/Release 文件名后缀：Debug 版本带 -d 后缀
 # ============================================================
 if(CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
     set(_SE_SUFFIX "-d")
@@ -14,14 +12,15 @@ else()
     set(_SE_SUFFIX "")
 endif()
 
-# 第三方依赖 DLL 所在目录
 set(_BIN_DIR "${ShitEngine_LIB_DIR}/../bin")
 set(_LIB_DIR "${ShitEngine_LIB_DIR}")
 set(_INC_DIR "${ShitEngine_INCLUDE_DIR}")
 
 # ============================================================
-# 创建 imported target
+# 创建 imported target（DLL 不存在则跳过，该依赖已静态链接）
 # ============================================================
+set(_FOUND_DEPS "")
+
 macro(_create_dll _target _base_name)
     if(WIN32)
         set(_loc "${_BIN_DIR}/${_base_name}${_SE_SUFFIX}.dll")
@@ -33,33 +32,27 @@ macro(_create_dll _target _base_name)
     if(EXISTS "${_loc}")
         add_library(${_target} SHARED IMPORTED)
         set_target_properties(${_target} PROPERTIES IMPORTED_LOCATION "${_loc}")
-    endif()
-    # Import library (仅链接用，不影响运行)
-    if(MINGW)
-        set(_implib "${_LIB_DIR}/lib${_base_name}${_SE_SUFFIX}.dll.a")
-        if(EXISTS "${_implib}")
-            set_target_properties(${_target} PROPERTIES IMPORTED_IMPLIB "${_implib}")
+        list(APPEND _FOUND_DEPS "${_target}")
+        if(MINGW)
+            set(_implib "${_LIB_DIR}/lib${_base_name}${_SE_SUFFIX}.dll.a")
+            if(EXISTS "${_implib}")
+                set_target_properties(${_target} PROPERTIES IMPORTED_IMPLIB "${_implib}")
+            endif()
+        elseif(MSVC)
+            set(_implib "${_LIB_DIR}/${_base_name}${_SE_SUFFIX}.lib")
+            if(EXISTS "${_implib}")
+                set_target_properties(${_target} PROPERTIES IMPORTED_IMPLIB "${_implib}")
+            endif()
         endif()
-    elseif(MSVC)
-        set(_implib "${_LIB_DIR}/${_base_name}${_SE_SUFFIX}.lib")
-        if(EXISTS "${_implib}")
-            set_target_properties(${_target} PROPERTIES IMPORTED_IMPLIB "${_implib}")
-        endif()
+    else()
+        message(STATUS "ShitEngine: ${_target} DLL not found (${_loc}), assume statically linked")
     endif()
 endmacro()
 
-if(NOT TARGET SDL3::SDL3)
-    _create_dll(SDL3::SDL3 "SDL3")
-endif()
-if(NOT TARGET SDL3_mixer::SDL3_mixer)
-    _create_dll(SDL3_mixer::SDL3_mixer "SDL3_mixer")
-endif()
-if(NOT TARGET SDL3_image::SDL3_image)
-    _create_dll(SDL3_image::SDL3_image "SDL3_image")
-endif()
-if(NOT TARGET SDL3_ttf::SDL3_ttf)
-    _create_dll(SDL3_ttf::SDL3_ttf "SDL3_ttf")
-endif()
+_create_dll(SDL3::SDL3 "SDL3")
+_create_dll(SDL3_mixer::SDL3_mixer "SDL3_mixer")
+_create_dll(SDL3_image::SDL3_image "SDL3_image")
+_create_dll(SDL3_ttf::SDL3_ttf "SDL3_ttf")
 
 # header-only / 静态依赖
 if(NOT TARGET spdlog::spdlog)
@@ -91,11 +84,26 @@ else()
     set(_SE_DLL "${_LIB_DIR}/libShitEngine${_SE_SUFFIX}.so")
 endif()
 
+# 只链接实际找到的依赖
+set(_LINK_LIBS "spdlog::spdlog;glm::glm;nlohmann_json::nlohmann_json")
+if(TARGET SDL3::SDL3)
+    list(APPEND _LINK_LIBS "SDL3::SDL3")
+endif()
+if(TARGET SDL3_mixer::SDL3_mixer)
+    list(APPEND _LINK_LIBS "SDL3_mixer::SDL3_mixer")
+endif()
+if(TARGET SDL3_image::SDL3_image)
+    list(APPEND _LINK_LIBS "SDL3_image::SDL3_image")
+endif()
+if(TARGET SDL3_ttf::SDL3_ttf)
+    list(APPEND _LINK_LIBS "SDL3_ttf::SDL3_ttf")
+endif()
+
 set_target_properties(ShitEngine::ShitEngine PROPERTIES
     IMPORTED_LOCATION             "${_SE_DLL}"
     IMPORTED_IMPLIB               "${_SE_LIB}"
     INTERFACE_INCLUDE_DIRECTORIES "${_INC_DIR}"
-    INTERFACE_LINK_LIBRARIES      "SDL3::SDL3;SDL3_mixer::SDL3_mixer;SDL3_image::SDL3_image;SDL3_ttf::SDL3_ttf;spdlog::spdlog;glm::glm;nlohmann_json::nlohmann_json"
+    INTERFACE_LINK_LIBRARIES      "${_LINK_LIBS}"
 )
 
 check_required_components(ShitEngine)
