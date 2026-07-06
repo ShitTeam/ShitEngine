@@ -185,7 +185,7 @@ endmacro()
 # ============================================
 # 设置所有项目依赖
 # ============================================
-function(setup_project_dependencies)
+macro(setup_project_dependencies)
     # SDL3
     find_or_fetch_dependency(
         SDL3
@@ -262,4 +262,4 @@ function(setup_project_dependencies)
         STATIC  # 推荐静态链接，避免运行时依赖
     )
     
-endfunction()
+endmacro()
