@@ -72,8 +72,15 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/build
-          key: ${{ matrix.artifact }}-${{ hashFiles('cmake/DependencyManager.cmake', 'CMakeLists.txt') }}
-          restore-keys: ${{ matrix.artifact }}-
+          key: ${{ matrix.artifact }}-v1-${{ hashFiles('cmake/DependencyManager.cmake', 'CMakeLists.txt') }}
+          restore-keys: |
+            ${{ matrix.artifact }}-v1-
+            ${{ matrix.artifact }}-
+
+      # macOS: 强制清除旧缓存（Iconv::Iconv 指向不存在的 SDK 路径）
+      - name: Force full reconfigure on macOS
+        if: runner.os == 'macOS'
+        run: rm -rf build
 
       # Release
       - name: Configure Release
