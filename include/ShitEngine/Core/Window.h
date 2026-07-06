@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <memory>
+#include <SDL3/SDL.h>
 #include "Core.h"
 
 struct SDL_Window;

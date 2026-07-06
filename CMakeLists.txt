@@ -125,7 +125,7 @@ _install_fetch_headers(SDL3         "include/SDL3"        "*.h")
 _install_fetch_headers(SDL3_mixer   "include/SDL3_mixer"  "*.h")
 _install_fetch_headers(SDL3_image   "include/SDL3_image"  "*.h")
 _install_fetch_headers(SDL3_ttf     "include/SDL3_ttf"    "*.h")
-_install_fetch_headers(glm          "glm"                 "*.hpp")
+_install_fetch_headers(glm          "glm"                 "*.*")
 _install_fetch_headers(json         "include/nlohmann"    "*.hpp")
 
 # 库文件（Debug 自动加 -d 后缀）
