@@ -93,6 +93,11 @@ target_link_libraries(ShitEngine PUBLIC
 
 set_target_properties(ShitEngine PROPERTIES CXX_STANDARD 20)
 
+# MSVC 使用者也需要 /utf-8（spdlog 要求）
+if(MSVC)
+    target_compile_options(ShitEngine PUBLIC /utf-8)
+endif()
+
 # ── Install ──────────────────────────────────────────────
 include(GNUInstallDirs)
 
@@ -104,48 +109,27 @@ install(DIRECTORY include/ShitEngine
 install(FILES include/ShitEngine.h
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
-# 安装第三方依赖头文件（ShitEngine 内部头文件需要这些）
-if(spdlog_SOURCE_DIR)
-    install(DIRECTORY "${spdlog_SOURCE_DIR}/include/spdlog"
-            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-            FILES_MATCHING PATTERN "*.h")
-endif()
+# 安装第三方依赖头文件（ShitEngine 内部头文件需要这些，从 target include 路径查找）
+macro(_install_dep_headers _target _subdir _pattern)
+    if(TARGET ${_target})
+        get_target_property(_incs ${_target} INTERFACE_INCLUDE_DIRECTORIES)
+        foreach(_dir ${_incs})
+            if(EXISTS "${_dir}/${_subdir}")
+                install(DIRECTORY "${_dir}/${_subdir}"
+                        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+                        FILES_MATCHING PATTERN "${_pattern}")
+            endif()
+        endforeach()
+    endif()
+endmacro()
 
-# SDL3 头文件
-if(SDL3_SOURCE_DIR)
-    install(DIRECTORY "${SDL3_SOURCE_DIR}/include/SDL3"
-            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-            FILES_MATCHING PATTERN "*.h")
-endif()
-if(SDL3_mixer_SOURCE_DIR)
-    install(DIRECTORY "${SDL3_mixer_SOURCE_DIR}/include/SDL3_mixer"
-            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-            FILES_MATCHING PATTERN "*.h")
-endif()
-if(SDL3_image_SOURCE_DIR)
-    install(DIRECTORY "${SDL3_image_SOURCE_DIR}/include/SDL3_image"
-            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-            FILES_MATCHING PATTERN "*.h")
-endif()
-if(SDL3_ttf_SOURCE_DIR)
-    install(DIRECTORY "${SDL3_ttf_SOURCE_DIR}/include/SDL3_ttf"
-            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-            FILES_MATCHING PATTERN "*.h")
-endif()
-
-# glm（header-only）
-if(glm_SOURCE_DIR)
-    install(DIRECTORY "${glm_SOURCE_DIR}/glm"
-            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-            FILES_MATCHING PATTERN "*.hpp")
-endif()
-
-# nlohmann_json（header-only）
-if(json_SOURCE_DIR)
-    install(DIRECTORY "${json_SOURCE_DIR}/include/nlohmann"
-            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-            FILES_MATCHING PATTERN "*.hpp")
-endif()
+_install_dep_headers(spdlog::spdlog  "spdlog"                  "*.h")
+_install_dep_headers(SDL3::SDL3     "SDL3"                     "*.h")
+_install_dep_headers(SDL3_mixer::SDL3_mixer "SDL3_mixer"       "*.h")
+_install_dep_headers(SDL3_image::SDL3_image "SDL3_image"       "*.h")
+_install_dep_headers(SDL3_ttf::SDL3_ttf   "SDL3_ttf"           "*.h")
+_install_dep_headers(glm::glm       "glm"                      "*.hpp")
+_install_dep_headers(nlohmann_json::nlohmann_json "nlohmann"    "*.hpp")
 
 # 库文件（Debug 自动加 -d 后缀）
 install(TARGETS ShitEngine

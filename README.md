@@ -185,7 +185,7 @@ camera2->getComponent<Shit::CameraComponent>()->setViewportRatio({0.5f, 0.0f, 0.
 ## 更多
 
 - [GitHub 仓库](https://github.com/ShitTeam/ShitEngine) — 源代码和 Issues
-- [文档网站](https://shitteam.github.io/ShitEngine) — API 参考和教程
+- [文档网站](https://engine.shitteam.top) — API 参考和教程
 
 ## 许可证
 
