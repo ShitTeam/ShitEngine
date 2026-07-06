@@ -104,6 +104,54 @@ install(DIRECTORY include/ShitEngine
 install(FILES include/ShitEngine.h
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
+# 安装第三方依赖头文件（ShitEngine 内部头文件需要这些）
+if(TARGET spdlog::spdlog)
+    get_target_property(_spdlog_INCS spdlog::spdlog INTERFACE_INCLUDE_DIRECTORIES)
+    foreach(_dir ${_spdlog_INCS})
+        if(EXISTS "${_dir}/spdlog/spdlog.h")
+            install(DIRECTORY "${_dir}/spdlog"
+                    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+                    FILES_MATCHING PATTERN "*.h")
+        endif()
+    endforeach()
+endif()
+
+# SDL3 头文件
+if(SDL3_SOURCE_DIR)
+    install(DIRECTORY "${SDL3_SOURCE_DIR}/include/SDL3"
+            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+            FILES_MATCHING PATTERN "*.h")
+endif()
+if(SDL3_mixer_SOURCE_DIR)
+    install(DIRECTORY "${SDL3_mixer_SOURCE_DIR}/include/SDL3_mixer"
+            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+            FILES_MATCHING PATTERN "*.h")
+endif()
+if(SDL3_image_SOURCE_DIR)
+    install(DIRECTORY "${SDL3_image_SOURCE_DIR}/include/SDL3_image"
+            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+            FILES_MATCHING PATTERN "*.h")
+endif()
+if(SDL3_ttf_SOURCE_DIR)
+    install(DIRECTORY "${SDL3_ttf_SOURCE_DIR}/include/SDL3_ttf"
+            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+            FILES_MATCHING PATTERN "*.h")
+endif()
+
+# glm（header-only）
+if(glm_SOURCE_DIR)
+    install(DIRECTORY "${glm_SOURCE_DIR}/glm"
+            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+            FILES_MATCHING PATTERN "*.hpp")
+endif()
+
+# nlohmann_json（header-only）
+if(json_SOURCE_DIR)
+    install(DIRECTORY "${json_SOURCE_DIR}/include/nlohmann"
+            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+            FILES_MATCHING PATTERN "*.hpp")
+endif()
+
 # 库文件（Debug 自动加 -d 后缀）
 install(TARGETS ShitEngine
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
