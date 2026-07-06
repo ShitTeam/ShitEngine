@@ -48,7 +48,7 @@ jobs:
             artifact: ShitEngine-macos
             deps-setup: |
               brew install ninja ccache
-              # 获取当前 SDK 路径，用于 cmake -DCMAKE_OSX_SYSROOT
+              # 全局设置 SDKROOT，CMake 会自动使用
               echo "SDKROOT=$(xcrun --show-sdk-path)" >> $GITHUB_ENV
 
     runs-on: ${{ matrix.os }}
@@ -86,12 +86,10 @@ jobs:
       - name: Configure Release
         shell: bash
         run: |
-          SDKROOT="$(xcrun --show-sdk-path 2>/dev/null || echo '')"
           cmake -B build/release -G Ninja \
             -DCMAKE_C_COMPILER=${{ matrix.cc }} \
             -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
-            -DCMAKE_BUILD_TYPE=Release \
-            ${SDKROOT:+-DCMAKE_OSX_SYSROOT="${SDKROOT}"}
+            -DCMAKE_BUILD_TYPE=Release
       - name: Build Release
         run: cmake --build build/release --parallel
       - name: Install Release
@@ -101,12 +99,10 @@ jobs:
       - name: Configure Debug
         shell: bash
         run: |
-          SDKROOT="$(xcrun --show-sdk-path 2>/dev/null || echo '')"
           cmake -B build/debug -G Ninja \
             -DCMAKE_C_COMPILER=${{ matrix.cc }} \
             -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
-            -DCMAKE_BUILD_TYPE=Debug \
-            ${SDKROOT:+-DCMAKE_OSX_SYSROOT="${SDKROOT}"}
+            -DCMAKE_BUILD_TYPE=Debug
       - name: Build Debug
         run: cmake --build build/debug --parallel
       - name: Install Debug
