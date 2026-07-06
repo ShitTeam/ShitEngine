@@ -109,27 +109,24 @@ install(DIRECTORY include/ShitEngine
 install(FILES include/ShitEngine.h
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
-# 安装第三方依赖头文件（ShitEngine 内部头文件需要这些，从 target include 路径查找）
-macro(_install_dep_headers _target _subdir _pattern)
-    if(TARGET ${_target})
-        get_target_property(_incs ${_target} INTERFACE_INCLUDE_DIRECTORIES)
-        foreach(_dir ${_incs})
-            if(EXISTS "${_dir}/${_subdir}")
-                install(DIRECTORY "${_dir}/${_subdir}"
-                        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-                        FILES_MATCHING PATTERN "${_pattern}")
-            endif()
-        endforeach()
+# 安装第三方依赖头文件（用 FetchContent 获取源路径）
+macro(_install_fetch_headers _dep _subdir _pattern)
+    FetchContent_GetProperties(${_dep})
+    set(_dir "${${_dep}_SOURCE_DIR}")
+    if(_dir AND EXISTS "${_dir}/${_subdir}")
+        install(DIRECTORY "${_dir}/${_subdir}"
+                DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+                FILES_MATCHING PATTERN "${_pattern}")
     endif()
 endmacro()
 
-_install_dep_headers(spdlog::spdlog  "spdlog"                  "*.h")
-_install_dep_headers(SDL3::SDL3     "SDL3"                     "*.h")
-_install_dep_headers(SDL3_mixer::SDL3_mixer "SDL3_mixer"       "*.h")
-_install_dep_headers(SDL3_image::SDL3_image "SDL3_image"       "*.h")
-_install_dep_headers(SDL3_ttf::SDL3_ttf   "SDL3_ttf"           "*.h")
-_install_dep_headers(glm::glm       "glm"                      "*.hpp")
-_install_dep_headers(nlohmann_json::nlohmann_json "nlohmann"    "*.hpp")
+_install_fetch_headers(spdlog       "include/spdlog"      "*.h")
+_install_fetch_headers(SDL3         "include/SDL3"        "*.h")
+_install_fetch_headers(SDL3_mixer   "include/SDL3_mixer"  "*.h")
+_install_fetch_headers(SDL3_image   "include/SDL3_image"  "*.h")
+_install_fetch_headers(SDL3_ttf     "include/SDL3_ttf"    "*.h")
+_install_fetch_headers(glm          "glm"                 "*.hpp")
+_install_fetch_headers(json         "include/nlohmann"    "*.hpp")
 
 # 库文件（Debug 自动加 -d 后缀）
 install(TARGETS ShitEngine
