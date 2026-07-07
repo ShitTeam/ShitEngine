@@ -105,6 +105,7 @@ set_target_properties(ShitEngine::ShitEngine PROPERTIES
     IMPORTED_IMPLIB               "${_SE_LIB}"
     INTERFACE_INCLUDE_DIRECTORIES "${_INC_DIR}"
     INTERFACE_COMPILE_OPTIONS     "$<$<CXX_COMPILER_ID:MSVC>:/utf-8>"
+    INTERFACE_COMPILE_FEATURES    "cxx_std_20"
     INTERFACE_LINK_LIBRARIES      "${_LINK_LIBS}"
 )
 
