@@ -82,19 +82,11 @@ else()
 endif()
 
 # 只链接实际找到的依赖
+# 只链接 DLL 和导入库都存在的依赖（_FOUND_DEPS）
 set(_LINK_LIBS "spdlog::spdlog;glm::glm;nlohmann_json::nlohmann_json")
-if(TARGET SDL3::SDL3)
-    list(APPEND _LINK_LIBS "SDL3::SDL3")
-endif()
-if(TARGET SDL3_mixer::SDL3_mixer)
-    list(APPEND _LINK_LIBS "SDL3_mixer::SDL3_mixer")
-endif()
-if(TARGET SDL3_image::SDL3_image)
-    list(APPEND _LINK_LIBS "SDL3_image::SDL3_image")
-endif()
-if(TARGET SDL3_ttf::SDL3_ttf)
-    list(APPEND _LINK_LIBS "SDL3_ttf::SDL3_ttf")
-endif()
+foreach(_dep IN LISTS _FOUND_DEPS)
+    list(APPEND _LINK_LIBS "${_dep}")
+endforeach()
 
 set_target_properties(ShitEngine::ShitEngine PROPERTIES
     IMPORTED_LOCATION             "${_SE_DLL}"
