@@ -7,7 +7,7 @@ namespace Shit {
 		std::ifstream file("settings.json");
 		if (!file.is_open()) {
 			ST_CORE_WARN("配置文件无法打开，正在使用默认配置。");
-			return false;
+			return true; // 使用默认值，不阻止引擎初始化
 		}
 
 		Json j;
