@@ -115,6 +115,7 @@ jobs:
           if [ "$RUNNER_OS" = "Windows" ]; then
             find build/release/bin -name "*.dll" -exec cp -n {} install/bin/ \;
             find build/release/bin -name "*.lib" -exec cp -n {} install/lib/ \;
+            find build/release/lib -name "*.lib" -exec cp -n {} install/lib/ \;
             find build/release/_deps -name "*.dll" -exec cp -n {} install/bin/ \;
             find build/release/_deps -name "*.dll.a" -exec cp -n {} install/lib/ \;
           elif [ "$RUNNER_OS" = "Linux" ]; then
