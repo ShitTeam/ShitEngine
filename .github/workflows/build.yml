@@ -108,16 +108,19 @@ jobs:
       - name: Install Debug
         run: cmake --install build/debug --prefix install
 
-      # 复制第三方动态库
+      # 复制第三方动态库（主输出在 bin/，第三方在 _deps/）
       - name: Copy shared libs
         shell: bash
         run: |
           if [ "$RUNNER_OS" = "Windows" ]; then
+            find build/release/bin -name "*.dll" -exec cp -n {} install/bin/ \;
             find build/release/_deps -name "*.dll" -exec cp -n {} install/bin/ \;
             find build/release/_deps -name "*.dll.a" -exec cp -n {} install/lib/ \;
           elif [ "$RUNNER_OS" = "Linux" ]; then
+            find build/release/bin -name "*.so*" -exec cp -n {} install/lib/ \;
             find build/release/_deps -name "*.so*" ! -name "*.so.t*" -exec cp -n {} install/lib/ \;
           elif [ "$RUNNER_OS" = "macOS" ]; then
+            find build/release/bin -name "*.dylib" -exec cp -n {} install/lib/ \;
             find build/release/_deps -name "*.dylib" -exec cp -n {} install/lib/ \;
           fi
 
