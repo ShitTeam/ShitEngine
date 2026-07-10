@@ -35,7 +35,7 @@ jobs:
             artifact: ShitEngine-linux
             deps-setup: |
               sudo apt-get update
-              sudo apt-get install -y cmake ninja-build build-essential ccache \
+              sudo apt-get install -y ninja-build build-essential ccache \
                 libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev \
                 libwayland-dev libegl1-mesa-dev libgles2-mesa-dev libgl1-mesa-dev \
                 libxkbcommon-dev libdbus-1-dev libibus-1.0-dev \
@@ -89,7 +89,7 @@ jobs:
         run: |
           LINUX_FLAGS=""
           if [ "$RUNNER_OS" = "Linux" ]; then
-            LINUX_FLAGS="-DSDL_X11_XCURSOR=OFF -DSDL_X11_XFIXES=OFF -DCMAKE_THREAD_LIBS_INIT:STRING=-lpthread"
+            LINUX_FLAGS="-DSDL_X11_XCURSOR=OFF -DSDL_X11_XFIXES=OFF"
           fi
           cmake -B build/release -G Ninja \
             -DCMAKE_C_COMPILER=${{ matrix.cc }} \
@@ -107,7 +107,7 @@ jobs:
         run: |
           LINUX_FLAGS=""
           if [ "$RUNNER_OS" = "Linux" ]; then
-            LINUX_FLAGS="-DSDL_X11_XCURSOR=OFF -DSDL_X11_XFIXES=OFF -DCMAKE_THREAD_LIBS_INIT:STRING=-lpthread"
+            LINUX_FLAGS="-DSDL_X11_XCURSOR=OFF -DSDL_X11_XFIXES=OFF"
           fi
           cmake -B build/debug -G Ninja \
             -DCMAKE_C_COMPILER=${{ matrix.cc }} \
