@@ -15,9 +15,17 @@ if (POLICY CMP0141)
 endif()
 
 # MinGW: 允许 COFF 目标文件超过 65535 段
-if(MINGW)
+if(MINGW OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -Wa,-mbig-obj")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wa,-mbig-obj")
+endif()
+
+# CLion/MinGW: windres 路径含空格会导致编译失败
+if(WIN32 AND CMAKE_RC_COMPILER MATCHES "CLion|Program Files")
+    find_program(_RC_COMPILER windres PATHS "C:/MinGW/mingw64/bin" NO_DEFAULT_PATH)
+    if(_RC_COMPILER)
+        set(CMAKE_RC_COMPILER "${_RC_COMPILER}")
+    endif()
 endif()
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
