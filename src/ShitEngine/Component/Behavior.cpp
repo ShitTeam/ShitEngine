@@ -11,10 +11,11 @@ namespace Shit {
 
 		// 注册 Behavior
 
-		if (auto* system = m_owner->getScene()->getSystem<BehaviorSystem>()) {
-			system->registerBehavior(this);
-
-			m_isRegistered = true;
+		if (auto* scene = m_owner->getScene()) {
+			if (auto* system = scene->getSystem<BehaviorSystem>()) {
+				system->registerBehavior(this);
+				m_isRegistered = true;
+			}
 		}
 	}
 

@@ -137,7 +137,7 @@ install(TARGETS ShitEngine
 # CMake config
 include(CMakePackageConfigHelpers)
 configure_package_config_file(
-    ${CMAKE_SOURCE_DIR}/cmake/ShitEngineConfig.cmake.in
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/ShitEngineConfig.cmake.in
     ${CMAKE_BINARY_DIR}/ShitEngineConfig.cmake
     INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ShitEngine
     PATH_VARS CMAKE_INSTALL_INCLUDEDIR CMAKE_INSTALL_LIBDIR)

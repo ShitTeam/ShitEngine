@@ -15,10 +15,12 @@ namespace Shit {
 
 		// 注册 RendererComponent
 
-		if (auto* system = m_owner->getScene()->getSystem<RenderSystem>()) {
-			system->registerRenderer(this);
+		if (auto* scene = m_owner->getScene()) {
+			if (auto* system = scene->getSystem<RenderSystem>()) {
+				system->registerRenderer(this);
 
-			m_isRegistered = true;
+				m_isRegistered = true;
+			}
 		}
 	}
 

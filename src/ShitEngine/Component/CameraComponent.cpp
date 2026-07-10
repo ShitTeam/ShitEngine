@@ -14,9 +14,11 @@ namespace Shit {
 	void CameraComponent::onAttach() {
 		Component::onAttach();
 
-		if (auto* system = m_owner->getScene()->getSystem<RenderSystem>()) {
-			system->registerCamera(this);
-			m_isRegistered = true;
+		if (auto* scene = m_owner->getScene()) {
+			if (auto* system = scene->getSystem<RenderSystem>()) {
+				system->registerCamera(this);
+				m_isRegistered = true;
+			}
 		}
 	}
 
