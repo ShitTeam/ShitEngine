@@ -40,7 +40,8 @@ jobs:
                 libwayland-dev libegl1-mesa-dev libgles2-mesa-dev libgl1-mesa-dev \
                 libxkbcommon-dev libdbus-1-dev libibus-1.0-dev \
                 libpulse-dev libpipewire-0.3-dev libasound2-dev \
-                libdrm-dev libgbm-dev libudev-dev libthai-dev
+                libdrm-dev libgbm-dev libudev-dev libthai-dev \
+                libpthread-stubs0-dev
 
           - os: macos-latest
             cc: clang
@@ -88,7 +89,7 @@ jobs:
         run: |
           LINUX_FLAGS=""
           if [ "$RUNNER_OS" = "Linux" ]; then
-            LINUX_FLAGS="-DSDL_X11_XCURSOR=OFF -DSDL_X11_XFIXES=OFF"
+            LINUX_FLAGS="-DSDL_X11_XCURSOR=OFF -DSDL_X11_XFIXES=OFF -DCMAKE_THREAD_LIBS_INIT:STRING=-lpthread"
           fi
           cmake -B build/release -G Ninja \
             -DCMAKE_C_COMPILER=${{ matrix.cc }} \
@@ -106,7 +107,7 @@ jobs:
         run: |
           LINUX_FLAGS=""
           if [ "$RUNNER_OS" = "Linux" ]; then
-            LINUX_FLAGS="-DSDL_X11_XCURSOR=OFF -DSDL_X11_XFIXES=OFF"
+            LINUX_FLAGS="-DSDL_X11_XCURSOR=OFF -DSDL_X11_XFIXES=OFF -DCMAKE_THREAD_LIBS_INIT:STRING=-lpthread"
           fi
           cmake -B build/debug -G Ninja \
             -DCMAKE_C_COMPILER=${{ matrix.cc }} \
