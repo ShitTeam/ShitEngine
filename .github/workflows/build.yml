@@ -72,9 +72,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/build
-          key: ${{ matrix.artifact }}-v1-${{ hashFiles('cmake/DependencyManager.cmake', 'CMakeLists.txt') }}
+          key: ${{ matrix.artifact }}-v2-${{ hashFiles('cmake/DependencyManager.cmake', 'CMakeLists.txt') }}
           restore-keys: |
-            ${{ matrix.artifact }}-v1-
+            ${{ matrix.artifact }}-v2-
             ${{ matrix.artifact }}-
 
       # macOS: 强制清除旧缓存（Iconv::Iconv 指向不存在的 SDK 路径）
