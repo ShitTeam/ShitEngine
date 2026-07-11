@@ -15,7 +15,7 @@ if (POLICY CMP0141)
 endif()
 
 # MinGW: 允许 COFF 目标文件超过 65535 段
-if(MINGW OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+if(MINGW)
     set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -Wa,-mbig-obj")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wa,-mbig-obj")
 endif()
