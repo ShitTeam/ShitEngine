@@ -41,6 +41,7 @@ add_library(ShitEngine SHARED
     "src/ShitEngine/Core/Time.cpp"
     "src/ShitEngine/Core/Window.cpp"
     "src/ShitEngine/Core/Config.cpp"
+    "src/ShitEngine/Event/EventBus.cpp"
     # Input
     "src/ShitEngine/Input/Input.cpp"
     # Scene

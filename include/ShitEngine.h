@@ -7,6 +7,12 @@
 #include "ShitEngine/Core/Time.h"
 #include "ShitEngine/Core/Window.h"
 #include "ShitEngine/Core/Config.h"
+#include "ShitEngine/Event/EventBus.h"
+#include "ShitEngine/Core/Game.h"
+#include "ShitEngine/Core/Log.h"
+#include "ShitEngine/Core/Time.h"
+#include "ShitEngine/Core/Window.h"
+#include "ShitEngine/Core/Config.h"
 
 // Math
 #include "ShitEngine/Math.h"
