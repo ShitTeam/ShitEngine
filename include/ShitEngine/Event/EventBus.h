@@ -1,59 +1,66 @@
 #pragma once
-#include "../Core/Core.h"
+#include "Event.h"
 #include <functional>
 #include <typeindex>
 #include <unordered_map>
 #include <vector>
 #include <memory>
+#include <queue>
+#include <mutex>
 
 namespace Shit {
 
 /**
- * @brief 事件总线，提供类型安全的事件发布/订阅
+ * @brief 事件总线，缓冲队列模式
  *
- * 用法：
- *   Shit::EventBus::Listen<CollisionEvent>([](const CollisionEvent& e) { ... });
- *   Shit::EventBus::Emit<CollisionEvent>({a, b});
+ * 所有事件先入队，在游戏循环的统一时刻（ProcessEvents）派发。
+ * 避免递归触发、迭代器失效等问题。
+ *
+ * 使用示例：
+ *   struct CollisionEvent : public Shit::Event { class GameObject* a; class GameObject* b; };
+ *
+ *   uint64_t id = Shit::EventBus::Subscribe<CollisionEvent>(
+ *       [](const CollisionEvent& e) { /* handle *\/ });
+ *
+ *   Shit::EventBus::Emit(CollisionEvent{nullptr, nullptr});
+ *   // 游戏循环结束时：
+ *   Shit::EventBus::ProcessEvents();
+ *   Shit::EventBus::Unsubscribe<CollisionEvent>(id);
+ *   Shit::EventBus::Unsubscribe<CollisionEvent>(id);
  */
 class SHIT_API EventBus {
 public:
-    using HandlerID = size_t;
+    using HandlerID = uint64_t;
 
-    // --- 静态API ---
-    template<typename Event>
-    static HandlerID Listen(std::function<void(const Event&)> callback) {
-        return GetInstance().listen<Event>(std::move(callback));
+    template<typename EventType>
+    static HandlerID Subscribe(std::function<void(const EventType&)> callback) {
+        static_assert(std::is_base_of_v<Event, EventType>, "EventType must inherit from Event");
+        return GetInstance().subscribe<EventType>(std::move(callback));
     }
 
-    template<typename Event>
-    static HandlerID ListenOnce(std::function<void(const Event&)> callback) {
-        auto& instance = GetInstance();
-        auto weak = std::make_shared<std::function<void(const Event&)>>(std::move(callback));
-        return instance.listen<Event>([weak, &instance](const Event& e) {
-            if (auto f = *weak) { f(e); }
-        });
+    template<typename EventType>
+    static void Unsubscribe(HandlerID id) {
+        GetInstance().unsubscribe<EventType>(id);
     }
 
-    template<typename Event>
-    static void Emit(const Event& event) {
-        GetInstance().emit<Event>(event);
+    template<typename EventType>
+    static void Emit(const EventType& event) {
+        GetInstance().emit<EventType>(event);
     }
 
-    template<typename Event>
-    static void Unbind(HandlerID id) {
-        GetInstance().unbind<Event>(id);
+    static void ProcessEvents() {
+        GetInstance().processEvents();
     }
 
-    template<typename Event>
+    template<typename EventType>
     static void Clear() {
-        GetInstance().clear<Event>();
+        GetInstance().clear<EventType>();
     }
 
     static void ClearAll() {
         GetInstance().clearAll();
     }
 
-    // --- 单例 ---
     static EventBus& GetInstance();
 
     EventBus(const EventBus&) = delete;
@@ -65,73 +72,55 @@ private:
     EventBus() = default;
     ~EventBus() = default;
 
-    struct IHandlerList {
-        virtual ~IHandlerList() = default;
+    struct ListenerEntry {
+        HandlerID id;
+        std::function<void(const Event&)> callback;
     };
 
-    template<typename Event>
-    struct HandlerList : IHandlerList {
-        struct Entry {
-            HandlerID id;
-            std::function<void(const Event&)> callback;
-        };
-        std::vector<Entry> handlers;
-        HandlerID nextID = 0;
-    };
-
-    template<typename Event>
-    HandlerList<Event>& getOrCreateList() {
-        auto key = std::type_index(typeid(Event));
-        auto it = m_handlers.find(key);
-        if (it == m_handlers.end()) {
-            auto list = std::make_unique<HandlerList<Event>>();
-            auto* ptr = list.get();
-            m_handlers[key] = std::move(list);
-            return *ptr;
-        }
-        return static_cast<HandlerList<Event>&>(*it->second);
-    }
-
-    template<typename Event>
-    HandlerID listen(std::function<void(const Event&)> callback) {
-        auto& list = getOrCreateList<Event>();
-        HandlerID id = list.nextID++;
-        list.handlers.push_back({id, std::move(callback)});
+    template<typename EventType>
+    HandlerID subscribe(std::function<void(const EventType&)> callback) {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        HandlerID id = m_nextID++;
+        m_listeners[std::type_index(typeid(EventType))].push_back({
+            id,
+            [cb = std::move(callback)](const Event& e) {
+                cb(static_cast<const EventType&>(e));
+            }
+        });
         return id;
     }
 
-    template<typename Event>
-    void emit(const Event& event) {
-        auto it = m_handlers.find(std::type_index(typeid(Event)));
-        if (it == m_handlers.end()) return;
-        auto& list = static_cast<HandlerList<Event>&>(*it->second);
-        for (auto& entry : list.handlers) {
-            entry.callback(event);
-        }
+    template<typename EventType>
+    void unsubscribe(HandlerID id) {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        auto it = m_listeners.find(std::type_index(typeid(EventType)));
+        if (it == m_listeners.end()) return;
+        auto& vec = it->second;
+        vec.erase(std::remove_if(vec.begin(), vec.end(),
+            [id](const ListenerEntry& entry) { return entry.id == id; }),
+            vec.end());
     }
 
-    template<typename Event>
-    void unbind(HandlerID id) {
-        auto it = m_handlers.find(std::type_index(typeid(Event)));
-        if (it == m_handlers.end()) return;
-        auto& list = static_cast<HandlerList<Event>&>(*it->second);
-        list.handlers.erase(
-            std::remove_if(list.handlers.begin(), list.handlers.end(),
-                [id](const auto& entry) { return entry.id == id; }),
-            list.handlers.end()
-        );
+    template<typename EventType>
+    void emit(const EventType& event) {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_eventQueue.push(std::make_shared<EventType>(event));
     }
 
-    template<typename Event>
+    void processEvents();
+
+    template<typename EventType>
     void clear() {
-        m_handlers.erase(std::type_index(typeid(Event)));
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_listeners.erase(std::type_index(typeid(EventType)));
     }
 
-    void clearAll() {
-        m_handlers.clear();
-    }
+    void clearAll();
 
-    std::unordered_map<std::type_index, std::unique_ptr<IHandlerList>> m_handlers;
+    std::unordered_map<std::type_index, std::vector<ListenerEntry>> m_listeners;
+    std::queue<std::shared_ptr<Event>> m_eventQueue;
+    std::mutex m_mutex;
+    HandlerID m_nextID = 0;
 };
 
 } // namespace Shit
