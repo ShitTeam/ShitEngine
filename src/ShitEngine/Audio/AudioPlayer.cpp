@@ -24,24 +24,22 @@ void AudioTrackGroup::unregisterTrack(AudioTrack* track) {
     );
 }
 
-void AudioTrackGroup::PauseAll() {
-    for (auto* track : m_tracks) track->Pause();
+void AudioTrackGroup::pauseAll() {
+    for (auto* track : m_tracks) track->pause();
 }
 
-void AudioTrackGroup::ResumeAll() {
-    for (auto* track : m_tracks) track->Resume();
+void AudioTrackGroup::resumeAll() {
+    for (auto* track : m_tracks) track->resume();
 }
 
-void AudioTrackGroup::StopAll() {
-    for (auto* track : m_tracks) track->Stop();
+void AudioTrackGroup::stopAll() {
+    for (auto* track : m_tracks) track->stop();
     m_tracks.clear();
 }
 
-void AudioTrackGroup::SetVolume(float gain) {
+void AudioTrackGroup::setVolume(float gain) {
     m_gain = gain;
-    for (auto* track : m_tracks) {
-        track->SetVolume(gain);
-    }
+    for (auto* track : m_tracks) track->setVolume(gain);
 }
 
 // ═══════════════════════════════════════════
@@ -69,7 +67,6 @@ bool AudioPlayer::init() {
     }
 
     ResourceManager::SetAudioMixer(m_mixer);
-
     m_groups["default"] = std::unique_ptr<AudioTrackGroup>(new AudioTrackGroup("default"));
 
     m_isInited = true;
@@ -95,8 +92,8 @@ void AudioPlayer::update() {
     m_tracks.erase(
         std::remove_if(m_tracks.begin(), m_tracks.end(),
             [](const std::unique_ptr<AudioTrack>& track) {
-                if (track && track->IsFinished()) {
-                    track->Stop();
+                if (track && track->isFinished()) {
+                    track->stop();
                     return true;
                 }
                 return false;
@@ -126,7 +123,6 @@ AudioTrack* AudioPlayer::play(const std::string& filePath, AudioTrackGroup* grou
         return nullptr;
     }
 
-    // 从 ResourceManager 获取音频（自动缓存）
     MIX_Audio* audio = ResourceManager::GetAudio(filePath);
     if (!audio) {
         ST_CORE_ERROR("AudioPlayer 加载音频失败: {}", filePath);
@@ -143,7 +139,7 @@ AudioTrack* AudioPlayer::play(const std::string& filePath, AudioTrackGroup* grou
     MIX_PlayTrack(handle, 0);
 
     auto track = std::unique_ptr<AudioTrack>(new AudioTrack(handle));
-    track->SetVolume(m_masterGain * (group ? group->GetVolume() : 1.0f));
+    track->setVolume(m_masterGain * (group ? group->getVolume() : 1.0f));
     auto* trackPtr = track.get();
 
     m_tracks.push_back(std::move(track));
@@ -154,22 +150,20 @@ AudioTrack* AudioPlayer::play(const std::string& filePath, AudioTrackGroup* grou
 
 void AudioPlayer::setMasterVolume(float gain) {
     m_masterGain = gain;
-    for (auto& track : m_tracks) {
-        track->SetVolume(m_masterGain);
-    }
+    for (auto& track : m_tracks) track->setVolume(m_masterGain);
 }
 
 void AudioPlayer::pauseAll() {
-    for (auto& track : m_tracks) track->Pause();
+    for (auto& track : m_tracks) track->pause();
 }
 
 void AudioPlayer::resumeAll() {
-    for (auto& track : m_tracks) track->Resume();
+    for (auto& track : m_tracks) track->resume();
 }
 
 void AudioPlayer::stopAll() {
     for (auto& group : m_groups) group.second->m_tracks.clear();
-    for (auto& track : m_tracks) track->Stop();
+    for (auto& track : m_tracks) track->stop();
     m_tracks.clear();
 }
 

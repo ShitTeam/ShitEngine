@@ -16,18 +16,18 @@ public:
     AudioTrack& operator=(AudioTrack&&) noexcept;
     ~AudioTrack();
 
-    void Play();                     // 开始或重新播放
-    void Pause();                    // 暂停
-    void Resume();                   // 恢复
-    void Stop();                     // 停止并重置
-    void SetVolume(float gain);      // 0.0 ~ 1.0
-    float GetVolume() const;
-    void SetLooping(int loopCount);  // -1 = 无限, 0 = 不循环, N = N 次
-    void SetFadeIn(float seconds);
+    void play();                     // 开始或重新播放
+    void pause();                    // 暂停
+    void resume();                   // 恢复
+    void stop();                     // 停止并重置
+    void setVolume(float gain);      // 0.0 ~ 1.0
+    float getVolume() const;
+    void setLooping(int loopCount);  // -1 = 无限, 0 = 不循环, N = N 次
+    void setFadeIn(float seconds);
 
-    bool IsPlaying() const;
-    bool IsPaused() const;
-    bool IsFinished() const;
+    bool isPlaying() const;
+    bool isPaused() const;
+    bool isFinished() const;
 
 private:
     friend class AudioPlayer;

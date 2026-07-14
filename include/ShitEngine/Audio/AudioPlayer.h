@@ -12,13 +12,13 @@ class SHIT_API AudioTrackGroup {
 public:
     ~AudioTrackGroup() = default;
 
-    void PauseAll();
-    void ResumeAll();
-    void StopAll();
+    void pauseAll();
+    void resumeAll();
+    void stopAll();
 
-    void SetVolume(float gain);
-    float GetVolume() const { return m_gain; }
-    const std::string& GetName() const { return m_name; }
+    void setVolume(float gain);
+    float getVolume() const { return m_gain; }
+    const std::string& getName() const { return m_name; }
 
 private:
     friend class AudioPlayer;
