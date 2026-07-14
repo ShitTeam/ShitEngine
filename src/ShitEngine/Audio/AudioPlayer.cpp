@@ -56,9 +56,15 @@ AudioPlayer& AudioPlayer::GetInstance() {
 bool AudioPlayer::init() {
     if (m_isInited) return true;
 
+    if (!MIX_Init()) {
+        ST_CORE_ERROR("AudioPlayer MIX_Init 失败: {}", SDL_GetError());
+        return false;
+    }
+
     m_mixer = MIX_CreateMixerDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, nullptr);
     if (!m_mixer) {
         ST_CORE_ERROR("AudioPlayer 创建混音器失败: {}", SDL_GetError());
+        MIX_Quit();
         return false;
     }
 
@@ -80,6 +86,7 @@ void AudioPlayer::destroy() {
         MIX_DestroyMixer(m_mixer);
         m_mixer = nullptr;
     }
+    MIX_Quit();
     m_isInited = false;
     ST_CORE_TRACE("AudioPlayer 已销毁");
 }
