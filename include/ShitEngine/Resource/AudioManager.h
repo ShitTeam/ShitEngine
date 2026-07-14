@@ -1,51 +1,39 @@
-// #pragma once
+#pragma once
 
-// #include <string>
-// #include <unordered_map>
-// #include <memory>
-// #include <SDL3_mixer/SDL_mixer.h>
+#include <string>
+#include <unordered_map>
+#include <memory>
+#include <SDL3_mixer/SDL_mixer.h>
 
+#include "ShitEngine/Core/Core.h"
 
-// namespace Shit {
-//     /**
-//      * @brief 音频管理器
-//      */
-//     class AudioManager final {
-//         friend class ResourceManager;
-//     public:
-// 		AudioManager(const AudioManager&) = delete;
-// 		AudioManager& operator=(const AudioManager&) = delete;
-// 		AudioManager(AudioManager&&) = default;
-// 		AudioManager& operator=(AudioManager&&) = default;
-	
-// 	private:
-// 		AudioManager() = default;
-// 		~AudioManager() = default;
+namespace Shit {
+	class AudioManager final {
+		friend class ResourceManager;
+	public:
+		AudioManager(const AudioManager&) = delete;
+		AudioManager& operator=(const AudioManager&) = delete;
+		AudioManager(AudioManager&&) = default;
+		AudioManager& operator=(AudioManager&&) = default;
+		~AudioManager() { clearAudio(); }
 
-// 		// --- Sound ---
-// 		MIX_Audio* loadSound(const std::string& filePath);
-// 		MIX_Audio* getSound(const std::string& filePath);
-// 		void unloadSound(const std::string& filePath);
-// 		void clearSound();
+	private:
+		AudioManager() = default;
 
-// 		// --- Music ---
-// 		MIX_Audio* loadMusic(const std::string& filePath);
-// 		MIX_Audio* getMusic(const std::string& filePath);
-// 		void unloadMusic(const std::string& filePath);
-// 		void clearMusic();
+		struct MIXAudioDeleter {
+			void operator()(MIX_Audio* audio) const {
+				if (audio) MIX_DestroyAudio(audio);
+			}
+		};
 
-// 		struct MIXAudioDeleter {
-// 			void operator()(MIX_Audio* audio) const {
-// 				if (audio) {
-// 					MIX_DestroyAudio(audio);
-// 				}
-// 			}
-// 		};
+		MIX_Audio* loadAudio(const std::string& filePath);
+		MIX_Audio* getAudio(const std::string& filePath);
+		void unloadAudio(const std::string& filePath);
+		void clearAudio();
+		void setMixer(MIX_Mixer* mixer) { m_mixer = mixer; m_mixerSet = true; }
 
-//         // Sound缓存
-//         std::unordered_map<std::string, std::unique_ptr<MIX_Audio, MIXAudioDeleter>> m_sounds;
-
-// 		// Music缓存
-// 		std::unordered_map<std::string, std::unique_ptr<MIX_Audio, MIXAudioDeleter>> m_musics;
-//     };
-// }
+		MIX_Mixer* m_mixer = nullptr;
+		bool m_mixerSet = false;
+		std::unordered_map<std::string, std::unique_ptr<MIX_Audio, MIXAudioDeleter>> m_audioCache;
+	};
+}

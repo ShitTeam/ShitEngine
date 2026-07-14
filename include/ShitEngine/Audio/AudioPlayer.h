@@ -51,8 +51,7 @@ public:
 
     // ── 播放 ──
     static inline AudioTrack* Play(const std::string& filePath, const std::string& group = "default") {
-        auto& inst = GetInstance();
-        return inst.play(filePath, inst.getTrackGroup(group));
+        return GetInstance().play(filePath, GetInstance().getTrackGroup(group));
     }
 
     // ── 全局控制 ──
@@ -93,7 +92,6 @@ private:
 
     std::unordered_map<std::string, std::unique_ptr<AudioTrackGroup>> m_groups;
     std::vector<std::unique_ptr<AudioTrack>> m_tracks;
-    std::unordered_map<std::string, struct MIX_Audio*> m_audioCache;
 };
 
 } // namespace Shit

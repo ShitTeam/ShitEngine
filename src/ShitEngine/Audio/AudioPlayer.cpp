@@ -2,6 +2,7 @@
 
 #include "ShitEngine/Core/pch.h"
 #include "ShitEngine/Core/Log.h"
+#include "ShitEngine/Resource/ResourceManager.h"
 
 #include <SDL3/SDL_audio.h>
 #include <SDL3_mixer/SDL_mixer.h>
@@ -61,6 +62,8 @@ bool AudioPlayer::init() {
         return false;
     }
 
+    ResourceManager::SetAudioMixer(m_mixer);
+
     m_groups["default"] = std::unique_ptr<AudioTrackGroup>(new AudioTrackGroup("default"));
 
     m_isInited = true;
@@ -72,11 +75,6 @@ void AudioPlayer::destroy() {
     stopAll();
     m_tracks.clear();
     m_groups.clear();
-
-    for (auto& [path, audio] : m_audioCache) {
-        if (audio) MIX_DestroyAudio(audio);
-    }
-    m_audioCache.clear();
 
     if (m_mixer) {
         MIX_DestroyMixer(m_mixer);
@@ -121,17 +119,11 @@ AudioTrack* AudioPlayer::play(const std::string& filePath, AudioTrackGroup* grou
         return nullptr;
     }
 
-    MIX_Audio* audio = nullptr;
-    auto cacheIt = m_audioCache.find(filePath);
-    if (cacheIt != m_audioCache.end()) {
-        audio = cacheIt->second;
-    } else {
-        audio = MIX_LoadAudio(m_mixer, filePath.c_str(), true);
-        if (!audio) {
-            ST_CORE_ERROR("AudioPlayer 加载音频失败: {} ({})", filePath, SDL_GetError());
-            return nullptr;
-        }
-        m_audioCache[filePath] = audio;
+    // 从 ResourceManager 获取音频（自动缓存）
+    MIX_Audio* audio = ResourceManager::GetAudio(filePath);
+    if (!audio) {
+        ST_CORE_ERROR("AudioPlayer 加载音频失败: {}", filePath);
+        return nullptr;
     }
 
     MIX_Track* handle = MIX_CreateTrack(m_mixer);

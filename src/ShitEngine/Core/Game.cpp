@@ -10,6 +10,7 @@
 #include "ShitEngine/Core/Config.h"
 #include "ShitEngine/Render/Renderer.h"
 #include "ShitEngine/Scene/SceneManager.h"
+#include "ShitEngine/Audio/AudioPlayer.h"
 
 namespace Shit {
 	Game::Game() = default;
@@ -24,7 +25,7 @@ namespace Shit {
 		if (!Config::Init()) return false;
 
 		// 初始SDL3
-		if (!SDL_Init(SDL_INIT_VIDEO)) {
+		if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
 			ST_CORE_ERROR("SDL 初始化失败: {0}", SDL_GetError());
 			return false;
 		}
@@ -40,6 +41,9 @@ namespace Shit {
 
 		// 初始化资源管理器
 		ResourceManager::Init();
+
+		// 初始化音频播放器
+		AudioPlayer::Init();
 
 		return true;
 	}

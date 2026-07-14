@@ -68,6 +68,8 @@ add_library(ShitEngine SHARED
     # Resource
     "src/ShitEngine/Resource/ResourceManager.cpp"
     "src/ShitEngine/Resource/TextureManager.cpp"
+    "src/ShitEngine/Resource/AudioManager.cpp"
+    "src/ShitEngine/Resource/FontManager.cpp"
     # System
     "src/ShitEngine/System/System.cpp"
     "src/ShitEngine/System/BehaviorSystem.cpp"
