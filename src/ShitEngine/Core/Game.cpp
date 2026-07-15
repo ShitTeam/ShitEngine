@@ -11,6 +11,7 @@
 #include "ShitEngine/Render/Renderer.h"
 #include "ShitEngine/Scene/SceneManager.h"
 #include "ShitEngine/Audio/AudioPlayer.h"
+#include "ShitEngine/Event/EventBus.h"
 
 namespace Shit {
 	Game::Game() = default;
@@ -43,7 +44,9 @@ namespace Shit {
 		ResourceManager::Init();
 
 		// 初始化音频播放器
-		AudioPlayer::Init();
+		if (!AudioPlayer::Init()) {
+			ST_CORE_WARN("音频系统初始化失败，音频功能将不可用");
+		}
 
 		return true;
 	}
@@ -71,9 +74,15 @@ namespace Shit {
 
 			//ST_CORE_DEBUG("测试");
 
+			// 派发事件（缓冲队列在统一时刻处理，避免递归派发与迭代器失效）
+			EventBus::ProcessEvents();
+
 			SceneManager::Update();
 
 			Input::Update(); // 更新 Input
+
+			// 更新音频：清理已播完的 track，避免内存泄漏与 group 悬空指针
+			AudioPlayer::Update();
 		}
 
 		m_isRunning = false;
@@ -81,7 +90,11 @@ namespace Shit {
 	}
 
 	void Game::Destroy() {
+		// 按依赖逆序清理子系统，避免静态单例在 SDL_Quit 后析构导致 UB
+		EventBus::ClearAll();
+		AudioPlayer::Destroy();
 		Window::Destroy(); // 销毁窗口
+		SDL_Quit();
 	}
 
 	Game& Game::GetInstance() {

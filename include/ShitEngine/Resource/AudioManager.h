@@ -30,10 +30,9 @@ namespace Shit {
 		MIX_Audio* getAudio(const std::string& filePath);
 		void unloadAudio(const std::string& filePath);
 		void clearAudio();
-		void setMixer(MIX_Mixer* mixer) { m_mixer = mixer; m_mixerSet = true; }
+		void setMixer(MIX_Mixer* mixer) { m_mixer = mixer; }
 
 		MIX_Mixer* m_mixer = nullptr;
-		bool m_mixerSet = false;
 		std::unordered_map<std::string, std::unique_ptr<MIX_Audio, MIXAudioDeleter>> m_audioCache;
 	};
 }

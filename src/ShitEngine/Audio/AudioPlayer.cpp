@@ -14,14 +14,19 @@ namespace Shit {
 // ═══════════════════════════════════════════
 
 void AudioTrackGroup::registerTrack(AudioTrack* track) {
-    if (track) m_tracks.push_back(track);
+    if (track) {
+        m_tracks.push_back(track);
+        track->m_group = this;  // 友元写入
+    }
 }
 
 void AudioTrackGroup::unregisterTrack(AudioTrack* track) {
+    if (!track) return;
     m_tracks.erase(
         std::remove(m_tracks.begin(), m_tracks.end(), track),
         m_tracks.end()
     );
+    if (track) track->m_group = nullptr;
 }
 
 void AudioTrackGroup::pauseAll() {
@@ -33,13 +38,19 @@ void AudioTrackGroup::resumeAll() {
 }
 
 void AudioTrackGroup::stopAll() {
-    for (auto* track : m_tracks) track->stop();
+    for (auto* track : m_tracks) {
+        track->m_group = nullptr;  // 避免后续 unregister 回写本已清空的列表
+        track->stop();
+    }
     m_tracks.clear();
 }
 
 void AudioTrackGroup::setVolume(float gain) {
     m_gain = gain;
-    for (auto* track : m_tracks) track->setVolume(gain);
+    // 实际硬件增益 = master × group × track，交由 AudioPlayer 统一下发
+    for (auto* track : m_tracks) {
+        AudioPlayer::GetInstance().applyTrackGain(track, this);
+    }
 }
 
 // ═══════════════════════════════════════════
@@ -89,17 +100,19 @@ void AudioPlayer::destroy() {
 }
 
 void AudioPlayer::update() {
-    m_tracks.erase(
-        std::remove_if(m_tracks.begin(), m_tracks.end(),
-            [](const std::unique_ptr<AudioTrack>& track) {
-                if (track && track->isFinished()) {
-                    track->stop();
-                    return true;
-                }
-                return false;
-            }),
-        m_tracks.end()
-    );
+    // 先识别已完成 track，从其所属 group 注销（避免悬空指针），再停止并移除
+    for (auto it = m_tracks.begin(); it != m_tracks.end();) {
+        AudioTrack* track = it->get();
+        if (track && track->isFinished()) {
+            if (track->m_group) {
+                track->m_group->unregisterTrack(track);  // 会清掉 track->m_group
+            }
+            track->stop();
+            it = m_tracks.erase(it);
+        } else {
+            ++it;
+        }
+    }
 }
 
 AudioTrackGroup* AudioPlayer::createTrackGroup(const std::string& name) {
@@ -139,18 +152,24 @@ AudioTrack* AudioPlayer::play(const std::string& filePath, AudioTrackGroup* grou
     MIX_PlayTrack(handle, 0);
 
     auto track = std::unique_ptr<AudioTrack>(new AudioTrack(handle));
-    track->setVolume(m_masterGain * (group ? group->getVolume() : 1.0f));
     auto* trackPtr = track.get();
 
     m_tracks.push_back(std::move(track));
     if (group) group->registerTrack(trackPtr);
+
+    // 设置所属 group（友元），并下发初始层级增益 master × group × track(1.0)
+    trackPtr->m_group = group;
+    applyTrackGain(trackPtr, group);
 
     return trackPtr;
 }
 
 void AudioPlayer::setMasterVolume(float gain) {
     m_masterGain = gain;
-    for (auto& track : m_tracks) track->setVolume(m_masterGain);
+    // 每条 track 重新计算 master × group × track
+    for (auto& track : m_tracks) {
+        applyTrackGain(track.get(), track->m_group);
+    }
 }
 
 void AudioPlayer::pauseAll() {
@@ -162,9 +181,20 @@ void AudioPlayer::resumeAll() {
 }
 
 void AudioPlayer::stopAll() {
+    // 先断开 group 对 track 的引用，再停止；避免 group 列表留下悬空指针
     for (auto& group : m_groups) group.second->m_tracks.clear();
-    for (auto& track : m_tracks) track->stop();
+    for (auto& track : m_tracks) {
+        track->m_group = nullptr;
+        track->stop();
+    }
     m_tracks.clear();
+}
+
+void AudioPlayer::applyTrackGain(AudioTrack* track, const AudioTrackGroup* group) {
+    if (!track || !track->m_handle) return;
+    const float groupGain = group ? group->getVolume() : 1.0f;
+    const float gain = m_masterGain * groupGain * track->getVolume();
+    MIX_SetTrackGain(track->m_handle, gain);
 }
 
 } // namespace Shit

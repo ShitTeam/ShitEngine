@@ -8,7 +8,7 @@
 
 namespace Shit {
 
-class SHIT_API AudioTrackGroup {
+class AudioTrackGroup {
 public:
     ~AudioTrackGroup() = default;
 
@@ -16,7 +16,7 @@ public:
     void resumeAll();
     void stopAll();
 
-    void setVolume(float gain);
+    void setVolume(float gain);  // 0.0 ~ 1.0
     float getVolume() const { return m_gain; }
     const std::string& getName() const { return m_name; }
 
@@ -31,17 +31,12 @@ private:
     std::vector<AudioTrack*> m_tracks;
 };
 
-/**
- * @brief 音频播放器单例
- */
-class SHIT_API AudioPlayer {
+class AudioPlayer {
 public:
-    // ── 生命周期 ──
     static inline bool Init() { return GetInstance().init(); }
     static inline void Destroy() { GetInstance().destroy(); }
     static inline void Update() { GetInstance().update(); }
 
-    // ── 轨道组 ──
     static inline AudioTrackGroup* CreateTrackGroup(const std::string& name) {
         return GetInstance().createTrackGroup(name);
     }
@@ -49,19 +44,17 @@ public:
         return GetInstance().getTrackGroup(name);
     }
 
-    // ── 播放 ──
     static inline AudioTrack* Play(const std::string& filePath, const std::string& group = "default") {
-        return GetInstance().play(filePath, GetInstance().getTrackGroup(group));
+        auto& inst = GetInstance();
+        return inst.play(filePath, inst.getTrackGroup(group));
     }
 
-    // ── 全局控制 ──
     static inline void SetMasterVolume(float gain) { GetInstance().setMasterVolume(gain); }
     static inline float GetMasterVolume() { return GetInstance().m_masterGain; }
     static inline void PauseAll() { GetInstance().pauseAll(); }
     static inline void ResumeAll() { GetInstance().resumeAll(); }
     static inline void StopAll() { GetInstance().stopAll(); }
 
-    // ── 单例 ──
     static AudioPlayer& GetInstance();
 
     AudioPlayer(const AudioPlayer&) = delete;

@@ -26,7 +26,6 @@ namespace Shit {
  *   // 游戏循环结束时：
  *   Shit::EventBus::ProcessEvents();
  *   Shit::EventBus::Unsubscribe<CollisionEvent>(id);
- *   Shit::EventBus::Unsubscribe<CollisionEvent>(id);
  */
 class SHIT_API EventBus {
 public:

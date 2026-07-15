@@ -55,6 +55,5 @@ namespace Shit {
 		std::unique_ptr<TextureManager> m_textureManager;
 		std::unique_ptr<AudioManager> m_audioManager;
 		std::unique_ptr<FontManager> m_fontManager;
-		// std::unique_ptr<FontManager> m_fontManager;
 	};
 }
