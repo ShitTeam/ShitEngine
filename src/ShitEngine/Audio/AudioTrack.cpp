@@ -77,10 +77,6 @@ namespace Shit {
 
     void AudioTrack::setLooping(int loopCount) { m_loops = loopCount; }
 
-    void AudioTrack::setFadeIn(float /*seconds*/) {
-        // TODO: 淡入未实现
-    }
-
     bool AudioTrack::isPlaying() const { return m_started && !isFinished(); }
 
     bool AudioTrack::isPaused() const { return m_paused; }
