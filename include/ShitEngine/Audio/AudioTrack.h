@@ -37,7 +37,7 @@ private:
 
     MIX_Track* m_handle = nullptr;
     float m_gain = 1.0f;
-    int m_loops = 0;       // TODO: 尚未接入 mixer
+    int m_loops = 0;
     AudioTrackGroup* m_group = nullptr;
     bool m_started = false;
     bool m_paused = false;

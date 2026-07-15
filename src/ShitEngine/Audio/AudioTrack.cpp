@@ -12,6 +12,8 @@ namespace Shit {
         , m_started(other.m_started)
         , m_paused(other.m_paused)
     {
+        // 从旧组注销，避免组内留下悬空指针
+        if (other.m_group) other.m_group->unregisterTrack(&other);
         other.m_handle = nullptr;
         other.m_group = nullptr;
         other.m_started = false;
@@ -21,6 +23,8 @@ namespace Shit {
     AudioTrack& AudioTrack::operator=(AudioTrack&& other) noexcept {
         if (this != &other) {
             if (m_handle) MIX_DestroyTrack(m_handle);
+            // 从旧组注销
+            if (other.m_group) other.m_group->unregisterTrack(&other);
             m_handle = other.m_handle;
             m_gain = other.m_gain;
             m_loops = other.m_loops;

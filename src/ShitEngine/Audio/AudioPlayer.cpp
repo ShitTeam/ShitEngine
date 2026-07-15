@@ -89,6 +89,10 @@ void AudioPlayer::destroy() {
     m_tracks.clear();
     m_groups.clear();
 
+    // 在 MIX_Quit 前清空音频缓存，避免 MIX_DestroyAudio 在 MIX_Quit 后调用
+    ResourceManager::ClearAudio();
+    ResourceManager::SetAudioMixer(nullptr);
+
     if (m_mixer) {
         MIX_DestroyMixer(m_mixer);
         m_mixer = nullptr;
