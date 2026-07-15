@@ -64,12 +64,12 @@ namespace Shit {
     }
 
     void AudioTrack::setVolume(float gain) {
-        // 仅记录 track 自身系数；实际硬件增益由 AudioPlayer::applyTrackGain 统一计算下发
+        // 仅记录 track 自身系数；实际硬件增益由 AudioPlayer 统一计算下发
         m_gain = gain;
         if (m_group) {
-            AudioPlayer::GetInstance().applyTrackGain(this, m_group);
+            AudioPlayer::ApplyTrackGain(this, m_group);
         } else {
-            AudioPlayer::GetInstance().applyTrackGain(this, nullptr);
+            AudioPlayer::ApplyTrackGain(this, nullptr);
         }
     }
 

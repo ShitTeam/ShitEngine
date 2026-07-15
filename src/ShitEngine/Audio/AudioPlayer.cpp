@@ -47,9 +47,8 @@ void AudioTrackGroup::stopAll() {
 
 void AudioTrackGroup::setVolume(float gain) {
     m_gain = gain;
-    // 实际硬件增益 = master × group × track，交由 AudioPlayer 统一下发
     for (auto* track : m_tracks) {
-        AudioPlayer::GetInstance().applyTrackGain(track, this);
+        AudioPlayer::ApplyTrackGain(track, this);
     }
 }
 

@@ -54,6 +54,7 @@ public:
     static inline void PauseAll() { GetInstance().pauseAll(); }
     static inline void ResumeAll() { GetInstance().resumeAll(); }
     static inline void StopAll() { GetInstance().stopAll(); }
+    static inline void ApplyTrackGain(AudioTrack* track, const AudioTrackGroup* group) { GetInstance().applyTrackGain(track, group); }
 
     static AudioPlayer& GetInstance();
 
@@ -78,6 +79,7 @@ private:
     void pauseAll();
     void resumeAll();
     void stopAll();
+    void applyTrackGain(AudioTrack* track, const AudioTrackGroup* group);
 
     struct MIX_Mixer* m_mixer = nullptr;
     bool m_isInited = false;
