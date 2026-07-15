@@ -75,7 +75,10 @@ namespace Shit {
 
     float AudioTrack::getVolume() const { return m_gain; }
 
-    void AudioTrack::setLooping(int loopCount) { m_loops = loopCount; }
+    void AudioTrack::setLooping(int loopCount) {
+        m_loops = loopCount;
+        if (m_handle) MIX_SetTrackLoops(m_handle, loopCount);
+    }
 
     bool AudioTrack::isPlaying() const { return m_started && !isFinished(); }
 

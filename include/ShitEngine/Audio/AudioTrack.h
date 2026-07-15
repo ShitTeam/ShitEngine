@@ -23,7 +23,7 @@ public:
     void stop();                     // 停止并重置
     void setVolume(float gain);      // 设置轨道自身增益系数（默认 1.0）；实际硬件增益 = master × group × gain
     float getVolume() const;
-    void setLooping(int loopCount);  // TODO: 循环尚未接入 MIX_PlayTrack options，当前仅记录不生效。 -1 = 无限, 0 = 不循环, N = N 次
+    void setLooping(int loopCount);  // -1 = 无限, 0 = 不循环, N = N 次
 
     bool isPlaying() const;
     bool isPaused() const;
