@@ -50,7 +50,16 @@ public:
     int getCols() const { return m_cols; }
     float getFrameWidth() const { return m_frameWidth; }
     float getFrameHeight() const { return m_frameHeight; }
+    float getMargin() const { return m_margin; }
+    float getSpacing() const { return m_spacing; }
     int getFrameCount() const { return m_rows * m_cols; }
+
+    void setRows(int rows) { m_rows = rows; }
+    void setCols(int cols) { m_cols = cols; }
+    void setFrameWidth(float width) { m_frameWidth = width; }
+    void setFrameHeight(float height) { m_frameHeight = height; }
+    void setMargin(float margin) { m_margin = margin; }
+    void setSpacing(float spacing) { m_spacing = spacing; }
 
 private:
     int m_rows = 0;
