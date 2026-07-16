@@ -5,6 +5,7 @@
 #include "ShitEngine/Resource/ResourceManager.h"
 
 #include <SDL3/SDL_audio.h>
+#include <SDL3/SDL_properties.h>
 #include <SDL3_mixer/SDL_mixer.h>
 
 namespace Shit {
@@ -133,7 +134,7 @@ AudioTrackGroup* AudioPlayer::getTrackGroup(const std::string& name) {
     return it != m_groups.end() ? it->second.get() : nullptr;
 }
 
-AudioTrack* AudioPlayer::play(const std::string& filePath, AudioTrackGroup* group) {
+AudioTrack* AudioPlayer::play(const std::string& filePath, AudioTrackGroup* group, int loopCount) {
     if (!m_isInited || !m_mixer) {
         ST_CORE_ERROR("AudioPlayer 未初始化");
         return nullptr;
@@ -152,16 +153,29 @@ AudioTrack* AudioPlayer::play(const std::string& filePath, AudioTrackGroup* grou
     }
 
     MIX_SetTrackAudio(handle, audio);
-    MIX_PlayTrack(handle, 0);
+
+    // 启动播放：当要求循环（loopCount != 0）时通过 properties 写入
+    // MIX_PROP_PLAY_LOOPS_NUMBER，使循环随 PlayTrack 生效（而非仅在播放中改）。
+    // loopCount: 0=不循环(默认), -1=无限, N=循环 N 次。
+    if (loopCount != 0) {
+        SDL_PropertiesID props = SDL_CreateProperties();
+        if (props) {
+            SDL_SetNumberProperty(props, MIX_PROP_PLAY_LOOPS_NUMBER, static_cast<Sint64>(loopCount));
+        }
+        MIX_PlayTrack(handle, props ? props : 0);
+        if (props) SDL_DestroyProperties(props);
+    } else {
+        MIX_PlayTrack(handle, 0);
+    }
 
     auto track = std::unique_ptr<AudioTrack>(new AudioTrack(handle));
     auto* trackPtr = track.get();
+    trackPtr->m_loops = loopCount;  // 记录循环数，供 setLooping/get 使用
 
     m_tracks.push_back(std::move(track));
-    if (group) group->registerTrack(trackPtr);
+    if (group) group->registerTrack(trackPtr);  // 同时置 trackPtr->m_group = group
 
-    // 设置所属 group（友元），并下发初始层级增益 master × group × track(1.0)
-    trackPtr->m_group = group;
+    // 下发初始层级增益 master × group × track(1.0)
     applyTrackGain(trackPtr, group);
 
     return trackPtr;

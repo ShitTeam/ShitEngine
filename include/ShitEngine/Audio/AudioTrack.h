@@ -7,9 +7,6 @@ namespace Shit {
 
 class AudioTrackGroup;
 
-/**
- * @brief 音频轨道，控制单个音频播放
- */
 class AudioTrack {
 public:
     AudioTrack(const AudioTrack&) = delete;
@@ -18,12 +15,13 @@ public:
     AudioTrack& operator=(AudioTrack&&) noexcept;
     ~AudioTrack();
 
-    void pause();                    // 暂停
-    void resume();                   // 恢复
-    void stop();                     // 停止并重置
-    void setVolume(float gain);      // 设置轨道自身增益系数（默认 1.0）；实际硬件增益 = master × group × gain
+    void pause();
+    void resume();
+    void stop();
+    void setVolume(float gain);
     float getVolume() const;
     void setLooping(int loopCount);  // -1 = 无限, 0 = 不循环, N = N 次
+    int getLooping() const { return m_loops; }
 
     bool isPlaying() const;
     bool isPaused() const;

@@ -12,25 +12,40 @@ namespace Shit {
         , m_started(other.m_started)
         , m_paused(other.m_paused)
     {
-        // 从旧组注销，避免组内留下悬空指针
-        if (other.m_group) other.m_group->unregisterTrack(&other);
+        // other 放弃 handle 后注销自己，再把“自己”登记进同一组，
+        // 使组列表指针始终指向当前持有 handle 的 AudioTrack，避免悬空。
+        AudioTrackGroup* grp = other.m_group;  // 保存指针：unregister 会清空 other.m_group
+        if (grp) {
+            grp->unregisterTrack(&other);  // 移除 &other，置空 other.m_group
+            grp->registerTrack(this);      // 把 this 加入组并置 this->m_group = grp
+        }
         other.m_handle = nullptr;
-        other.m_group = nullptr;
         other.m_started = false;
         other.m_paused = false;
     }
 
     AudioTrack& AudioTrack::operator=(AudioTrack&& other) noexcept {
         if (this != &other) {
+            // 保存 other 所在组：注销会清空 other.m_group，需先取
+            AudioTrackGroup* otherGroup = other.m_group;
+
+            // 把“自己”从原属组注销（this 即将被覆盖，悬空会损坏组列表）
+            if (m_group) m_group->unregisterTrack(this);  // 会清空 this->m_group
             if (m_handle) MIX_DestroyTrack(m_handle);
-            // 从旧组注销
-            if (other.m_group) other.m_group->unregisterTrack(&other);
+
+            // other 让出 handle，并从其原属组注销（移除 &other 指针）
+            if (otherGroup) otherGroup->unregisterTrack(&other);  // 清空 other.m_group
+
             m_handle = other.m_handle;
             m_gain = other.m_gain;
             m_loops = other.m_loops;
-            m_group = other.m_group;
             m_started = other.m_started;
             m_paused = other.m_paused;
+
+            // 接管后把“自己”登记进原 other 所在组，使组列表指向当前持有者
+            if (otherGroup) otherGroup->registerTrack(this);  // 置 m_group = otherGroup
+            else m_group = nullptr;
+
             other.m_handle = nullptr;
             other.m_group = nullptr;
             other.m_started = false;

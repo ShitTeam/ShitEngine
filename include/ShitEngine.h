@@ -42,6 +42,7 @@
 #include "ShitEngine/Render/Renderer.h"
 #include "ShitEngine/Render/Sprite.h"
 #include "ShitEngine/Render/Animation.h"
+#include "ShitEngine/Render/SpriteSheet.h"
 
 // Resource
 #include "ShitEngine/Resource/ResourceManager.h"

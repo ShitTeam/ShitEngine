@@ -22,6 +22,18 @@ namespace Shit {
 		float textureWidth = 0.0f, textureHeight = 0.0f;
 		SDL_GetTextureSize(texture, &textureWidth, &textureHeight);
 
+		// 源矩形（用于 sprite-sheet 逐帧）：有则取局部，无则整图
+		SDL_FRect srcRect{};
+		SDL_FRect* srcPtr = nullptr;
+		float frameWidth = textureWidth;
+		float frameHeight = textureHeight;
+		if (m_sourceRect.has_value()) {
+			srcRect = m_sourceRect.value();
+			srcPtr = &srcRect;
+			frameWidth = srcRect.w;
+			frameHeight = srcRect.h;
+		}
+
 		// 世界坐标转屏幕坐标
 		Vector2 screenPosition = camera->worldToScreen(transform->getPosition());
 
@@ -31,11 +43,11 @@ namespace Shit {
 		SDL_FRect destinationRect = {
 			std::floor(screenPosition.x),
 			std::floor(screenPosition.y),
-			std::floor(textureWidth * scale.x * pixelPerUnit + 0.5f),
-			std::floor(textureHeight * scale.y * pixelPerUnit + 0.5f)
+			std::floor(frameWidth * scale.x * pixelPerUnit + 0.5f),
+			std::floor(frameHeight * scale.y * pixelPerUnit + 0.5f)
 		};
 
-		SDL_RenderTextureRotated(renderer, texture, nullptr, &destinationRect,
+		SDL_RenderTextureRotated(renderer, texture, srcPtr, &destinationRect,
 			static_cast<double>(transform->getRotation()), nullptr, SDL_FLIP_NONE);
 	}
 
@@ -58,9 +70,14 @@ namespace Shit {
 		Vector2 position = transform->getPosition();
 		Vector2 scale = transform->getScale();
 
-		float textureWidth = 0.0f, textureHeight = 0.0f;
-		SDL_GetTextureSize(texture, &textureWidth, &textureHeight);
+		float width = 0.0f, height = 0.0f;
+		if (m_sourceRect.has_value()) {
+			width = m_sourceRect->w;
+			height = m_sourceRect->h;
+		} else {
+			SDL_GetTextureSize(texture, &width, &height);
+		}
 
-		return SDL_FRect{ position.x, position.y, textureWidth * scale.x, textureHeight * scale.y };
+		return SDL_FRect{ position.x, position.y, width * scale.x, height * scale.y };
 	}
 }

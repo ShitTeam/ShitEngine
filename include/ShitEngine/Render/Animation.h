@@ -27,6 +27,7 @@ namespace Shit{
 
         bool isLooping() const { return m_loop; }
         float getDuration() const { return m_duration; }
+        int getFrameCount() const { return static_cast<int>(m_frames.size()); }
 
     private:
         std::vector<SDL_FRect> m_frames; // 每帧的矩形位置

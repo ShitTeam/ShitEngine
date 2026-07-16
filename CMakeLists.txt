@@ -65,6 +65,7 @@ add_library(ShitEngine SHARED
     "src/ShitEngine/Render/Renderer.cpp"
     "src/ShitEngine/Render/Sprite.cpp"
     "src/ShitEngine/Render/Animation.cpp"
+    "src/ShitEngine/Render/SpriteSheet.cpp"
     # Resource
     "src/ShitEngine/Resource/ResourceManager.cpp"
     "src/ShitEngine/Resource/TextureManager.cpp"
