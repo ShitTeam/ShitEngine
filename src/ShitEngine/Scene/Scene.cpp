@@ -2,6 +2,7 @@
 #include "ShitEngine/Core/Log.h"
 #include "ShitEngine/Core/Game.h"
 #include "ShitEngine/GameObject/GameObject.h"
+#include "ShitEngine/GameObject/Prefab.h"
 #include "ShitEngine/Component/Behavior.h"
 #include "ShitEngine/Component/CameraComponent.h"
 #include "ShitEngine/Component/RendererComponent.h"
@@ -73,6 +74,25 @@ namespace Shit {
 		else {
 			ST_CORE_WARN("试图向场景 {} 中添加空游戏对象！", m_name);
 		}
+	}
+
+	GameObject* Scene::createGameObject(const std::string& name) {
+		auto go = std::unique_ptr<GameObject>(new GameObject(name));
+		go->setScene(this);
+		auto* ptr = go.get();
+		if (Game::IsRunning()) {
+			m_pendingAdditions.push_back(std::move(go));
+		} else {
+			m_gameObjects.push_back(std::move(go));
+		}
+		return ptr;
+	}
+
+	GameObject* Scene::instantiate(const Prefab& prefab, const std::string& name) {
+		auto goName = name.empty() ? "PrefabInstance" : name;
+		auto* go = createGameObject(goName);
+		prefab.apply(go);
+		return go;
 	}
 
 	void Scene::removeGameObject(GameObject* gameObject) {

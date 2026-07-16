@@ -27,6 +27,7 @@
 
 // GameObject
 #include "ShitEngine/GameObject/GameObject.h"
+#include "ShitEngine/GameObject/Prefab.h"
 
 // Component
 #include "ShitEngine/Component/Component.h"

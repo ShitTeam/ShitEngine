@@ -6,8 +6,9 @@ namespace Shit {
 
 	/**
 	 * @brief 行为基类
-	 * 
-	 * 继承自 Component, 拥有三个生命周期
+	 *
+	 * 继承自 Component，拥有完整生命周期：
+	 *   onCreate → onAttach → onStart → (每帧)onUpdate → onDetach → onDestroy
 	 */
 	class SHIT_API Behavior : public Component {
 		friend class GameObject;
@@ -16,9 +17,11 @@ namespace Shit {
 		~Behavior() override = default;
 
 		// --- 生命周期 ---
+		void onCreate() override;
 		void onAttach() override;
-		virtual void onStart();		  // 组件更新时前，执行一次
-		virtual void onUpdate();	  // 组件更新时，每帧执行一次
+		virtual void onStart();		  // 组件更新前执行一次
+		virtual void onUpdate();	  // 每帧执行
+		void onDetach() override;
 		void onDestroy() override;
 
 		bool isStarted() const { return m_isStarted; }

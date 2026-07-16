@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <string>
 #include <unordered_map>
 #include <typeindex>
@@ -13,14 +13,18 @@
 
 namespace Shit {
 	class Scene; // 前向声明
-	
+
 	/**
 	 * @brief 游戏物体类
+	 *
+	 * 构造函数私有，只能通过 Scene::createGameObject 或 Scene::instantiate 创建。
 	 */
 	class SHIT_API GameObject final {
 		friend class Scene;
-	public:
+	private:
 		GameObject(const std::string& name);
+
+	public:
 		~GameObject() = default;
 
 		// 禁止拷贝和移动
@@ -39,7 +43,7 @@ namespace Shit {
 
 		inline void setName(const std::string& name) { m_name = name; }
 		inline void setTag(const std::string& tag) { m_tag = tag; }
-		inline void setScene(Scene* scene) { m_scene = scene; }
+		void setScene(Scene* scene); // 非内联：进入场景时自动挂载组件
 		inline void setNeedDestroy(bool needDestroy) { m_needDestroy = needDestroy; }
 		inline std::unordered_map<std::type_index, std::unique_ptr<Component>>& getComponents() { return m_components; }
 
@@ -49,10 +53,12 @@ namespace Shit {
 		 * @tparam ...Args 传递的参数
 		 * @param ...args 组件构造函数参数
 		 * @return 组件裸指针
+		 *
+		 * 生命周期调用顺序：
+		 *   Constructor → onCreate → (若已挂载场景则 onAttach)
 		 */
 		template <typename T, typename... Args>
 		T* addComponent(Args&&... args) {
-			// 检查 T 是不是继承自 Component
 			static_assert(std::is_base_of_v<Component, T>, "添加的组件必须继承自 Component！");
 
 			auto type_index = std::type_index(typeid(T));
@@ -65,7 +71,12 @@ namespace Shit {
 			auto new_component = std::make_unique<T>(std::forward<Args>(args)...);
 			T* new_component_ptr = new_component.get();
 			new_component->setOwner(this);
-			new_component->onAttach(); // 执行 onAttach 生命周期
+			new_component->onCreate(); // onCreate：轻量初始化
+
+			// 若已挂载场景则立即执行 onAttach（注册到 System）
+			if (m_scene) {
+				new_component->onAttach();
+			}
 
 			m_components[type_index] = std::unique_ptr<Component>(new_component.release());
 			ST_CORE_TRACE("GameObject : {} 已添加 组件 {}", m_name, typeid(T).name());
@@ -82,7 +93,7 @@ namespace Shit {
 		T* getComponent() {
 			static_assert(std::is_base_of_v<Component, T>, "获取的组件必须继承自 Component！");
 			auto type_index = std::type_index(typeid(T));
-			
+
 			if (auto it = m_components.find(type_index); it != m_components.end()) {
 				return static_cast<T*>(it->second.get());
 			}
@@ -104,6 +115,8 @@ namespace Shit {
 		/**
 		 * @brief 移除某个组件
 		 * @tparam T 组件类型
+		 *
+		 * 生命周期调用顺序：onDetach → onDestroy
 		 */
 		template <typename T>
 		void removeComponent() {
@@ -111,9 +124,8 @@ namespace Shit {
 			auto type_index = std::type_index(typeid(T));
 
 			if (auto it = m_components.find(type_index); it != m_components.end()) {
-
+				it->second->onDetach();
 				it->second->onDestroy();
-
 				m_components.erase(it);
 			}
 		}

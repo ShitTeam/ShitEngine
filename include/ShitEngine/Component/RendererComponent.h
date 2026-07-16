@@ -20,6 +20,7 @@ namespace Shit {
 		~RendererComponent() override = default;
 
 		void onAttach() override;
+		void onDetach() override;
 		virtual void onRender(SDL_Renderer* renderer, const CameraComponent* camera) const = 0;
 		void onDestroy() override;
 

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "../Core/Config.h"
 
 namespace Shit {
@@ -6,8 +6,14 @@ namespace Shit {
 
 	/**
 	 * @brief 组件基类
-	 * 
-	 * 任何组件都必须继承于此
+	 *
+	 * 所有组件必须继承此类。
+	 *
+	 * 生命周期（按调用顺序）：
+	 *   onCreate  — 组件刚被构造、已绑定 owner，尚未挂载到场景
+	 *   onAttach  — 组件所属 GameObject 进入活动场景时
+	 *   onDetach  — 组件即将从场景中移除时（在 onDestroy 前调用）
+	 *   onDestroy — 组件被销毁时
 	 */
 	class SHIT_API Component {
 		friend class GameObject; // 只能通过GameObject初始化组件
@@ -16,8 +22,10 @@ namespace Shit {
 		Component();
 		virtual ~Component() = default;
 
-		virtual void onAttach() {} // 挂载时
-		virtual void onDestroy() {} // 销毁时
+		virtual void onCreate() {}   // 组件创建时（有 owner，但可能尚未挂到场景）
+		virtual void onAttach() {}   // 组件挂载到活动场景时
+		virtual void onDetach() {}   // 组件从场景卸下时
+		virtual void onDestroy() {}  // 组件销毁时
 
 		// 禁止拷贝和移动
 		Component(const Component&) = delete;
@@ -34,7 +42,6 @@ namespace Shit {
 
 	protected:
 		GameObject* m_owner = nullptr; // 组件的拥有者
-
 		bool m_isRegistered = false;
 	};
 }

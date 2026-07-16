@@ -21,6 +21,7 @@ public:
 
 private:
     friend class AudioPlayer;
+    friend class AudioTrack;
     AudioTrackGroup(const std::string& name) : m_name(name) {}
     void registerTrack(AudioTrack* track);
     void unregisterTrack(AudioTrack* track);
@@ -30,7 +31,7 @@ private:
     std::vector<AudioTrack*> m_tracks;
 };
 
-class AudioPlayer {
+class SHIT_API AudioPlayer {
 public:
     static inline bool Init() { return GetInstance().init(); }
     static inline void Destroy() { GetInstance().destroy(); }
@@ -70,7 +71,7 @@ private:
     void update();
     AudioTrackGroup* createTrackGroup(const std::string& name);
     AudioTrackGroup* getTrackGroup(const std::string& name);
-    AudioTrack* play(const std::string& filePath, AudioTrackGroup* group);
+    AudioTrack* play(const std::string& filePath, AudioTrackGroup* group, int loopCount = 0);
     void setMasterVolume(float gain);
     void pauseAll();
     void resumeAll();

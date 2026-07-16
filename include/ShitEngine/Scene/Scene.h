@@ -15,6 +15,7 @@ namespace Shit {
 	class CameraComponent;
 	class SceneManager;
 	class GameObject;
+	class Prefab;
 	class Behavior;
 	class RendererComponent;
 
@@ -37,6 +38,8 @@ namespace Shit {
 		virtual void destroy();
 
 		void addGameObject(std::unique_ptr<GameObject>&& gameObject);
+		GameObject* createGameObject(const std::string& name);
+		GameObject* instantiate(const Prefab& prefab, const std::string& name = "");
 		void removeGameObject(GameObject* gameObject); // 通过指针来删除游戏物体
 		void removeGameObjectByName(const std::string& name); // 通过名称来删除游戏物体
 

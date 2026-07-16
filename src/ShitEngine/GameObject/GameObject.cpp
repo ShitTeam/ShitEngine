@@ -1,4 +1,4 @@
-﻿#include "ShitEngine/GameObject/GameObject.h"
+#include "ShitEngine/GameObject/GameObject.h"
 
 namespace Shit {
 	GameObject::GameObject(const std::string& name) : m_name(name)
@@ -10,10 +10,24 @@ namespace Shit {
 		m_needDestroy = true;
 	}
 
+	void GameObject::setScene(Scene* scene) {
+		m_scene = scene;
+
+		// 进入场景时：对尚未注册的组件执行 onAttach
+		if (scene) {
+			for (auto& [type, comp] : m_components) {
+				if (!comp->isRegistered()) {
+					comp->onAttach();
+				}
+			}
+		}
+	}
+
 	void GameObject::clean()
 	{
-		for (auto& comp : m_components) {
-			comp.second->onDestroy();
+		for (auto& [type, comp] : m_components) {
+			comp->onDetach();
+			comp->onDestroy();
 		}
 		m_components.clear();
 	}

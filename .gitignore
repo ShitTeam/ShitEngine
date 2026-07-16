@@ -10,3 +10,4 @@ external/
 .DS_Store
 Thumbs.db
 fuck-u-code*
+build_prefab/

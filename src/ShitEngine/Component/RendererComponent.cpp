@@ -1,4 +1,4 @@
-﻿#include "ShitEngine/Component/RendererComponent.h"
+#include "ShitEngine/Component/RendererComponent.h"
 #include "ShitEngine/GameObject/GameObject.h"
 #include "ShitEngine/Render/RenderSystem.h"
 #include "ShitEngine/Scene/Scene.h"
@@ -13,25 +13,27 @@ namespace Shit {
 	{
 		Component::onAttach();
 
-		// 注册 RendererComponent
-
 		if (auto* scene = m_owner->getScene()) {
 			if (auto* system = scene->getSystem<RenderSystem>()) {
 				system->registerRenderer(this);
-
 				m_isRegistered = true;
 			}
 		}
 	}
 
-	void RendererComponent::onDestroy() {
-		Component::onDestroy();
+	void RendererComponent::onDetach() {
+		Component::onDetach();
 
-		// 注销 RendererComponent
-		if (auto* system = m_owner->getScene()->getSystem<RenderSystem>()) {
-			system->unregisterRenderer(this);
+		if (auto* scene = m_owner->getScene()) {
+			if (auto* system = scene->getSystem<RenderSystem>()) {
+				system->unregisterRenderer(this);
+			}
 		}
 
 		m_isRegistered = false;
+	}
+
+	void RendererComponent::onDestroy() {
+		Component::onDestroy();
 	}
 }
