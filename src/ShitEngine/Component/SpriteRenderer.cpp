@@ -13,7 +13,7 @@
 namespace Shit {
 	void SpriteRenderer::onRender(SDL_Renderer* renderer, const CameraComponent* camera) const
 	{
-		SDL_Texture* texture = ResourceManager::GetTexture(m_texturePath);
+		SDL_Texture* texture = ResourceManager::GetTexture(m_sprite.getTexturePath());
 		if (!texture) return;
 
 		auto* transform = getOwner()->getComponent<TransformComponent>();
@@ -27,8 +27,8 @@ namespace Shit {
 		SDL_FRect* srcPtr = nullptr;
 		float frameWidth = textureWidth;
 		float frameHeight = textureHeight;
-		if (m_sourceRect.has_value()) {
-			srcRect = m_sourceRect.value();
+		if (m_sprite.getSourceRect().has_value()) {
+			srcRect = m_sprite.getSourceRect().value();
 			srcPtr = &srcRect;
 			frameWidth = srcRect.w;
 			frameHeight = srcRect.h;
@@ -57,11 +57,11 @@ namespace Shit {
 			ST_CORE_ERROR("无法获取路径为 {} 的纹理！", texturePath);
 			return;
 		}
-		m_texturePath = texturePath;
+		m_sprite.setTexturePath(texturePath);
 	}
 
 	SDL_FRect SpriteRenderer::getGlobalBounds() {
-		SDL_Texture* texture = ResourceManager::GetTexture(m_texturePath);
+		SDL_Texture* texture = ResourceManager::GetTexture(m_sprite.getTexturePath());
 		if (!texture) return SDL_FRect{};
 
 		auto* transform = getOwner()->getComponent<TransformComponent>();
@@ -71,9 +71,9 @@ namespace Shit {
 		Vector2 scale = transform->getScale();
 
 		float width = 0.0f, height = 0.0f;
-		if (m_sourceRect.has_value()) {
-			width = m_sourceRect->w;
-			height = m_sourceRect->h;
+		if (m_sprite.getSourceRect().has_value()) {
+			width = m_sprite.getSourceRect()->w;
+			height = m_sprite.getSourceRect()->h;
 		} else {
 			SDL_GetTextureSize(texture, &width, &height);
 		}
