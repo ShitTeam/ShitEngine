@@ -34,8 +34,13 @@ jobs:
       - name: 安装 Doxygen + SDL3 构建依赖
         run: |
           sudo apt-get update
-          sudo apt-get install -y doxygen cmake g++ libx11-dev libxext-dev \
-            libxrandr-dev libxcursor-dev libxi-dev libxfixes-dev libxinerama-dev
+          sudo apt-get install -y doxygen cmake g++ \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev \
+            libxfixes-dev libxi-dev libxss-dev libxtst-dev \
+            libwayland-dev libegl1-mesa-dev libgles2-mesa-dev libgl1-mesa-dev \
+            libxkbcommon-dev libdbus-1-dev \
+            libpulse-dev libpipewire-0.3-dev \
+            libdrm-dev libgbm-dev
 
       - name: CMake 配置
         working-directory: engine
