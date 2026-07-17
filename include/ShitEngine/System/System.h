@@ -17,7 +17,7 @@ namespace Shit {
         System(int priority = 0);
         virtual ~System();
 
-        virtual void init() {}    ///< 初始化（可覆写）
+        virtual void init();        ///< 初始化（可覆写）
         virtual void update() = 0;    ///< 每帧更新（纯虚）
         virtual void destroy() = 0;   ///< 销毁（纯虚）
 
