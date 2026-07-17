@@ -50,10 +50,12 @@ namespace Shit {
 		/**
 		 * @brief 添加组件
 		 * @tparam T 组件类型（须继承 Component）
-		 * @tparam ...Args 构造参数类型
-		 * @param ...args 传递给组件构造函数
+		 * @tparam Args 构造参数类型
+		 * @param args 传递给组件构造函数
 		 * @return 组件指针（若已存在则返回已有的）
-		 *
+		 */
+
+		template <typename T, typename... Args>
 		T* addComponent(Args&&... args) {
 			static_assert(std::is_base_of_v<Component, T>, "添加的组件必须继承自 Component！");
 
