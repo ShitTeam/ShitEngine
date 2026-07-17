@@ -11,6 +11,9 @@ namespace Shit {
 
 	/**
 	 * @brief 渲染系统
+	 *
+	 * 每帧按优先级排序相机 → 按 Z-Index 排序渲染器 → 逐个相机裁剪渲染。
+	 * RendererComponent 的 onAttach / onDetach 自动调用 register / unregister。
 	 */
 	class SHIT_API RenderSystem final : public System {
 	public:
@@ -20,13 +23,10 @@ namespace Shit {
 		void update() override;
 		void destroy() override;
 
-		// 注册渲染组件
-		void registerRenderer(RendererComponent *renderer);
-		void unregisterRenderer(RendererComponent *renderer);
-
-		// 注册相机
-		void registerCamera(CameraComponent *camera);
-		void unregisterCamera(CameraComponent *camera);
+		void registerRenderer(RendererComponent *renderer);   ///< 注册渲染组件
+		void unregisterRenderer(RendererComponent *renderer); ///< 注销渲染组件
+		void registerCamera(CameraComponent *camera);         ///< 注册相机
+		void unregisterCamera(CameraComponent *camera);       ///< 注销相机
 
 	private:
 		SDL_Renderer* m_renderer = nullptr;

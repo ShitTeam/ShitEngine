@@ -7,19 +7,21 @@
 
 namespace Shit{
     /**
-     * @brief 动画组件
+     * @brief 逐帧动画数据
      *
-     * 储存每一帧的动画
+     * 存储一组帧矩形（SDL_FRect）及每帧持续时间。
+     * getFrame(elapsedTime) 根据当前播放时间返回对应帧。
+     * 通常由 AnimationComponent 自动管理，不直接使用。
      */
     class SHIT_API Animation final {
     public:
         Animation(float duration = 0.1f, bool loop = true);
         ~Animation();
 
-        void addFrame(const SDL_FRect& frame);
-        void addFrames(const std::vector<SDL_FRect>& frames);
+        void addFrame(const SDL_FRect& frame);      ///< 添加单帧
+        void addFrames(const std::vector<SDL_FRect>& frames); ///< 批量添加帧
 
-        SDL_FRect getFrame(float elapsedTime) const;
+        SDL_FRect getFrame(float elapsedTime) const; ///< 根据已播放时间返回当前帧的源矩形
 
         // --- getter & setter ---
         void setLoop(bool loop) { m_loop = loop; }
@@ -30,8 +32,8 @@ namespace Shit{
         int getFrameCount() const { return static_cast<int>(m_frames.size()); }
 
     private:
-        std::vector<SDL_FRect> m_frames; // 每帧的矩形位置
-        float m_duration; // 每帧时间
-        bool m_loop = true; // 是否循环播放
+        std::vector<SDL_FRect> m_frames;
+        float m_duration;
+        bool m_loop = true;
     };
 }

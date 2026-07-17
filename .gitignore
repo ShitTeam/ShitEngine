@@ -11,3 +11,4 @@ external/
 Thumbs.db
 fuck-u-code*
 build_prefab/
+.claude/

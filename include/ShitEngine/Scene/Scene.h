@@ -21,6 +21,15 @@ namespace Shit {
 
 	/**
 	 * @brief 场景类
+	 *
+	 * 场景是游戏世界的容器，管理所有 GameObject、System 的生命周期。
+	 * 通过 SceneManager 的栈机制实现场景切换（主菜单→游戏→暂停）。
+	 *
+	 * 使用方式：
+	 *   auto scene = std::make_unique<Scene>("level1");
+	 *   scene->init();                    // 注册默认 BehaviorSystem + RenderSystem
+	 *   auto* player = scene->createGameObject("player");
+	 *   SceneManager::PushScene(std::move(scene));
 	 */
 	class SHIT_API Scene {
 	public:
@@ -33,15 +42,15 @@ namespace Shit {
 		Scene(Scene&&) = delete;
 		Scene& operator=(Scene&&) = delete;
 
-		virtual void init();
-		void update();
-		virtual void destroy();
+		virtual void init();    ///< 注册默认系统（BehaviorSystem + RenderSystem）
+		void update();           ///< 更新所有 System + 处理延迟操作
+		virtual void destroy(); ///< 销毁所有对象与系统
 
-		void addGameObject(std::unique_ptr<GameObject>&& gameObject);
-		GameObject* createGameObject(const std::string& name);
-		GameObject* instantiate(const Prefab& prefab, const std::string& name = "");
-		void removeGameObject(GameObject* gameObject); // 通过指针来删除游戏物体
-		void removeGameObjectByName(const std::string& name); // 通过名称来删除游戏物体
+		void addGameObject(std::unique_ptr<GameObject>&& gameObject);  ///< 延迟添加 GameObject（帧末生效）
+		GameObject* createGameObject(const std::string& name);          ///< 创建并添加 GameObject
+		GameObject* instantiate(const Prefab& prefab, const std::string& name = ""); ///< 从预制体实例化
+		void removeGameObject(GameObject* gameObject);                  ///< 按指针标记销毁
+		void removeGameObjectByName(const std::string& name);           ///< 按名称标记销毁
 
 		template <typename T>
 		T* registerSystem() {

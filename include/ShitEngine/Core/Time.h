@@ -6,7 +6,9 @@ namespace Shit {
 	class Game;
 
 	/**
-	 * @brief 静态时间类
+	 * @brief 时间管理类
+	 *
+	 * 提供帧间时间差、总运行时间和帧率控制。
 	 */
 	class SHIT_API Time {
 		friend class Game;
@@ -18,12 +20,13 @@ namespace Shit {
 
 		// --- 静态API ---
 		static Time& GetInstance();
-		static void Init() { GetInstance().init(); }
-		static void Update() { GetInstance().update(); }
-		static float GetDeltaTime() { return GetInstance().m_deltaTime; }
-		static double GetTotalTime() { return GetInstance().m_totalTime; }
-		static unsigned int GetTargetFPS() { return GetInstance().m_targetFPS; }
-		static void SetTargetFPS(unsigned int fps) { GetInstance().m_targetFPS = fps; }
+		static void Init() { GetInstance().init(); }                    ///< 初始化计时器
+		static void Update() { GetInstance().update(); }                ///< 每帧调用，更新 m_deltaTime
+		static float GetDeltaTime() { return GetInstance().m_deltaTime; }   ///< 上一帧耗时（秒）
+		static double GetTotalTime() { return GetInstance().m_totalTime; }  ///< 引擎启动至今的总时长（秒）
+		static unsigned int GetTargetFPS() { return GetInstance().m_targetFPS; }  ///< 目标帧率上限
+		static void SetTargetFPS(unsigned int fps) { GetInstance().m_targetFPS = fps; }  ///< 设帧率上限
+
 	private:
 		Time();
 		~Time();
