@@ -77,6 +77,14 @@ add_library(ShitEngine SHARED
     # System
     "src/ShitEngine/System/System.cpp"
     "src/ShitEngine/System/BehaviorSystem.cpp"
+    # UI
+    "src/ShitEngine/UI/UITransform.cpp"
+    "src/ShitEngine/UI/UIRendererComponent.cpp"
+    "src/ShitEngine/UI/UICanvas.cpp"
+    "src/ShitEngine/UI/UIImage.cpp"
+    "src/ShitEngine/UI/UIText.cpp"
+    "src/ShitEngine/UI/UIButton.cpp"
+    "src/ShitEngine/UI/UIRenderSystem.cpp"
 )
 
 set_target_properties(ShitEngine PROPERTIES

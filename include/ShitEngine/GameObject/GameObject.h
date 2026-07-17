@@ -33,7 +33,23 @@ namespace Shit {
 		GameObject(GameObject&&) = delete;
 		GameObject& operator=(GameObject&&) = delete;
 
-		void destroy(); ///< 标记为待销毁（帧末由 Scene 统一清理）
+		void destroy(); ///< 标记为待销毁（帧末由 Scene 统一清理）；级联标记所有子物体
+
+		// --- 父子关系 ---
+		/**
+		 * @brief 设置父物体
+		 *
+		 * 自动从旧父物体的子列表中移除自己，并加入新父物体的子列表。
+		 * 传入 nullptr 即解除当前父子关系。跨 Scene 的父子关系将被拒绝并记 WARN。
+		 * @param parent 新父物体（可为 nullptr）
+		 */
+		void setParent(GameObject* parent);
+
+		GameObject* getParent() const { return m_parent; }                        ///< 获取父物体
+		const std::vector<GameObject*>& getChildren() const { return m_children; } ///< 获取子物体列表
+
+		/// @brief 添加子物体（等价于 child->setParent(this)）
+		void addChild(GameObject* child) { if (child) child->setParent(this); }
 
 		// --- getter & setter ---
 		const std::string& getName() const { return m_name; }
@@ -130,11 +146,15 @@ namespace Shit {
 
 	private:
 		void clean(); // 清理（只能 Scene 调用）
+		void removeFromParentChildren(); // 从当前父物体的子列表中移除自己
 
 		std::string m_name; // 游戏物体名称
 		std::string m_tag; // 标签
 		Scene* m_scene = nullptr; // 所在 Scene 指针
 		std::unordered_map<std::type_index, std::unique_ptr<Component>> m_components; // 挂载的组件
 		bool m_needDestroy = false; // 是否需要销毁（由 Scene 负责销毁）
+
+		GameObject* m_parent = nullptr; // 父物体（裸指针，所有权归 Scene）
+		std::vector<GameObject*> m_children; // 子物体列表（裸指针，仅表达层级）
 	};
 }

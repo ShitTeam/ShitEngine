@@ -72,11 +72,9 @@ namespace Shit {
 			}
 		}
 
-		// 清除裁剪和视口，恢复全屏
+		// 清除裁剪和视口，恢复全屏（UI 渲染在 UIRenderSystem 中叠加，Present 移至 Game::run 末尾）
 		SDL_SetRenderClipRect(m_renderer, nullptr);
 		SDL_SetRenderViewport(m_renderer, nullptr);
-
-		Renderer::Present();
 	}
 
 	void RenderSystem::destroy() {

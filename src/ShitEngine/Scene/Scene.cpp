@@ -8,17 +8,19 @@
 #include "ShitEngine/Component/RendererComponent.h"
 #include "ShitEngine/Render/RenderSystem.h"
 #include "ShitEngine/System/BehaviorSystem.h"
+#include "ShitEngine/UI/UIRenderSystem.h"
 
 namespace Shit {
 	Scene::Scene(const std::string& name) : m_name(name) {
 		ST_CORE_TRACE("场景 {} ：创建成功。", m_name);
 	}
-	
+
 	Scene::~Scene() = default;
 
 	void Scene::init() { // 场景初始化
 		registerSystem<BehaviorSystem>();
 		registerSystem<RenderSystem>();
+		registerSystem<UIRenderSystem>();
 	}
 
 	void Scene::update() {
@@ -102,7 +104,7 @@ namespace Shit {
 		}
 
 		if (Game::IsRunning()) { // 如果正在运行，则使用更安全的移除
-			gameObject->setNeedDestroy(true);
+			gameObject->destroy(); // destroy() 会级联标记所有子物体
 		}
 		else {
 			auto it = std::remove_if(m_gameObjects.begin(), m_gameObjects.end(), [&gameObject](const std::unique_ptr<GameObject>& go) {
@@ -124,7 +126,7 @@ namespace Shit {
 		if (Game::IsRunning()) {
 			for (auto& go : m_gameObjects) {
 				if (go->getName() == name) {
-					go->setNeedDestroy(true);
+					go->destroy(); // destroy() 会级联标记所有子物体
 				}
 			}
 		}

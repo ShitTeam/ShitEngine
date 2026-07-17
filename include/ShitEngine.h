@@ -47,3 +47,12 @@
 
 // Resource
 #include "ShitEngine/Resource/ResourceManager.h"
+
+// UI
+#include "ShitEngine/UI/UITransform.h"
+#include "ShitEngine/UI/UIRendererComponent.h"
+#include "ShitEngine/UI/UICanvas.h"
+#include "ShitEngine/UI/UIImage.h"
+#include "ShitEngine/UI/UIText.h"
+#include "ShitEngine/UI/UIButton.h"
+#include "ShitEngine/UI/UIRenderSystem.h"

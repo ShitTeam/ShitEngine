@@ -83,6 +83,9 @@ namespace Shit {
 
 			// 更新音频：清理已播完的 track，避免内存泄漏与 group 悬空指针
 			AudioPlayer::Update();
+
+			// 所有画面绘制（游戏世界 + UI）完成后统一刷新缓冲区
+			Renderer::Present();
 		}
 
 		m_isRunning = false;
