@@ -1,4 +1,7 @@
 # Doxyfile.in — 由 CMake 替换路径后使用
+# 构建: cmake --build . --target docs
+# 输出: ${CMAKE_BINARY_DIR}/docs/api/
+
 DOXYFILE_ENCODING      = UTF-8
 PROJECT_NAME           = "ShitEngine"
 PROJECT_BRIEF          = "基于 C++20 与 SDL3 的轻量级 2D 游戏引擎"
@@ -6,38 +9,133 @@ OUTPUT_DIRECTORY       = "@CMAKE_BINARY_DIR@/docs/api"
 CREATE_SUBDIRS         = NO
 OUTPUT_LANGUAGE        = Chinese
 BRIEF_MEMBER_DESC      = YES
+REPEAT_BRIEF           = YES
 JAVADOC_AUTOBRIEF      = YES
+QT_AUTOBRIEF           = NO
+MULTILINE_CPP_IS_BRIEF = NO
+INHERIT_DOCS           = YES
+SEPARATE_MEMBER_PAGES  = NO
+TAB_SIZE               = 4
+ALIASES                =
+OPTIMIZE_OUTPUT_FOR_C  = NO
+OPTIMIZE_OUTPUT_JAVA   = NO
+BUILTIN_STL_SUPPORT    = YES
+CPP_CLI_SUPPORT        = NO
+DISTRIBUTE_GROUP_DOC   = NO
+SUBGROUPING            = YES
+
+# --- Build ---
 EXTRACT_ALL            = YES
 EXTRACT_PRIVATE        = NO
 EXTRACT_STATIC         = NO
 EXTRACT_LOCAL_CLASSES  = YES
+EXTRACT_ANON_NSPACES   = NO
+RESOLVE_UNNAMED_PARAMS = YES
+HIDE_UNDOC_MEMBERS     = NO
+HIDE_UNDOC_CLASSES     = NO
+HIDE_FRIEND_COMPOUNDS  = NO
+HIDE_IN_BODY_DOCS      = NO
+INTERNAL_DOCS          = NO
 CASE_SENSE_NAMES       = NO
 HIDE_SCOPE_NAMES       = YES
+SHOW_HEADERFILE        = YES
+SHOW_INCLUDE_FILES     = YES
+INLINE_INFO            = YES
 SORT_MEMBER_DOCS       = YES
+SORT_BRIEF_DOCS        = NO
+SORT_MEMBERS_CTORS_1ST = NO
+GENERATE_TODOLIST      = YES
+GENERATE_TESTLIST      = YES
+GENERATE_BUGLIST       = YES
+GENERATE_DEPRECATEDLIST= YES
+MAX_INITIALIZER_LINES  = 30
+SHOW_USED_FILES        = YES
+SHOW_FILES             = YES
+SHOW_NAMESPACES        = YES
+
+# --- Warnings ---
 QUIET                  = YES
 WARNINGS               = NO
+WARN_IF_UNDOCUMENTED   = NO
+WARN_IF_DOC_ERROR      = NO
+WARN_NO_PARAMDOC       = NO
+WARN_AS_ERROR          = NO
+
+# --- Input ---
 INPUT                  = "@CMAKE_SOURCE_DIR@/include/ShitEngine"
 INPUT_ENCODING         = UTF-8
 FILE_PATTERNS          = *.h
 RECURSIVE              = YES
+EXCLUDE                =
+EXCLUDE_PATTERNS       =
+EXCLUDE_SYMBOLS        =
+EXAMPLE_PATH           =
+EXAMPLE_PATTERNS       = *
+FILTER_SOURCE_FILES    = NO
+
+# --- Source browsing ---
+SOURCE_BROWSER         = NO
+INLINE_SOURCES         = NO
+STRIP_CODE_COMMENTS    = YES
+REFERENCED_BY_RELATION = NO
+REFERENCES_RELATION    = NO
+VERBATIM_HEADERS       = YES
+
+# --- Index ---
+ALPHABETICAL_INDEX     = YES
+IGNORE_PREFIX          =
+
+# --- HTML output ---
+USE_MDFILE_AS_MAINPAGE = @CMAKE_SOURCE_DIR@/docs/mainpage.md
+
 GENERATE_HTML          = YES
 HTML_OUTPUT            = .
 HTML_FILE_EXTENSION    = .html
+HTML_HEADER            = @CMAKE_SOURCE_DIR@/docs/header.html
+HTML_FOOTER            = @CMAKE_SOURCE_DIR@/docs/footer.html
+HTML_STYLESHEET        = @CMAKE_SOURCE_DIR@/docs/custom.css
+HTML_EXTRA_STYLESHEET  = @CMAKE_SOURCE_DIR@/docs/doxygen-awesome/doxygen-awesome.css \
+                         @CMAKE_SOURCE_DIR@/docs/doxygen-awesome/doxygen-awesome-sidebar-only.css
+HTML_EXTRA_FILES       = @CMAKE_SOURCE_DIR@/docs/doxygen-awesome/doxygen-awesome-darkmode-toggle.js \
+                         @CMAKE_SOURCE_DIR@/docs/doxygen-awesome/doxygen-awesome-fragment-copy-button.js
+HTML_COLORSTYLE        = LIGHT
 HTML_COLORSTYLE_HUE    = 30
 HTML_COLORSTYLE_SAT    = 100
 HTML_COLORSTYLE_GAMMA  = 80
-GENERATE_TREEVIEW      = YES
+HTML_DYNAMIC_MENUS     = YES
+HTML_DYNAMIC_SECTIONS  = NO
+HTML_CODE_FOLDING      = YES
+GENERATE_DOCSET        = NO
 DISABLE_INDEX          = NO
+GENERATE_TREEVIEW      = YES
 FULL_SIDEBAR           = NO
+ENUM_VALUES_PER_LINE   = 2
+TREEVIEW_WIDTH         = 280
+EXT_LINKS_IN_WINDOW    = NO
+OBFUSCATE_EMAILS       = YES
+FORMULA_FONTSIZE       = 10
+USE_MATHJAX            = NO
 SEARCHENGINE           = YES
+SERVER_BASED_SEARCH    = NO
+EXTERNAL_SEARCH        = NO
+
+# --- Other output ---
 GENERATE_LATEX         = NO
 GENERATE_RTF           = NO
 GENERATE_MAN           = NO
 GENERATE_XML           = NO
 GENERATE_DOCBOOK       = NO
+GENERATE_AUTOGEN_DEF   = NO
+GENERATE_PERLMOD       = NO
+GENERATE_SQLITE3       = NO
+
+# --- Preprocessor ---
 ENABLE_PREPROCESSING   = YES
 MACRO_EXPANSION        = YES
 EXPAND_ONLY_PREDEF     = YES
+SEARCH_INCLUDES        = YES
+INCLUDE_PATH           = "@CMAKE_SOURCE_DIR@/include"
+INCLUDE_FILE_PATTERNS  =
 PREDEFINED             = SHIT_API= \
                          ST_CORE_TRACE(x)= \
                          ST_CORE_INFO(x)= \
@@ -45,5 +143,26 @@ PREDEFINED             = SHIT_API= \
                          ST_CORE_ERROR(x)= \
                          ST_CORE_CRITICAL(x)= \
                          ST_CORE_ASSERT(x)=
+EXPAND_AS_DEFINED      =
 SKIP_FUNCTION_MACROS   = YES
+
+# --- Diagrams ---
+HIDE_UNDOC_RELATIONS   = YES
 HAVE_DOT               = NO
+CLASS_GRAPH            = YES
+COLLABORATION_GRAPH    = YES
+GROUP_GRAPHS           = YES
+UML_LOOK               = NO
+TEMPLATE_RELATIONS     = NO
+INCLUDE_GRAPH          = YES
+INCLUDED_BY_GRAPH      = YES
+CALL_GRAPH             = NO
+CALLER_GRAPH           = NO
+GRAPHICAL_HIERARCHY    = YES
+DIRECTORY_GRAPH        = YES
+DIR_GRAPH_MAX_DEPTH    = 1
+DOT_IMAGE_FORMAT       = png
+DOT_GRAPH_MAX_NODES    = 50
+MAX_DOT_GRAPH_DEPTH    = 0
+GENERATE_LEGEND        = YES
+DOT_CLEANUP            = YES

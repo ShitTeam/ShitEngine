@@ -32,13 +32,20 @@ jobs:
           path: api-docs
 
       - name: 安装 Doxygen
-        run: sudo apt-get update && sudo apt-get install -y doxygen
+        run: sudo apt-get update && sudo apt-get install -y doxygen cmake g++
 
-      - name: 生成 API 文档（使用 API 文档仓库的 Doxyfile）
-        working-directory: api-docs
+      - name: CMake 配置
+        working-directory: engine
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Debug
+
+      - name: 生成 API 文档
+        working-directory: engine
+        run: cmake --build build --target docs
+
+      - name: 复制文档到 API docs 仓库
         run: |
-          sed -i "s|@ENGINE_DIR@|$GITHUB_WORKSPACE/engine|g" Doxyfile
-          doxygen Doxyfile
+          rm -rf api-docs/*.html api-docs/*.js api-docs/*.css api-docs/*.svg api-docs/*.md api-docs/*.png api-docs/search api-docs/doxygen-awesome*
+          cp -r engine/build/docs/api/* api-docs/
 
       - name: 提交并推送
         working-directory: api-docs
