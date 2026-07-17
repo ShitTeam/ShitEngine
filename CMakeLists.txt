@@ -29,6 +29,9 @@ option(BUILD_SHARED_LIBS "依赖库默认编译为动态库" ON)
 include(cmake/DependencyManager.cmake)
 setup_project_dependencies()
 
+# Doxygen API 文档 (cmake --build . --target docs)
+include(cmake/Docs.cmake)
+
 # GLM
 add_definitions(-DGLM_FORCE_RADIANS)
 add_definitions(-DGLM_FORCE_DEPTH_ZERO_TO_ONE)

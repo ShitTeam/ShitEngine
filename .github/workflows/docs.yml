@@ -1,0 +1,48 @@
+# GitHub Actions — API 文档自动构建与部署
+# 引擎推送到 main 时自动生成 Doxygen 文档并推送到 ShitEngine-API-Docs
+#
+# 首次使用前：
+#   1. 在 GitHub → Settings → Developer settings → Personal access tokens
+#      创建一个有 repo 权限的 token
+#   2. 在 ShitEngine 仓库的 Settings → Secrets and variables → Actions
+#      添加名为 API_DOCS_TOKEN 的 secret，值填入上面创建的 token
+name: Deploy API Docs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 引擎源码
+        uses: actions/checkout@v4
+        with:
+          repository: ShitTeam/ShitEngine
+          ref: main
+          path: engine
+
+      - name: Checkout API 文档仓库（含 Doxyfile + 主题文件）
+        uses: actions/checkout@v4
+        with:
+          repository: ShitTeam/ShitEngine-API-Docs
+          token: ${{ secrets.API_DOCS_TOKEN }}
+          path: api-docs
+
+      - name: 安装 Doxygen
+        run: sudo apt-get update && sudo apt-get install -y doxygen
+
+      - name: 生成 API 文档（使用 API 文档仓库的 Doxyfile）
+        working-directory: api-docs
+        run: doxygen Doxyfile
+
+      - name: 提交并推送
+        working-directory: api-docs
+        run: |
+          git config user.name "ShitEngine Bot"
+          git config user.email "bot@shitteam.top"
+          git add -A
+          git diff --quiet && echo "无变更，跳过提交" || \
+            (git commit -m "auto: 自动构建 API 文档（来自 ShitEngine@${{ github.sha }}）" && git push)
