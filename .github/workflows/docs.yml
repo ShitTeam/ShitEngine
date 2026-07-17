@@ -31,8 +31,11 @@ jobs:
           token: ${{ secrets.API_DOCS_TOKEN }}
           path: api-docs
 
-      - name: 安装 Doxygen
-        run: sudo apt-get update && sudo apt-get install -y doxygen cmake g++
+      - name: 安装 Doxygen + SDL3 构建依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y doxygen cmake g++ libx11-dev libxext-dev \
+            libxrandr-dev libxcursor-dev libxi-dev libxfixes-dev libxinerama-dev
 
       - name: CMake 配置
         working-directory: engine
