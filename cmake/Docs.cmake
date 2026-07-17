@@ -14,6 +14,7 @@ if(Doxygen_FOUND)
     )
 
     add_custom_target(docs
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/docs/api"
         COMMAND ${DOXYGEN_EXECUTABLE} "${CMAKE_BINARY_DIR}/Doxyfile"
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
         COMMENT "生成 Doxygen API 文档..."
