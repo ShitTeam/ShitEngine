@@ -36,7 +36,9 @@ jobs:
 
       - name: 生成 API 文档（使用 API 文档仓库的 Doxyfile）
         working-directory: api-docs
-        run: doxygen Doxyfile
+        run: |
+          sed -i "s|@ENGINE_DIR@|$GITHUB_WORKSPACE/engine|g" Doxyfile
+          doxygen Doxyfile
 
       - name: 提交并推送
         working-directory: api-docs
