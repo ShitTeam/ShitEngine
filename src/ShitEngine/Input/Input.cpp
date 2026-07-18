@@ -1,6 +1,8 @@
 ﻿#include "ShitEngine/Input/Input.h"
 #include "ShitEngine/Core/Log.h"
 #include "ShitEngine/Core/pch.h"
+#include "ShitEngine/Render/Renderer.h"
+#include <SDL3/SDL_render.h>
 
 namespace Shit {
 	Input::Input() = default;
@@ -53,9 +55,20 @@ namespace Shit {
 
 	Vector2 Input::getMousePosition()
 	{
-		float x, y;
-		SDL_GetMouseState(&x, &y);
-		return { x, y };
+		float windowX, windowY;
+		SDL_GetMouseState(&windowX, &windowY);
+
+		// SDL_GetMouseState 返回窗口物理像素坐标，但渲染走 SDL_SetRenderLogicalPresentation
+		// 的逻辑坐标系（默认 1280×720，letterbox 后还可能有黑边）。UI Raycasting 与游戏世界
+		// 命中检测都基于逻辑坐标，因此必须转换，否则窗口缩放/非整数倍时点击会偏移。
+		Vector2 position{ windowX, windowY };
+		if (auto* renderer = Renderer::GetRenderer()) {
+			float logicalX = 0.0f, logicalY = 0.0f;
+			if (SDL_RenderCoordinatesFromWindow(renderer, windowX, windowY, &logicalX, &logicalY)) {
+				position = { logicalX, logicalY };
+			}
+		}
+		return position;
 	}
 
 	void Input::update() { // 更新

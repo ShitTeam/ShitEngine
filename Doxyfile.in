@@ -62,8 +62,8 @@ WARN_NO_PARAMDOC       = NO
 WARN_AS_ERROR          = NO
 
 # --- Input ---
-INPUT                  = "@CMAKE_SOURCE_DIR@/include/ShitEngine" \
-                         "@CMAKE_SOURCE_DIR@/docs/mainpage.md"
+INPUT                  = "@CMAKE_CURRENT_SOURCE_DIR@/include/ShitEngine" \
+                         "@CMAKE_CURRENT_SOURCE_DIR@/docs/mainpage.md"
 INPUT_ENCODING         = UTF-8
 FILE_PATTERNS          = *.h
 RECURSIVE              = YES
@@ -87,18 +87,18 @@ ALPHABETICAL_INDEX     = YES
 IGNORE_PREFIX          =
 
 # --- HTML output ---
-USE_MDFILE_AS_MAINPAGE = @CMAKE_SOURCE_DIR@/docs/mainpage.md
+USE_MDFILE_AS_MAINPAGE = @CMAKE_CURRENT_SOURCE_DIR@/docs/mainpage.md
 
 GENERATE_HTML          = YES
 HTML_OUTPUT            = .
 HTML_FILE_EXTENSION    = .html
-HTML_HEADER            = @CMAKE_SOURCE_DIR@/docs/header.html
-HTML_FOOTER            = @CMAKE_SOURCE_DIR@/docs/footer.html
-HTML_STYLESHEET        = @CMAKE_SOURCE_DIR@/docs/custom.css
-HTML_EXTRA_STYLESHEET  = @CMAKE_SOURCE_DIR@/docs/doxygen-awesome/doxygen-awesome.css \
-                         @CMAKE_SOURCE_DIR@/docs/doxygen-awesome/doxygen-awesome-sidebar-only.css
-HTML_EXTRA_FILES       = @CMAKE_SOURCE_DIR@/docs/doxygen-awesome/doxygen-awesome-darkmode-toggle.js \
-                         @CMAKE_SOURCE_DIR@/docs/doxygen-awesome/doxygen-awesome-fragment-copy-button.js
+HTML_HEADER            = @CMAKE_CURRENT_SOURCE_DIR@/docs/header.html
+HTML_FOOTER            = @CMAKE_CURRENT_SOURCE_DIR@/docs/footer.html
+HTML_STYLESHEET        = @CMAKE_CURRENT_SOURCE_DIR@/docs/custom.css
+HTML_EXTRA_STYLESHEET  = @CMAKE_CURRENT_SOURCE_DIR@/docs/doxygen-awesome/doxygen-awesome.css \
+                         @CMAKE_CURRENT_SOURCE_DIR@/docs/doxygen-awesome/doxygen-awesome-sidebar-only.css
+HTML_EXTRA_FILES       = @CMAKE_CURRENT_SOURCE_DIR@/docs/doxygen-awesome/doxygen-awesome-darkmode-toggle.js \
+                         @CMAKE_CURRENT_SOURCE_DIR@/docs/doxygen-awesome/doxygen-awesome-fragment-copy-button.js
 HTML_COLORSTYLE        = LIGHT
 HTML_COLORSTYLE_HUE    = 30
 HTML_COLORSTYLE_SAT    = 100
@@ -135,7 +135,7 @@ ENABLE_PREPROCESSING   = YES
 MACRO_EXPANSION        = YES
 EXPAND_ONLY_PREDEF     = YES
 SEARCH_INCLUDES        = YES
-INCLUDE_PATH           = "@CMAKE_SOURCE_DIR@/include"
+INCLUDE_PATH           = "@CMAKE_CURRENT_SOURCE_DIR@/include"
 INCLUDE_FILE_PATTERNS  =
 PREDEFINED             = SHIT_API= \
                          ST_CORE_TRACE(x)= \
