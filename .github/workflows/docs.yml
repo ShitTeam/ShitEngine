@@ -77,5 +77,5 @@ jobs:
           git config user.name "ShitEngine Bot"
           git config user.email "bot@shitteam.top"
           git add -A
-          git diff --quiet && echo "无变更，跳过提交" || \
+          git diff --quiet HEAD && echo "无变更，跳过提交" || \
             (git commit -m "auto: 更新 API 文档（来自 ShitEngine@${{ github.sha }}）" && git push)
