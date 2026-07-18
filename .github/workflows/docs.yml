@@ -42,4 +42,4 @@ jobs:
           personal_token: ${{ secrets.API_DOCS_TOKEN }}
           external_repository: ShitTeam/ShitEngine-API-Docs
           publish_dir: ./build/docs/api
-          publish_branch: main
+          publish_branch: master
