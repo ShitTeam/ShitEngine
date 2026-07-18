@@ -47,8 +47,12 @@ jobs:
 
       - name: 确认生成目录（debug）
         run: |
-          echo "=== 查看 build/docs 结构 ==="
-          find build -maxdepth 4 -type d | head -20
+          echo "=== Doxygen 版本 ==="
+          doxygen --version
+          echo "=== 查看 build/docs/ 目录 ==="
+          ls -la build/docs/ 2>/dev/null || echo "build/docs/ 不存在"
+          echo "=== 查看 build/ 根目录 ==="
+          ls -d build/*/ 2>/dev/null | head -20
           echo "=== 查看 docs-site/docs/public ==="
           ls -la docs-site/docs/public/ 2>/dev/null || echo "（尚无）"
 
