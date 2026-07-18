@@ -62,7 +62,8 @@ WARN_NO_PARAMDOC       = NO
 WARN_AS_ERROR          = NO
 
 # --- Input ---
-INPUT                  = "@CMAKE_SOURCE_DIR@/include/ShitEngine"
+INPUT                  = "@CMAKE_SOURCE_DIR@/include/ShitEngine" \
+                         "@CMAKE_SOURCE_DIR@/docs/mainpage.md"
 INPUT_ENCODING         = UTF-8
 FILE_PATTERNS          = *.h
 RECURSIVE              = YES
