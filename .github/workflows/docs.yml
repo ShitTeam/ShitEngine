@@ -14,7 +14,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: 安装 Doxygen + SDL3 构建依赖
+      - name: Checkout 文档网站仓库
+        uses: actions/checkout@v4
+        with:
+          repository: ShitTeam/ShitEngine-Docs
+          token: ${{ secrets.API_DOCS_TOKEN }}
+          path: docs-site
+
+      - name: 安装 SDL3 构建依赖
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake g++ \
@@ -38,11 +45,16 @@ jobs:
       - name: 生成 API 文档
         run: cmake --build build --target docs
 
-      - name: 推送到 ShitEngine-Docs
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          personal_token: ${{ secrets.API_DOCS_TOKEN }}
-          external_repository: ShitTeam/ShitEngine-Docs
-          publish_dir: ./build/docs/api
-          destination_dir: docs/public/api
-          publish_branch: main
+      - name: 复制 API 文档到文档网站仓库
+        run: |
+          rm -rf docs-site/docs/public/api
+          cp -r build/docs/api docs-site/docs/public/api
+
+      - name: 提交并推送到文档网站
+        working-directory: docs-site
+        run: |
+          git config user.name "ShitEngine Bot"
+          git config user.email "bot@shitteam.top"
+          git add -A
+          git diff --quiet && echo "无变更，跳过提交" || \
+            (git commit -m "auto: 更新 API 文档（来自 ShitEngine@$GITHUB_SHA）" && git push)
