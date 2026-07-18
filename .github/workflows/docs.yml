@@ -17,19 +17,7 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout 引擎源码
-        uses: actions/checkout@v4
-        with:
-          repository: ShitTeam/ShitEngine
-          ref: main
-          path: engine
-
-      - name: Checkout API 文档仓库（含 Doxyfile + 主题文件）
-        uses: actions/checkout@v4
-        with:
-          repository: ShitTeam/ShitEngine-API-Docs
-          token: ${{ secrets.API_DOCS_TOKEN }}
-          path: api-docs
+      - uses: actions/checkout@v4
 
       - name: 安装 Doxygen + SDL3 构建依赖
         run: |
@@ -43,27 +31,15 @@ jobs:
             libdrm-dev libgbm-dev
 
       - name: CMake 配置
-        working-directory: engine
         run: cmake -B build -DCMAKE_BUILD_TYPE=Debug
 
       - name: 生成 API 文档
-        working-directory: engine
         run: cmake --build build --target docs
 
-      - name: 复制文档到 API docs 仓库
-        run: |
-          # 清空旧的文档文件（保留 .git 和 .gitignore）
-          find api-docs -maxdepth 1 -type f \( -name '*.html' -o -name '*.js' -o -name '*.css' \
-            -o -name '*.svg' -o -name '*.md' -o -name '*.png' \) -delete
-          rm -rf api-docs/search api-docs/doxygen-awesome*
-          # 复制新生成的文档
-          cp -r engine/build/docs/api/* api-docs/
-
-      - name: 提交并推送
-        working-directory: api-docs
-        run: |
-          git config user.name "XinyuCraft"
-          git config user.email "xinyucraft@outlook.com"
-          git add -A
-          git diff --quiet && echo "无变更，跳过提交" || \
-            (git commit -m "auto: 自动构建 API 文档（来自 ShitEngine@${{ github.sha }}）" && git push)
+      - name: 推送到 ShitEngine-API-Docs
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          personal_token: ${{ secrets.API_DOCS_TOKEN }}
+          external_repository: ShitTeam/ShitEngine-API-Docs
+          publish_dir: ./build/docs/api
+          publish_branch: main
