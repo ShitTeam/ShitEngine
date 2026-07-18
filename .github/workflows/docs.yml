@@ -45,10 +45,19 @@ jobs:
       - name: 生成 API 文档
         run: cmake --build build --target docs
 
+      - name: 确认生成目录（debug）
+        run: |
+          echo "=== 查看 build/docs 结构 ==="
+          find build -maxdepth 4 -type d | head -20
+          echo "=== 查看 docs-site/docs/public ==="
+          ls -la docs-site/docs/public/ 2>/dev/null || echo "（尚无）"
+
       - name: 复制 API 文档到文档网站仓库
         run: |
           rm -rf docs-site/docs/public/api
           cp -r build/docs/api docs-site/docs/public/api
+          echo "=== 复制完成，API 文件数 ==="
+          find docs-site/docs/public/api -type f | wc -l
 
       - name: 提交并推送到文档网站
         working-directory: docs-site
@@ -57,4 +66,4 @@ jobs:
           git config user.email "bot@shitteam.top"
           git add -A
           git diff --quiet && echo "无变更，跳过提交" || \
-            (git commit -m "auto: 更新 API 文档（来自 ShitEngine@$GITHUB_SHA）" && git push)
+            (git commit -m "auto: 更新 API 文档（来自 ShitEngine@${{ github.sha }}）" && git push)
