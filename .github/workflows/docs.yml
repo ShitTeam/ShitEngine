@@ -74,8 +74,14 @@ jobs:
       - name: 提交并推送到文档网站
         working-directory: docs-site
         run: |
+          echo "=== Git 状态（add 前）==="
+          git status --short
+          echo "=== 差异行数 ==="
+          git diff --stat HEAD || true
           git config user.name "ShitEngine Bot"
           git config user.email "bot@shitteam.top"
           git add -A
+          echo "=== Git 状态（add 后）==="
+          git diff --cached --stat HEAD || true
           git diff --quiet HEAD && echo "无变更，跳过提交" || \
             (git commit -m "auto: 更新 API 文档（来自 ShitEngine@${{ github.sha }}）" && git push)
