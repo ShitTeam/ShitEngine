@@ -1,11 +1,5 @@
-# GitHub Actions — API 文档自动构建与部署
-# 引擎推送到 main 时自动生成 Doxygen 文档并推送到 ShitEngine-API-Docs
-#
-# 首次使用前：
-#   1. 在 GitHub → Settings → Developer settings → Personal access tokens
-#      创建一个有 repo 权限的 token
-#   2. 在 ShitEngine 仓库的 Settings → Secrets and variables → Actions
-#      添加名为 API_DOCS_TOKEN 的 secret，值填入上面创建的 token
+# GitHub Actions — API 文档自动构建
+# 引擎推送到 main 时自动生成 Doxygen 文档并放入文档网站仓库的 api/ 目录
 name: Deploy API Docs
 
 on:
@@ -17,7 +11,19 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout 引擎源码
+        uses: actions/checkout@v4
+        with:
+          path: engine
+          repository: ShitTeam/ShitEngine
+          ref: main
+
+      - name: Checkout 文档网站仓库
+        uses: actions/checkout@v4
+        with:
+          path: docs-site
+          repository: ShitTeam/ShitEngine-Docs
+          token: ${{ secrets.API_DOCS_TOKEN }}
 
       - name: 安装 Doxygen + SDL3 构建依赖
         run: |
@@ -31,15 +37,23 @@ jobs:
             libdrm-dev libgbm-dev
 
       - name: CMake 配置
+        working-directory: engine
         run: cmake -B build -DCMAKE_BUILD_TYPE=Debug
 
       - name: 生成 API 文档
+        working-directory: engine
         run: cmake --build build --target docs
 
-      - name: 推送到 ShitEngine-API-Docs
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          personal_token: ${{ secrets.API_DOCS_TOKEN }}
-          external_repository: ShitTeam/ShitEngine-API-Docs
-          publish_dir: ./build/docs/api
-          publish_branch: master
+      - name: 复制到文档网站的 docs/public/api/ 目录
+        run: |
+          rm -rf docs-site/docs/public/api
+          cp -r engine/build/docs/api docs-site/docs/public/api
+
+      - name: 提交并推送到文档网站
+        working-directory: docs-site
+        run: |
+          git config user.name "ShitEngine Bot"
+          git config user.email "bot@shitteam.top"
+          git add -A
+          git diff --quiet && echo "无变更，跳过提交" || \
+            (git commit -m "auto: 更新 API 文档（来自 ShitEngine@${{ github.sha }}）" && git push)
