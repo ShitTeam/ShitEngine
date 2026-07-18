@@ -48,7 +48,9 @@ jobs:
           doxygen --version
 
       - name: CMake 配置
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Debug
+        run: |
+          rm -rf build/docs 2>/dev/null || true
+          cmake -B build -DCMAKE_BUILD_TYPE=Debug
 
       - name: 生成 API 文档
         run: cmake --build build --target docs
@@ -66,22 +68,26 @@ jobs:
 
       - name: 复制 API 文档到文档网站仓库
         run: |
+          echo "=== Doxygen 生成的文件 ==="
+          find build/docs/api -maxdepth 1 -type f | wc -l
+          echo "=== 比较关键文件差异 ==="
+          diff <(cat docs-site/docs/public/api/index.html) build/docs/api/index.html | head -40 || true
           rm -rf docs-site/docs/public/api
           cp -r build/docs/api docs-site/docs/public/api
-          echo "=== 复制完成，API 文件数 ==="
+          echo "=== 复制后文件数 ==="
           find docs-site/docs/public/api -type f | wc -l
 
       - name: 提交并推送到文档网站
         working-directory: docs-site
         run: |
-          echo "=== Git 状态（add 前）==="
-          git status --short
-          echo "=== 差异行数 ==="
-          git diff --stat HEAD || true
           git config user.name "ShitEngine Bot"
           git config user.email "bot@shitteam.top"
           git add -A
-          echo "=== Git 状态（add 后）==="
+          git status --short | head -10
           git diff --cached --stat HEAD || true
-          git diff --quiet HEAD && echo "无变更，跳过提交" || \
-            (git commit -m "auto: 更新 API 文档（来自 ShitEngine@${{ github.sha }}）" && git push)
+          if git diff --cached --quiet HEAD; then
+            echo "无变更，跳过提交"
+          else
+            git commit -m "auto: 更新 API 文档（来自 ShitEngine@${{ github.sha }}）"
+            git push
+          fi
