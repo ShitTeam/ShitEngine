@@ -1,6 +1,4 @@
 # GitHub Actions — API 文档自动构建与部署
-# 引擎推送到 main 时自动生成 Doxygen 文档并推送到文档网站仓库的
-# docs/public/api/ 目录，VitePress 自动复制到输出根目录 /api/
 name: Deploy API Docs
 
 on:
@@ -12,22 +10,25 @@ jobs:
   docs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
+      # 1. 先 checkout 文档网站（在 GITHUB_WORKSPACE 根目录）
       - name: Checkout 文档网站仓库
         uses: actions/checkout@v4
         with:
           repository: ShitTeam/ShitEngine-Docs
           token: ${{ secrets.API_DOCS_TOKEN }}
-          path: docs-site
+          path: .
 
-      - name: 缓存 CMake FetchContent（_deps）
+      # 2. 再 checkout 引擎源码到子目录
+      - name: Checkout 引擎源码
+        uses: actions/checkout@v4
+        with:
+          path: engine
+
+      - name: 缓存 CMake FetchContent
         uses: actions/cache@v4
         with:
-          path: build/_deps
-          key: deps-${{ runner.os }}-${{ hashFiles('cmake/DependencyManager.cmake', 'CMakeLists.txt', 'CMakePresets.json') }}
-          restore-keys: |
-            deps-${{ runner.os }}-
+          path: engine/build/_deps
+          key: deps-${{ runner.os }}-${{ hashFiles('engine/cmake/DependencyManager.cmake', 'engine/CMakeLists.txt') }}
 
       - name: 安装 SDL3 构建依赖
         run: |
@@ -48,42 +49,23 @@ jobs:
           doxygen --version
 
       - name: CMake 配置
-        run: |
-          rm -rf build/docs 2>/dev/null || true
-          cmake -B build -DCMAKE_BUILD_TYPE=Debug
+        working-directory: engine
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Debug
 
       - name: 生成 API 文档
+        working-directory: engine
         run: cmake --build build --target docs
 
-      - name: 确认生成目录（debug）
+      - name: 复制到 docs/public/api/
         run: |
-          echo "=== Doxygen 版本 ==="
-          doxygen --version
-          echo "=== 查看 build/docs/ 目录 ==="
-          ls -la build/docs/ 2>/dev/null || echo "build/docs/ 不存在"
-          echo "=== 查看 build/ 根目录 ==="
-          ls -d build/*/ 2>/dev/null | head -20
-          echo "=== 查看 docs-site/docs/public ==="
-          ls -la docs-site/docs/public/ 2>/dev/null || echo "（尚无）"
+          rm -rf docs/public/api
+          cp -r engine/build/docs/api docs/public/api
 
-      - name: 复制 API 文档到文档网站仓库
-        run: |
-          echo "=== Doxygen 生成的文件 ==="
-          find build/docs/api -maxdepth 1 -type f | wc -l
-          echo "=== 比较关键文件差异 ==="
-          diff <(cat docs-site/docs/public/api/index.html) build/docs/api/index.html | head -40 || true
-          rm -rf docs-site/docs/public/api
-          cp -r build/docs/api docs-site/docs/public/api
-          echo "=== 复制后文件数 ==="
-          find docs-site/docs/public/api -type f | wc -l
-
-      - name: 提交并推送到文档网站
-        working-directory: docs-site
+      - name: 提交并推送
         run: |
           git config user.name "ShitEngine Bot"
           git config user.email "bot@shitteam.top"
           git add -A
-          git status --short | head -10
           git diff --cached --stat HEAD || true
           if git diff --cached --quiet HEAD; then
             echo "无变更，跳过提交"
