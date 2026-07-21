@@ -44,6 +44,7 @@ add_library(ShitEngine SHARED
     "src/ShitEngine/Core/Time.cpp"
     "src/ShitEngine/Core/Window.cpp"
     "src/ShitEngine/Core/Config.cpp"
+    "src/ShitEngine/Core/TextInputGate.cpp"
     "src/ShitEngine/Event/EventBus.cpp"
     # Audio
     "src/ShitEngine/Audio/AudioTrack.cpp"
@@ -85,6 +86,9 @@ add_library(ShitEngine SHARED
     "src/ShitEngine/UI/UIText.cpp"
     "src/ShitEngine/UI/UIButton.cpp"
     "src/ShitEngine/UI/UIRenderSystem.cpp"
+    "src/ShitEngine/UI/UITextInput.cpp"
+    "src/ShitEngine/UI/UITextBox.cpp"
+    "src/ShitEngine/UI/UITextArea.cpp"
 )
 
 set_target_properties(ShitEngine PROPERTIES

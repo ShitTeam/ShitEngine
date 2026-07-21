@@ -1,0 +1,231 @@
+#include "ShitEngine/UI/UITextArea.h"
+#include "ShitEngine/Core/Log.h"
+
+#include <SDL3/SDL_render.h>
+#include <SDL3_ttf/SDL_ttf.h>
+
+#include <memory>
+#include <cmath>
+#include <algorithm>
+#include <vector>
+#include <cstring>
+#include <sstream>
+
+namespace Shit {
+	namespace {
+		int measureWidth(TTF_Font* font, const char* text, size_t length) {
+			if (!font || !text || length == 0) return 0;
+			int w = 0, h = 0;
+			TTF_GetStringSize(font, text, length, &w, &h);
+			return w;
+		}
+
+		std::vector<std::string> splitLines(const std::string& text) {
+			std::vector<std::string> lines;
+			std::istringstream stream(text);
+			std::string line;
+			while (std::getline(stream, line))
+				lines.push_back(line);
+			// getline 遇到 \n 分隔符时不产生末尾空串，例如 "a\n" 只产生 {"a"}。
+			// 后面缺少一个空行。补偿策略：若原文本以 \n 结尾，补充一个空串行。
+			// 完全空文本也补充一个空行，保证始终至少有一行。
+			if (text.empty() || text.back() == '\n')
+				lines.push_back("");
+			return lines;
+		}
+
+		void locateCursor(const std::string& text, size_t cursorByte,
+			const std::vector<std::string>& lines, int& lineIdx, size_t& lineOffset)
+		{
+			size_t pos = 0;
+			for (int i = 0; i < static_cast<int>(lines.size()) && pos < text.size(); ++i) {
+				const std::string& line = lines[i];
+				if (pos == cursorByte) {
+					lineIdx = i; lineOffset = 0; return;
+				}
+				size_t lineByte = line.size();
+				size_t lineEnd = pos + lineByte;
+				if (cursorByte <= lineEnd) {
+					lineIdx = i; lineOffset = cursorByte - pos; return;
+				}
+				pos = lineEnd + 1; // skip '\n'
+			}
+			lineIdx = static_cast<int>(lines.size()) - 1;
+			lineOffset = lines.empty() ? 0 : lines.back().size();
+		}
+	}
+
+	UITextArea::UITextArea() {
+		m_isMultiline = true;
+	}
+
+	bool UITextArea::onKeyDown(SDL_Scancode scancode, bool shift, bool ctrl) {
+		switch (scancode) {
+			case SDL_SCANCODE_UP: {
+				if (!shift) m_selectionAnchor = m_cursor;
+				auto lines = splitLines(m_text);
+				int lineIdx = 0; size_t lineOff = 0;
+				locateCursor(m_text, m_cursor, lines, lineIdx, lineOff);
+				if (lineIdx > 0) {
+					--lineIdx;
+					size_t pos = 0;
+					for (int i = 0; i < lineIdx; ++i)
+						pos += lines[i].size() + 1;
+					const std::string& prevLine = lines[lineIdx];
+					size_t targetChar = UITextInput::byteToChar(prevLine, lineOff);
+					size_t newOff = UITextInput::charToByte(prevLine,
+						std::min(targetChar, UITextInput::byteToChar(prevLine, prevLine.size())));
+					m_cursor = pos + newOff;
+					if (!shift) m_selectionAnchor = m_cursor;
+					m_isDirty = true;
+				}
+				return true;
+			}
+			case SDL_SCANCODE_DOWN: {
+				if (!shift) m_selectionAnchor = m_cursor;
+				auto lines = splitLines(m_text);
+				int lineIdx = 0; size_t lineOff = 0;
+				locateCursor(m_text, m_cursor, lines, lineIdx, lineOff);
+				if (lineIdx < static_cast<int>(lines.size()) - 1) {
+					++lineIdx;
+					size_t pos = 0;
+					for (int i = 0; i < lineIdx; ++i)
+						pos += lines[i].size() + 1;
+					const std::string& nextLine = lines[lineIdx];
+					size_t targetChar = UITextInput::byteToChar(nextLine, lineOff);
+					size_t newOff = UITextInput::charToByte(nextLine,
+						std::min(targetChar, UITextInput::byteToChar(nextLine, nextLine.size())));
+					m_cursor = pos + newOff;
+					if (!shift) m_selectionAnchor = m_cursor;
+					m_isDirty = true;
+				}
+				return true;
+			}
+			case SDL_SCANCODE_RETURN: {
+				insertNewline();
+				return true;
+			}
+			default:
+				return UITextInput::onKeyDown(scancode, shift, ctrl);
+		}
+	}
+
+	void UITextArea::insertNewline() {
+		// 在光标处插入 '\n'
+		deleteSelection();
+		m_text.insert(m_cursor, "\n");
+		m_cursor += 1; // '\n' is 1 byte in UTF-8
+		m_selectionAnchor = m_cursor;
+		m_isDirty = true;
+	}
+
+	void UITextArea::onRender(SDL_Renderer* renderer, const SDL_FRect& screenRect) {
+		TTF_Font* font = acquireFont();
+		if (!font) return;
+
+		const float padding = 4.0f;
+		const float lineSpacing = 2.0f;
+		float lineStep = m_fontHeight + lineSpacing;
+
+		auto lines = splitLines(m_text);
+		const std::string& displayText = (!m_text.empty() || m_isFocused) ? m_text : m_placeholder;
+		bool usePlaceholder = m_text.empty() && !m_isFocused;
+		SDL_Color textColor = usePlaceholder
+			? SDL_Color{ m_placeholderColor.red, m_placeholderColor.green, m_placeholderColor.blue, m_placeholderColor.alpha }
+			: SDL_Color{ m_textColor.red, m_textColor.green, m_textColor.blue, m_textColor.alpha };
+
+		SDL_Rect clipRect{
+			static_cast<int>(screenRect.x),
+			static_cast<int>(screenRect.y),
+			static_cast<int>(screenRect.w),
+			static_cast<int>(screenRect.h)
+		};
+		SDL_SetRenderClipRect(renderer, &clipRect);
+
+		float yPos = screenRect.y + padding;
+
+		if (usePlaceholder) {
+			SDL_Surface* surf = TTF_RenderText_Blended(font, displayText.c_str(), displayText.length(), textColor);
+			if (surf) {
+				SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surf);
+				if (tex) {
+					SDL_FRect dst{ screenRect.x + padding, yPos, static_cast<float>(surf->w), static_cast<float>(surf->h) };
+					SDL_RenderTexture(renderer, tex, nullptr, &dst);
+					SDL_DestroyTexture(tex);
+				}
+				SDL_DestroySurface(surf);
+			}
+		} else {
+			for (size_t i = 0; i < lines.size(); ++i) {
+				if (yPos + m_fontHeight > screenRect.y + screenRect.h) break;
+
+				const std::string& line = lines[i];
+				size_t byteStart = 0;
+				for (size_t j = 0; j < i; ++j)
+					byteStart += lines[j].size() + 1;
+				size_t byteEnd = byteStart + line.size();
+
+				// 选区高亮
+				if (m_isFocused && m_cursor != m_selectionAnchor) {
+					size_t selStart = std::min(m_cursor, m_selectionAnchor);
+					size_t selEnd = std::max(m_cursor, m_selectionAnchor);
+					if (byteStart < selEnd && byteEnd > selStart) {
+						size_t localSelStart = (selStart > byteStart) ? selStart - byteStart : 0;
+						size_t localSelEnd = std::min(selEnd - byteStart, line.size());
+						std::string beforeSel = line.substr(0, localSelStart);
+						std::string selText = line.substr(localSelStart, localSelEnd - localSelStart);
+						int beforeW = measureWidth(font, beforeSel.c_str(), beforeSel.length());
+						int selW = measureWidth(font, selText.c_str(), selText.length());
+						SDL_SetRenderDrawColor(renderer, 80, 140, 220, 120);
+						SDL_FRect selRect{
+							screenRect.x + padding + static_cast<float>(beforeW),
+							yPos,
+							std::max(1.0f, static_cast<float>(selW)),
+							m_fontHeight
+						};
+						SDL_RenderFillRect(renderer, &selRect);
+					}
+				}
+
+				SDL_Surface* surf = TTF_RenderText_Blended(font, line.c_str(), line.length(), textColor);
+				if (surf) {
+					SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surf);
+					if (tex) {
+						SDL_FRect dst{ screenRect.x + padding, yPos, static_cast<float>(surf->w), static_cast<float>(surf->h) };
+						SDL_RenderTexture(renderer, tex, nullptr, &dst);
+						SDL_DestroyTexture(tex);
+					}
+					SDL_DestroySurface(surf);
+				}
+
+				yPos += lineStep;
+			}
+		}
+
+		// 光标
+		if (m_isFocused && !usePlaceholder) {
+			Uint64 ticks = SDL_GetTicks();
+			bool cursorVisible = (ticks / 500) % 2 == 0;
+			if (cursorVisible) {
+				int lineIdx = 0; size_t lineOff = 0;
+				locateCursor(m_text, m_cursor, lines, lineIdx, lineOff);
+
+				float cx = screenRect.x + padding;
+				float cy = screenRect.y + padding + lineIdx * lineStep;
+				if (lineOff > 0 && !lines.empty() && lineIdx < static_cast<int>(lines.size())) {
+					const std::string& line = lines[lineIdx];
+					size_t offsetInLine = std::min(lineOff, line.size());
+					cx += static_cast<float>(measureWidth(font, line.c_str(), offsetInLine));
+				}
+
+				SDL_SetRenderDrawColor(renderer,
+					m_cursorColor.red, m_cursorColor.green, m_cursorColor.blue, m_cursorColor.alpha);
+				SDL_FRect cursorRect{ cx, cy, 2.0f, m_fontHeight };
+				SDL_RenderFillRect(renderer, &cursorRect);
+			}
+		}
+
+		SDL_SetRenderClipRect(renderer, nullptr);
+		m_isDirty = false;
+	}
+}

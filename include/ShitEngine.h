@@ -7,6 +7,7 @@
 #include "ShitEngine/Core/Time.h"
 #include "ShitEngine/Core/Window.h"
 #include "ShitEngine/Core/Config.h"
+#include "ShitEngine/Core/TextInputGate.h"
 
 // Event
 #include "ShitEngine/Event/Event.h"
@@ -56,3 +57,6 @@
 #include "ShitEngine/UI/UIText.h"
 #include "ShitEngine/UI/UIButton.h"
 #include "ShitEngine/UI/UIRenderSystem.h"
+#include "ShitEngine/UI/UITextInput.h"
+#include "ShitEngine/UI/UITextBox.h"
+#include "ShitEngine/UI/UITextArea.h"

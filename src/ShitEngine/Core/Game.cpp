@@ -1,4 +1,4 @@
-﻿#include "ShitEngine/Core/pch.h"
+#include "ShitEngine/Core/pch.h"
 
 #include "ShitEngine/Core/Game.h"
 
@@ -12,6 +12,7 @@
 #include "ShitEngine/Scene/SceneManager.h"
 #include "ShitEngine/Audio/AudioPlayer.h"
 #include "ShitEngine/Event/EventBus.h"
+#include "ShitEngine/Core/TextInputGate.h"
 
 namespace Shit {
 	Game::Game() = default;
@@ -67,8 +68,9 @@ namespace Shit {
 			{
 				Window::HandleEvent(event);
 				Input::HandleEvent(event);
+				TextInputGate::HandleEvent(event);
 			}
-			
+
 
 			if (!Window::IsOpen()) break;
 

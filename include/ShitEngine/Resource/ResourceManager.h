@@ -46,11 +46,11 @@ namespace Shit {
 		static void UnloadAudio(const std::string& filePath)           { GetInstance().m_audioManager->unloadAudio(filePath); }
 		static void ClearAudio()                                        { GetInstance().m_audioManager->clearAudio(); }
 
-		// --- 字体 ---
-		static TTF_Font* LoadFont(const std::string& filePath)         { return GetInstance().m_fontManager->loadFont(filePath); }
-		static TTF_Font* GetFont(const std::string& filePath)          { return GetInstance().m_fontManager->getFont(filePath); }
-		static void UnloadFont(const std::string& filePath)            { return GetInstance().m_fontManager->unloadFont(filePath); }
-		static void ClearFont()                                         { GetInstance().m_fontManager->clearFont(); }
+		// --- 字体（按路径+字号缓存） ---
+		static TTF_Font* LoadFont(const std::string& filePath, float fontSize)  { return GetInstance().m_fontManager->loadFont(filePath, fontSize); }
+		static TTF_Font* GetFont(const std::string& filePath, float fontSize)   { return GetInstance().m_fontManager->getFont(filePath, fontSize); }
+		static void UnloadFont(const std::string& filePath, float fontSize)     { GetInstance().m_fontManager->unloadFont(filePath, fontSize); }
+		static void ClearFont()                                                  { GetInstance().m_fontManager->clearFont(); }
 
 		// 内部接口（供 AudioPlayer 注入混音器）
 		static void SetAudioMixer(struct MIX_Mixer* mixer) { GetInstance().m_audioManager->setMixer(mixer); }

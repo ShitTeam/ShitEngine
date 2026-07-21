@@ -1,38 +1,13 @@
 #include "ShitEngine/UI/UIText.h"
+#include "ShitEngine/Resource/ResourceManager.h"
 #include "ShitEngine/Core/Log.h"
 
 #include <SDL3/SDL_render.h>
 #include <SDL3_ttf/SDL_ttf.h>
 
-#include <unordered_map>
-#include <memory>
 #include <cmath>
 
 namespace Shit {
-	namespace {
-		/// @brief 按字体路径 + 字号缓存 TTF_Font（进程级，引擎退出时统一释放）
-		struct FontKey {
-			std::string path;
-			float       size;
-			bool operator==(const FontKey& other) const {
-				return path == other.path && size == other.size;
-			}
-		};
-		struct FontKeyHash {
-			std::size_t operator()(const FontKey& key) const {
-				return std::hash<std::string>{}(key.path) ^ std::hash<float>{}(key.size);
-			}
-		};
-		struct TTFDeleter {
-			void operator()(TTF_Font* font) const { if (font) TTF_CloseFont(font); }
-		};
-		using FontCache = std::unordered_map<FontKey, std::unique_ptr<TTF_Font, TTFDeleter>, FontKeyHash>;
-		FontCache& fontCache() {
-			static FontCache cache;
-			return cache;
-		}
-	}
-
 	UIText::UIText(const std::string& text, const std::string& fontPath, float fontSize)
 		: m_text(text), m_fontPath(fontPath), m_fontSize(fontSize) {}
 
@@ -45,22 +20,11 @@ namespace Shit {
 
 	TTF_Font* UIText::getLoadedFont() {
 		if (m_fontPath.empty()) return nullptr;
-
-		FontKey key{ m_fontPath, m_fontSize };
-		auto& cache = fontCache();
-		if (auto it = cache.find(key); it != cache.end()) {
-			return it->second.get();
-		}
-
-		auto font = std::unique_ptr<TTF_Font, TTFDeleter>(
-			TTF_OpenFont(m_fontPath.c_str(), static_cast<int>(std::round(m_fontSize))));
+		TTF_Font* font = ResourceManager::GetFont(m_fontPath, m_fontSize);
 		if (!font) {
-			ST_CORE_ERROR("UIText: 无法加载字体 {} ({}): {}", m_fontPath, m_fontSize, SDL_GetError());
-			return nullptr;
+			ST_CORE_ERROR("UIText: 无法获取字体 {} ({}): {}", m_fontPath, m_fontSize, SDL_GetError());
 		}
-		TTF_Font* raw = font.get();
-		cache[key] = std::move(font);
-		return raw;
+		return font;
 	}
 
 	void UIText::rebuildTexture(SDL_Renderer* renderer) {

@@ -1,7 +1,6 @@
 #pragma once
 #include "../Core/Core.h"
 #include "UIRendererComponent.h"
-#include "../Core/Core.h"
 #include <string>
 #include <SDL3_ttf/SDL_ttf.h>
 
