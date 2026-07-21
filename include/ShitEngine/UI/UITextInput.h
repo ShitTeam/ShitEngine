@@ -120,6 +120,7 @@ namespace Shit {
 
 	private:
 		friend class TextInputGate;
+		void onDetach() override;
 		void onDestroy() override;
 	};
 }

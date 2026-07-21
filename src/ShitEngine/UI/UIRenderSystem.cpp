@@ -1,7 +1,6 @@
 #include "ShitEngine/UI/UIRenderSystem.h"
 
 #include "ShitEngine/UI/UIRendererComponent.h"
-#include "ShitEngine/UI/UICanvas.h"
 #include "ShitEngine/UI/UITransform.h"
 #include "ShitEngine/UI/UIButton.h"
 #include "ShitEngine/UI/UITextInput.h"
@@ -48,8 +47,9 @@ namespace Shit {
 			UITransform* transform = owner->getComponent<UITransform>();
 			if (!transform) continue;
 
-			SDL_FRect screenRect = transform->getScreenRect(nullptr);
-			if (renderer->containsPoint(screenRect, mousePosition)) {
+		SDL_FRect parentRect = transform->resolveParentRect();
+		SDL_FRect screenRect = transform->getScreenRect(&parentRect);
+		if (renderer->containsPoint(screenRect, mousePosition)) {
 				hoveredGameObject = owner;
 				break; // 最上层命中即止
 			}
@@ -116,8 +116,9 @@ namespace Shit {
 			UITransform* transform = owner->getComponent<UITransform>();
 			if (!transform) continue;
 
-			SDL_FRect screenRect = transform->getScreenRect(nullptr);
-			renderer->onRender(m_renderer, screenRect);
+		SDL_FRect parentRect = transform->resolveParentRect();
+		SDL_FRect screenRect = transform->getScreenRect(&parentRect);
+		renderer->onRender(m_renderer, screenRect);
 		}
 	}
 
@@ -126,7 +127,6 @@ namespace Shit {
 		TextInputGate::GetInstance().clearFocus();
 
 		m_uiRenderers.clear();
-		m_canvases.clear();
 		m_renderer = nullptr;
 	}
 
@@ -144,17 +144,5 @@ namespace Shit {
 		m_uiRenderers.erase(
 			std::remove(m_uiRenderers.begin(), m_uiRenderers.end(), renderer),
 			m_uiRenderers.end());
-	}
-
-	void UIRenderSystem::registerCanvas(UICanvas* canvas) {
-		if (!canvas) return;
-		m_canvases.push_back(canvas);
-	}
-
-	void UIRenderSystem::unregisterCanvas(UICanvas* canvas) {
-		if (!canvas) return;
-		m_canvases.erase(
-			std::remove(m_canvases.begin(), m_canvases.end(), canvas),
-			m_canvases.end());
 	}
 }

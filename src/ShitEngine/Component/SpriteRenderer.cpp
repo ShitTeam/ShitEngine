@@ -47,8 +47,9 @@ namespace Shit {
 			std::floor(frameHeight * scale.y * pixelPerUnit + 0.5f)
 		};
 
+		SDL_FlipMode flip = m_sprite.isFlipped() ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
 		SDL_RenderTextureRotated(renderer, texture, srcPtr, &destinationRect,
-			static_cast<double>(transform->getRotation()), nullptr, SDL_FLIP_NONE);
+			static_cast<double>(transform->getRotation()), nullptr, flip);
 	}
 
 	void SpriteRenderer::setTexturePath(const std::string& texturePath) {

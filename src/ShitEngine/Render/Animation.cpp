@@ -31,6 +31,9 @@ namespace Shit {
 
         // 计算当前帧索引
         int index = static_cast<int>(elapsedTime / m_duration);
+        if (index < 0) {
+            index = 0;
+        }
         if (index >= static_cast<int>(m_frames.size())) {
             index = static_cast<int>(m_frames.size()) - 1;
         }

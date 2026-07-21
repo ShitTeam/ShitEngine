@@ -36,8 +36,8 @@ namespace Shit {
 
 		float m_deltaTime = 0.0f;
 		double m_totalTime = 0.0f;
-		Uint64 m_lastTime;
-		Uint64 m_currentTime;
+		Uint64 m_lastTime = 0;
+		Uint64 m_currentTime = 0;
 		unsigned int m_targetFPS = 144;
 	};
 }

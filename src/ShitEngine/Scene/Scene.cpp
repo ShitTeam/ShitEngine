@@ -53,11 +53,25 @@ namespace Shit {
 	}
 
 	void Scene::destroy() {
+		// 先清理所有待添加的对象
+		for (auto& go : m_pendingAdditions) {
+			if (go) go->clean();
+		}
+		m_pendingAdditions.clear();
+
+		// 清理游戏对象
 		for (auto& go : m_gameObjects) {
 			if (go) go->clean();
 		}
-
 		m_gameObjects.clear();
+
+		// 销毁所有系统
+		for (auto& [type, system] : m_systemsMap) {
+			if (system) system->destroy();
+		}
+		m_systemsMap.clear();
+		m_systems.clear();
+		m_pendingRemoveSystems.clear();
 
 		ST_CORE_TRACE("场景 {} 已清除", m_name);
 	}
@@ -107,13 +121,13 @@ namespace Shit {
 			gameObject->destroy(); // destroy() 会级联标记所有子物体
 		}
 		else {
-			auto it = std::remove_if(m_gameObjects.begin(), m_gameObjects.end(), [&gameObject](const std::unique_ptr<GameObject>& go) {
+			auto it = std::find_if(m_gameObjects.begin(), m_gameObjects.end(), [&gameObject](const std::unique_ptr<GameObject>& go) {
 				return go.get() == gameObject;
 				});
 
 			if (it != m_gameObjects.end()) {
 				(*it)->clean();
-				m_gameObjects.erase(it, m_gameObjects.end());
+				m_gameObjects.erase(it);
 			}
 			else {
 				ST_CORE_WARN("场景 {} 中没有找到对应的游戏对象 ！", m_name);
@@ -131,13 +145,13 @@ namespace Shit {
 			}
 		}
 		else {
-			auto it = std::remove_if(m_gameObjects.begin(), m_gameObjects.end(), [&name](const std::unique_ptr<GameObject>& go) {
+			auto it = std::find_if(m_gameObjects.begin(), m_gameObjects.end(), [&name](const std::unique_ptr<GameObject>& go) {
 				return go->getName() == name;
 				});
 
 			if (it != m_gameObjects.end()) {
 				(*it)->clean();
-				m_gameObjects.erase(it, m_gameObjects.end());
+				m_gameObjects.erase(it);
 			}
 			else {
 				ST_CORE_WARN("没有在场景 {} 中找到名称为 {} 的游戏对象！", m_name, name);

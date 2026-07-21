@@ -39,7 +39,9 @@ namespace Shit {
 		GameObject* parent = m_owner ? m_owner->getParent() : nullptr;
 		while (parent) {
 			if (auto* parentTransform = parent->getComponent<UITransform>()) {
-				return parentTransform->getScreenRect(nullptr);
+				// 递归解析父级的父级矩形，确保多层嵌套 UI 布局正确
+				SDL_FRect grandParentRect = parentTransform->resolveParentRect();
+				return parentTransform->getScreenRect(&grandParentRect);
 			}
 			parent = parent->getParent();
 		}

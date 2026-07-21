@@ -30,7 +30,7 @@ namespace Shit {
 		ST_CORE_TRACE("正在销毁场景管理器。");
 		while (!m_sceneStack.empty()) {
 			if (m_sceneStack.back()) {
-				spdlog::debug("正在清理场景 {} 。", m_sceneStack.back()->getName());
+				ST_CORE_DEBUG("正在清理场景 {} 。", m_sceneStack.back()->getName());
 				m_sceneStack.back()->destroy();
 			}
 			m_sceneStack.pop_back();
@@ -122,7 +122,7 @@ namespace Shit {
 	Scene* SceneManager::getCurrentScene() const
 	{
 		if (m_sceneStack.empty()) {
-			ST_CORE_WARN("场景栈为空，无法获取当前场景！");
+			ST_CORE_DEBUG("场景栈为空，无法获取当前场景！");
 			return nullptr;
 		}
 

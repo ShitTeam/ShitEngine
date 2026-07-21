@@ -17,7 +17,7 @@ namespace Shit {
 		CameraComponent();
 
 		void onAttach() override;
-		void onDestroy() override;
+		void onDetach() override;
 
 		// 坐标转换
 		Vector2 worldToScreen(const Vector2& worldPosition) const;  ///< 世界坐标 → 屏幕像素坐标

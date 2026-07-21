@@ -41,6 +41,9 @@ namespace Shit {
 		// 初始化 Time
 		Time::Init();
 
+		// 应用配置文件中的目标帧率
+		Time::SetTargetFPS(Config::GetWindowConfig().targetFPS);
+
 		// 初始化资源管理器
 		ResourceManager::Init();
 
@@ -49,6 +52,7 @@ namespace Shit {
 			ST_CORE_WARN("音频系统初始化失败，音频功能将不可用");
 		}
 
+		m_isInited = true;
 		return true;
 	}
 
@@ -97,6 +101,7 @@ namespace Shit {
 	void Game::Destroy() {
 		// 按依赖逆序清理子系统，避免静态单例在 SDL_Quit 后析构导致 UB
 		EventBus::ClearAll();
+		SceneManager::Destroy(); // 在 SDL_Quit 之前销毁场景栈，确保组件清理时 SDL 仍然可用
 		AudioPlayer::Destroy();
 		Window::Destroy(); // 销毁窗口
 		SDL_Quit();

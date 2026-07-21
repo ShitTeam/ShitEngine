@@ -22,11 +22,13 @@ namespace Shit {
 		}
 	}
 
-	void CameraComponent::onDestroy() {
-		Component::onDestroy();
+	void CameraComponent::onDetach() {
+		Component::onDetach();
 
-		if (auto* system = m_owner->getScene()->getSystem<RenderSystem>()) {
-			system->unregisterCamera(this);
+		if (auto* scene = m_owner->getScene()) {
+			if (auto* system = scene->getSystem<RenderSystem>()) {
+				system->unregisterCamera(this);
+			}
 		}
 		m_isRegistered = false;
 	}

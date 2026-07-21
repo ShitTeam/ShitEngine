@@ -235,10 +235,14 @@ namespace Shit {
 		return SDL_utf8strlen(m_text.c_str());
 	}
 
-	void UITextInput::onDestroy() {
+	void UITextInput::onDetach() {
 		if (m_isFocused) {
 			TextInputGate::GetInstance().releaseFocus(this);
 		}
+		UIRendererComponent::onDetach();
+	}
+
+	void UITextInput::onDestroy() {
 		UIRendererComponent::onDestroy();
 	}
 }

@@ -57,6 +57,7 @@ namespace Shit {
 
 			// 精准裁剪：Letterbox 纯画面区域（相对于视口原点）
 			Vector2 worldSize = camera->getSize();
+			if (worldSize.x <= 0 || worldSize.y <= 0) continue;
 			float basePpu = (std::min)(static_cast<float>(viewport.w) / worldSize.x, static_cast<float>(viewport.h) / worldSize.y);
 			SDL_Rect clipRect;
 			clipRect.x = static_cast<int>((static_cast<float>(viewport.w) - worldSize.x * basePpu) / 2.0f);
