@@ -19,6 +19,7 @@ namespace Shit {
 	 *   - anchoredPosition 为相对锚点的像素偏移。
 	 *   - pivot 为元素自身的归一化轴心 (0-1)，影响旋转 / 缩放中心。
 	 *
+	 * 注意坐标系：SDL Y 轴向下，(0,0) 为父级左上角，(1,1) 为右下角。
 	 * 父级矩形查找顺序：沿 GameObject 父链查最近的 UITransform；若无则用 Canvas 屏幕矩形。
 	 */
 	class SHIT_API UITransform : public Component {
@@ -58,8 +59,8 @@ namespace Shit {
 		SDL_FRect resolveParentRect() const;
 
 	private:
-		Vector2 m_anchorMin{ 0.5f, 0.5f };  ///< 锚点左下（归一化 0-1，相对父级）
-		Vector2 m_anchorMax{ 0.5f, 0.5f };  ///< 锚点右上
+		Vector2 m_anchorMin{ 0.5f, 0.5f };  ///< 锚点左上（归一化 0-1，相对父级）；SDL Y 向下，(0,0)=父级左上
+		Vector2 m_anchorMax{ 0.5f, 0.5f };  ///< 锚点右下
 		Vector2 m_pivot{ 0.5f, 0.5f };      ///< 轴心（归一化 0-1，相对自身）
 		Vector2 m_anchoredPosition{ 0.0f, 0.0f }; ///< 相对锚点的偏移（像素）
 		float   m_width  = 100.0f;           ///< 宽度（仅 anchorMin==anchorMax 轴生效）
