@@ -1,8 +1,6 @@
 #pragma once
-#include "../Core/Core.h"
 #include "UIRendererComponent.h"
 #include "../Render/Sprite.h"
-#include "../Core/Core.h"
 #include <string>
 #include <optional>
 
@@ -20,7 +18,7 @@ namespace Shit {
 		explicit UIImage(const std::string& texturePath);
 		~UIImage() override;
 
-		void onRender(SDL_Renderer* renderer, const SDL_FRect& screenRect) override;
+		void onRender(const SDL_FRect& screenRect) override;
 		void onDestroy() override;
 
 		// --- getter & setter ---

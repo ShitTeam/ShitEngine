@@ -1,3 +1,4 @@
+#include "ShitEngine/Core/pch.h"
 #include "ShitEngine/Render/SpriteSheet.h"
 
 namespace Shit {

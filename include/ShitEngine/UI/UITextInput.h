@@ -66,7 +66,7 @@ namespace Shit {
 
 	protected:
 		// 子类覆写：把当前"已提交文本 + 光标布局"画到给定矩形内
-		void onRender(SDL_Renderer* renderer, const SDL_FRect& screenRect) override = 0;
+		void onRender(const SDL_FRect& screenRect) override = 0;
 
 		/// @brief 子类可覆写：处理键盘控制键（方向键、退格、删除、Home/End、回车）
 		/// @return true 表示已处理该按键，不继续传播

@@ -1,15 +1,11 @@
+#include "ShitEngine/Core/pch.h"
 #include "ShitEngine/UI/UITextInput.h"
 #include "ShitEngine/Core/TextInputGate.h"
 #include "ShitEngine/Resource/ResourceManager.h"
 #include "ShitEngine/Core/Log.h"
 
-#include <SDL3/SDL_render.h>
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3_ttf/SDL_ttf.h>
-
-#include <cmath>
-#include <algorithm>
-#include <cstring>
 
 namespace Shit {
 	// ==========================================================================
@@ -204,9 +200,6 @@ namespace Shit {
 
 	void UITextInput::moveCursor(int deltaChars, bool selecting) {
 		if (deltaChars == 0) return;
-		if (selecting && m_cursor == m_selectionAnchor) {
-			m_selectionAnchor = m_cursor;
-		}
 		if (deltaChars > 0) {
 			for (int i = 0; i < deltaChars; ++i)
 				m_cursor = moveByteForward(m_text, m_cursor);
@@ -219,16 +212,16 @@ namespace Shit {
 	}
 
 	void UITextInput::moveCursorToBoundary(bool toStart, bool selecting) {
-		if (selecting && m_cursor == m_selectionAnchor)
-			m_selectionAnchor = m_cursor;
 		m_cursor = toStart ? 0 : m_text.size();
 		if (!selecting) m_selectionAnchor = m_cursor;
 		m_isDirty = true;
 	}
 
 	void UITextInput::clampCursor() {
-		if (m_cursor > m_text.size()) m_cursor = m_text.size();
-		m_selectionAnchor = m_cursor;
+		if (m_cursor > m_text.size()) {
+			m_cursor = m_text.size();
+			m_selectionAnchor = m_cursor;
+		}
 	}
 
 	size_t UITextInput::getCharacterCount() const {

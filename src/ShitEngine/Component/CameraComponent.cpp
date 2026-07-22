@@ -1,3 +1,4 @@
+#include "ShitEngine/Core/pch.h"
 #include "ShitEngine/Component/CameraComponent.h"
 #include "ShitEngine/Core/Window.h"
 #include "ShitEngine/Component/TransformComponent.h"

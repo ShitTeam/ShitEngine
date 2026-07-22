@@ -1,4 +1,5 @@
-﻿#include "ShitEngine/Resource/TextureManager.h"
+﻿#include "ShitEngine/Core/pch.h"
+#include "ShitEngine/Resource/TextureManager.h"
 
 #include "ShitEngine/Resource/ResourceManager.h"
 #include "ShitEngine/Core/Log.h"

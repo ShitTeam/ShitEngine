@@ -1,4 +1,5 @@
-﻿#include "ShitEngine/Core/Config.h"
+﻿#include "ShitEngine/Core/pch.h"
+#include "ShitEngine/Core/Config.h"
 #include <fstream>
 
 namespace Shit {

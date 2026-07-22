@@ -1,11 +1,10 @@
+#include "ShitEngine/Core/pch.h"
 #include "ShitEngine/UI/UIText.h"
+#include "ShitEngine/Render/Renderer.h"
 #include "ShitEngine/Resource/ResourceManager.h"
 #include "ShitEngine/Core/Log.h"
 
-#include <SDL3/SDL_render.h>
 #include <SDL3_ttf/SDL_ttf.h>
-
-#include <cmath>
 
 namespace Shit {
 	UIText::UIText(const std::string& text, const std::string& fontPath, float fontSize)
@@ -27,7 +26,10 @@ namespace Shit {
 		return font;
 	}
 
-	void UIText::rebuildTexture(SDL_Renderer* renderer) {
+	void UIText::rebuildTexture() {
+		SDL_Renderer* renderer = Renderer::GetRenderer();
+		if (!renderer) return;
+
 		if (m_cachedTexture) {
 			SDL_DestroyTexture(m_cachedTexture);
 			m_cachedTexture = nullptr;
@@ -44,15 +46,14 @@ namespace Shit {
 			return;
 		}
 
-		SDL_Color color{ m_color.red, m_color.green, m_color.blue, m_color.alpha };
-		SDL_Surface* surface = TTF_RenderText_Blended(font, m_text.c_str(), m_text.length(), color);
+		SDL_Surface* surface = TTF_RenderText_Blended(font, m_text.c_str(), m_text.length(), toSDLColor(m_color));
 		if (!surface) {
 			ST_CORE_ERROR("UIText: 文字渲染失败 '{}': {}", m_text, SDL_GetError());
 			m_isDirty = false;
 			return;
 		}
 
-		m_cachedTexture = SDL_CreateTextureFromSurface(renderer, surface);
+		m_cachedTexture = Renderer::CreateTextureFromSurface(surface);
 		SDL_DestroySurface(surface);
 
 		if (!m_cachedTexture) {
@@ -61,9 +62,9 @@ namespace Shit {
 		m_isDirty = false;
 	}
 
-	void UIText::onRender(SDL_Renderer* renderer, const SDL_FRect& screenRect) {
+	void UIText::onRender(const SDL_FRect& screenRect) {
 		if (m_isDirty) {
-			rebuildTexture(renderer);
+			rebuildTexture();
 		}
 		if (!m_cachedTexture) return;
 
@@ -71,7 +72,7 @@ namespace Shit {
 		SDL_GetTextureSize(m_cachedTexture, &textureWidth, &textureHeight);
 
 		SDL_FRect destRect;
-		destRect.y = screenRect.y + (screenRect.h - textureHeight) * 0.5f; // 垂直居中
+		destRect.y = screenRect.y + (screenRect.h - textureHeight) * 0.5f;
 		destRect.h = textureHeight;
 
 		switch (m_anchor) {
@@ -88,7 +89,7 @@ namespace Shit {
 		}
 		destRect.w = textureWidth;
 
-		SDL_RenderTexture(renderer, m_cachedTexture, nullptr, &destRect);
+		Renderer::DrawTexture(m_cachedTexture, nullptr, destRect);
 	}
 
 	void UIText::onDestroy() {

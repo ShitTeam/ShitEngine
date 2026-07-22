@@ -21,7 +21,7 @@ namespace Shit {
 		UIText(const std::string& text, const std::string& fontPath, float fontSize);
 		~UIText() override;
 
-		void onRender(SDL_Renderer* renderer, const SDL_FRect& screenRect) override;
+		void onRender(const SDL_FRect& screenRect) override;
 		void onDestroy() override;
 
 		// --- getter & setter（变更后置 dirty） ---
@@ -41,7 +41,7 @@ namespace Shit {
 		void setAnchor(TextAnchor anchor) { m_anchor = anchor; }
 
 	private:
-		void rebuildTexture(SDL_Renderer* renderer);
+		void rebuildTexture();
 		TTF_Font* getLoadedFont();
 
 		std::string  m_text;

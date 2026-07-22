@@ -1,3 +1,4 @@
+#include "ShitEngine/Core/pch.h"
 #include "ShitEngine/Component/AnimationComponent.h"
 
 #include "ShitEngine/Render/Animation.h"

@@ -30,7 +30,7 @@ namespace Shit {
 		size_t getCharacterLimit() const { return m_characterLimit; }
 
 	protected:
-		void onRender(SDL_Renderer* renderer, const SDL_FRect& screenRect) override;
+		void onRender(const SDL_FRect& screenRect) override;
 		void insertText(const std::string& utf8) override;
 
 	private:

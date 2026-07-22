@@ -2,9 +2,8 @@
 #include "../Core/Core.h"
 #include "../Component/Component.h"
 #include "../Math.h"
+#include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
-
-struct SDL_Renderer;
 
 namespace Shit {
 	class UIRenderSystem;
@@ -25,8 +24,8 @@ namespace Shit {
 		void onDetach() override;
 		void onDestroy() override;
 
-		/// @brief 子类实现：在给定屏幕矩形内绘制自身
-		virtual void onRender(SDL_Renderer* renderer, const SDL_FRect& screenRect) = 0;
+		/// @brief 子类实现：在给定屏幕矩形内绘制自身（通过 Renderer 静态 API 绘制）
+		virtual void onRender(const SDL_FRect& screenRect) = 0;
 
 		/// @brief 点击命中检测：默认矩形内即命中，子类可覆写为更精确的形状
 		virtual bool containsPoint(const SDL_FRect& screenRect, const Vector2& point) const;
@@ -41,6 +40,11 @@ namespace Shit {
 	protected:
 		/// @brief components变更后通知系统重排（实例：zIndex 变化）
 		void requestSort();
+
+		/// @brief Color → SDL_Color 边界转换（供 UIText / UITextInput 系列传给 SDL_ttf 用）
+		static SDL_Color toSDLColor(const Color& color) {
+			return SDL_Color{ color.red, color.green, color.blue, color.alpha };
+		}
 
 		int  m_zIndex = 0;       ///< 渲染层级（值越大越靠上）
 		bool m_isVisible = true; ///< 是否参与渲染与命中

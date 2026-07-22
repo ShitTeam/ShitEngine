@@ -1,12 +1,10 @@
+#include "ShitEngine/Core/pch.h"
 #include "ShitEngine/UI/UITextBox.h"
+#include "ShitEngine/Render/Renderer.h"
 #include "ShitEngine/Core/Log.h"
+#include "ShitEngine/Core/TextInputGate.h"
 
-#include <SDL3/SDL_render.h>
-#include <SDL3/SDL_stdinc.h>
 #include <SDL3_ttf/SDL_ttf.h>
-
-#include <algorithm>
-#include <cmath>
 
 namespace Shit {
 	namespace {
@@ -17,16 +15,14 @@ namespace Shit {
 			return w;
 		}
 
-		void renderTextTo(SDL_Renderer* renderer, TTF_Font* font,
-			const std::string& text, SDL_Color color, float x, float y)
-		{
+		void renderTextTo(TTF_Font* font, const std::string& text, SDL_Color color, float x, float y) {
 			if (text.empty() || !font) return;
 			SDL_Surface* surface = TTF_RenderText_Blended(font, text.c_str(), text.length(), color);
 			if (!surface) return;
-			SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surface);
+			SDL_Texture* tex = Renderer::CreateTextureFromSurface(surface);
 			if (tex) {
 				SDL_FRect dst{ x, y, static_cast<float>(surface->w), static_cast<float>(surface->h) };
-				SDL_RenderTexture(renderer, tex, nullptr, &dst);
+				Renderer::DrawTexture(tex, nullptr, dst);
 				SDL_DestroyTexture(tex);
 			}
 			SDL_DestroySurface(surface);
@@ -45,12 +41,9 @@ namespace Shit {
 		// 字符数限制检查：m_characterLimit 为 0 表示不限
 		if (m_characterLimit > 0) {
 			size_t currentChars = getCharacterCount();
-			// 统计新文本中将要插入的 UTF-8 字符数
 			size_t newChars = SDL_utf8strlen(utf8.c_str());
-			// 选区被替换时应减去已选区的字符数
 			if (m_cursor != m_selectionAnchor) {
 				size_t selBytes = std::max(m_cursor, m_selectionAnchor) - std::min(m_cursor, m_selectionAnchor);
-				// 估算选区字符数（近似：字节数 ≥ 字符数，但对于 ASCII 相等，中文字符数 < 字节数）
 				std::string selStr = m_text.substr(std::min(m_cursor, m_selectionAnchor), selBytes);
 				currentChars -= SDL_utf8strlen(selStr.c_str());
 			}
@@ -61,7 +54,7 @@ namespace Shit {
 		UITextInput::insertText(utf8);
 	}
 
-	void UITextBox::onRender(SDL_Renderer* renderer, const SDL_FRect& screenRect) {
+	void UITextBox::onRender(const SDL_FRect& screenRect) {
 		TTF_Font* font = acquireFont();
 		if (!font) return;
 
@@ -69,8 +62,8 @@ namespace Shit {
 
 		const std::string& displayText = (!m_text.empty() || m_isFocused) ? m_text : m_placeholder;
 		SDL_Color textColor = (!m_text.empty() || m_isFocused)
-			? SDL_Color{ m_textColor.red, m_textColor.green, m_textColor.blue, m_textColor.alpha }
-			: SDL_Color{ m_placeholderColor.red, m_placeholderColor.green, m_placeholderColor.blue, m_placeholderColor.alpha };
+			? toSDLColor(m_textColor)
+			: toSDLColor(m_placeholderColor);
 
 		SDL_Rect clipRect{
 			static_cast<int>(screenRect.x),
@@ -79,7 +72,6 @@ namespace Shit {
 			static_cast<int>(screenRect.h)
 		};
 
-		// 水平滚动偏移
 		const float padding = 4.0f;
 		float scrollX = 0.0f;
 		if (m_isFocused && !m_text.empty()) {
@@ -95,8 +87,9 @@ namespace Shit {
 			scrollX = std::clamp(scrollX, -maxScroll, 0.0f);
 		}
 
-		// 选区高亮
+		// 选区高亮（在 SetClipRect 之后绘制，防止溢出）
 		if (m_isFocused && m_cursor != m_selectionAnchor && !displayText.empty()) {
+			Renderer::SetClipRect(&clipRect);
 			size_t selStart = std::min(m_cursor, m_selectionAnchor);
 			size_t selEnd = std::max(m_cursor, m_selectionAnchor);
 			std::string beforeSel = displayText.substr(0, selStart);
@@ -105,28 +98,22 @@ namespace Shit {
 			int beforeW = measureTextWidth(font, beforeSel.c_str(), beforeSel.length());
 			int selW = measureTextWidth(font, selText.c_str(), selText.length());
 
-			SDL_SetRenderDrawColor(renderer, 80, 140, 220, 120);
-			SDL_FRect selRect{
+			Renderer::SetDrawColor({ 80, 140, 220, 120 });
+			Renderer::FillRect(SDL_FRect{
 				screenRect.x + padding + static_cast<float>(beforeW) + scrollX,
 				textY,
 				static_cast<float>(selW),
 				m_fontHeight
-			};
-			SDL_RenderFillRect(renderer, &selRect);
+				});
 		}
 
 		// 绘制文本
-		{
-			SDL_SetRenderClipRect(renderer, &clipRect);
-			renderTextTo(renderer, font, displayText, textColor,
-				screenRect.x + padding + scrollX, textY);
-			SDL_SetRenderClipRect(renderer, nullptr);
-		}
+		Renderer::SetClipRect(&clipRect);
+		renderTextTo(font, displayText, textColor, screenRect.x + padding + scrollX, textY);
+		Renderer::ClearClipRect();
 
 		// 闪烁光标（含 preedit 文本）
 		if (m_isFocused) {
-			SDL_SetRenderClipRect(renderer, &clipRect);
-
 			Uint64 ticks = SDL_GetTicks();
 			bool cursorVisible = (ticks / 500) % 2 == 0;
 
@@ -134,34 +121,36 @@ namespace Shit {
 			int preX = measureTextWidth(font, beforeCursor.c_str(), beforeCursor.length());
 			float cursorPxX = screenRect.x + padding + static_cast<float>(preX) + scrollX;
 
-			if (cursorVisible && !m_preedit.empty()) {
-				// 渲染 IME 组合文本（预编辑阶段，灰色表示尚未提交）
-				SDL_Color preColor{ 60, 60, 60, 255 };
-				renderTextTo(renderer, font, m_preedit, preColor, cursorPxX, textY);
+			// 通知 IME 光标位置（逻辑坐标 → 窗口物理像素坐标）
+			float winX1, winY1, winX2, winY2;
+			Renderer::RenderCoordinatesToWindow(cursorPxX, textY, &winX1, &winY1);
+			Renderer::RenderCoordinatesToWindow(cursorPxX + 2.0f, textY + m_fontHeight, &winX2, &winY2);
+			SDL_Rect imeRect{
+				static_cast<int>(winX1), static_cast<int>(winY1),
+				static_cast<int>(winX2 - winX1), static_cast<int>(winY2 - winY1)
+			};
+			TextInputGate::GetInstance().updateCursorRect(imeRect, 0);
 
-				// 组合文本下方画下划线
+			Renderer::SetClipRect(&clipRect);
+
+			if (cursorVisible && !m_preedit.empty()) {
+				SDL_Color preColor{ 60, 60, 60, 255 };
+				renderTextTo(font, m_preedit, preColor, cursorPxX, textY);
+
 				int preW = measureTextWidth(font, m_preedit.c_str(), m_preedit.length());
-				SDL_SetRenderDrawColor(renderer, 100, 100, 100, 200);
-				SDL_FRect preeditRect{
+				Renderer::SetDrawColor({ 100, 100, 100, 200 });
+				Renderer::FillRect(SDL_FRect{
 					cursorPxX,
 					textY + m_fontHeight - 2.0f,
 					static_cast<float>(preW),
 					2.0f
-				};
-				SDL_RenderFillRect(renderer, &preeditRect);
+					});
 			} else if (cursorVisible) {
-				SDL_SetRenderDrawColor(renderer,
-					m_cursorColor.red, m_cursorColor.green, m_cursorColor.blue, m_cursorColor.alpha);
-				SDL_FRect cursorRect{
-					cursorPxX,
-					textY,
-					2.0f,
-					m_fontHeight
-				};
-				SDL_RenderFillRect(renderer, &cursorRect);
+				Renderer::SetDrawColor(m_cursorColor);
+				Renderer::FillRect(SDL_FRect{ cursorPxX, textY, 2.0f, m_fontHeight });
 			}
 
-			SDL_SetRenderClipRect(renderer, nullptr);
+			Renderer::ClearClipRect();
 		}
 
 		m_isDirty = false;

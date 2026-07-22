@@ -1,4 +1,5 @@
-﻿#include "ShitEngine/Scene/SceneManager.h"
+﻿#include "ShitEngine/Core/pch.h"
+#include "ShitEngine/Scene/SceneManager.h"
 #include "ShitEngine/Core/Log.h"
 #include "ShitEngine/Scene/Scene.h"
 

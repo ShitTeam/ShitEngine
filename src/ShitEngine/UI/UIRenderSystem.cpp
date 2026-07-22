@@ -1,3 +1,4 @@
+#include "ShitEngine/Core/pch.h"
 #include "ShitEngine/UI/UIRenderSystem.h"
 
 #include "ShitEngine/UI/UIRendererComponent.h"
@@ -13,7 +14,6 @@
 #include "ShitEngine/Core/Log.h"
 
 #include <SDL3/SDL_render.h>
-#include <algorithm>
 
 namespace Shit {
 	UIRenderSystem::UIRenderSystem(int priority) : System(priority) {
@@ -26,32 +26,41 @@ namespace Shit {
 		if (!m_renderer) return;
 
 		if (m_isRenderersNeedSort) {
-			std::sort(m_uiRenderers.begin(), m_uiRenderers.end(),
+			std::stable_sort(m_uiRenderers.begin(), m_uiRenderers.end(),
 				[](UIRendererComponent* a, UIRendererComponent* b) {
 					return a->getZIndex() < b->getZIndex();
 				});
 			m_isRenderersNeedSort = false;
 		}
 
+		// --- 预计算所有可见控件的 screenRect（raycast 和渲染共用，避免双重 resolveParentRect） ---
+		struct CachedRect {
+			UIRendererComponent* renderer;
+			GameObject* owner;
+			SDL_FRect screenRect;
+		};
+		std::vector<CachedRect> visible;
+
+		for (auto* renderer : m_uiRenderers) {
+			if (!renderer || !renderer->isVisible()) continue;
+			GameObject* owner = renderer->getOwner();
+			if (!owner) continue;
+			UITransform* transform = owner->getComponent<UITransform>();
+			if (!transform) continue;
+
+			SDL_FRect parentRect = transform->resolveParentRect();
+			SDL_FRect screenRect = transform->getScreenRect(&parentRect);
+			visible.push_back({renderer, owner, screenRect});
+		}
+
 		// --- 输入 Raycasting（从上到下命中，取最上层一个） ---
 		Vector2 mousePosition = Input::GetMousePosition();
 		GameObject* hoveredGameObject = nullptr;
 
-		for (auto it = m_uiRenderers.rbegin(); it != m_uiRenderers.rend(); ++it) {
-			UIRendererComponent* renderer = *it;
-			if (!renderer || !renderer->isVisible()) continue;
-
-			GameObject* owner = renderer->getOwner();
-			if (!owner) continue;
-
-			UITransform* transform = owner->getComponent<UITransform>();
-			if (!transform) continue;
-
-		SDL_FRect parentRect = transform->resolveParentRect();
-		SDL_FRect screenRect = transform->getScreenRect(&parentRect);
-		if (renderer->containsPoint(screenRect, mousePosition)) {
-				hoveredGameObject = owner;
-				break; // 最上层命中即止
+		for (auto it = visible.rbegin(); it != visible.rend(); ++it) {
+			if (it->renderer->containsPoint(it->screenRect, mousePosition)) {
+				hoveredGameObject = it->owner;
+				break;
 			}
 		}
 
@@ -60,10 +69,8 @@ namespace Shit {
 		bool mouseUp = Input::IsMouseButtonReleased(MouseButton::Left);
 
 		std::vector<UIButton*> processedButtons;
-		for (auto* renderer : m_uiRenderers) {
-			if (!renderer) continue;
-			GameObject* owner = renderer->getOwner();
-			if (!owner) continue;
+		for (auto& entry : visible) {
+			GameObject* owner = entry.owner;
 
 			UIButton* button = owner->getComponent<UIButton>();
 			if (!button) continue;
@@ -79,17 +86,12 @@ namespace Shit {
 			else if (!hit && isHovered)   button->onPointerExit();
 
 			if (hit && mouseDown) button->onPointerDown();
-			if (mouseUp)          button->onPointerUp();
-
-			// 如果命中此按钮且它被点击，且没有文本输入，不清除焦点
-			// 我们稍后统一处理焦点
+			if (mouseUp && (hit || button->getState() == UIButton::State::Pressed)) button->onPointerUp();
 		}
 
 		// --- 输入框聚焦管理（点击时切换） ---
 		if (mouseDown) {
 			if (hoveredGameObject) {
-				// getComponent<T> 用 typeid(T) 精确匹配。UITextBox 存为 typeid(UITextBox)，
-				// 所以 getComponent<UITextInput>() 查不到。改用 dynamic_cast 遍历所有组件。
 				UITextInput* textInput = nullptr;
 				for (auto& [type, comp] : hoveredGameObject->getComponents()) {
 					textInput = dynamic_cast<UITextInput*>(comp.get());
@@ -98,27 +100,17 @@ namespace Shit {
 				if (textInput) {
 					TextInputGate::GetInstance().requestFocus(textInput);
 				}
-				// 点击其他 UI 元素（按钮等）不夺走输入框焦点
 			} else {
-				// 点击空白区域 → 失焦输入框
 				TextInputGate::GetInstance().clearFocus();
 			}
 		}
 
-		// --- 渲染阶段（按 zIndex 从下到上） ---
-		SDL_SetRenderClipRect(m_renderer, nullptr);
-		SDL_SetRenderViewport(m_renderer, nullptr);
+		// --- 渲染阶段（按 zIndex 从下到上，使用缓存的 screenRect） ---
+		Renderer::ClearClipRect();
+		Renderer::ClearViewport();
 
-		for (auto* renderer : m_uiRenderers) {
-			if (!renderer || !renderer->isVisible()) continue;
-			GameObject* owner = renderer->getOwner();
-			if (!owner) continue;
-			UITransform* transform = owner->getComponent<UITransform>();
-			if (!transform) continue;
-
-		SDL_FRect parentRect = transform->resolveParentRect();
-		SDL_FRect screenRect = transform->getScreenRect(&parentRect);
-		renderer->onRender(m_renderer, screenRect);
+		for (auto& entry : visible) {
+			entry.renderer->onRender(entry.screenRect);
 		}
 	}
 

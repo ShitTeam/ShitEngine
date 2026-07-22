@@ -1,4 +1,5 @@
-﻿#include "ShitEngine/Component/TransformComponent.h"
+﻿#include "ShitEngine/Core/pch.h"
+#include "ShitEngine/Component/TransformComponent.h"
 
 namespace Shit {
 	TransformComponent::TransformComponent() : m_position(0.0f, 0.0f),

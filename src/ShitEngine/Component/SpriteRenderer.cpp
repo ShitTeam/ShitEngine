@@ -1,3 +1,4 @@
+#include "ShitEngine/Core/pch.h"
 #include "ShitEngine/Component/SpriteRenderer.h"
 
 #include "ShitEngine/Component/TransformComponent.h"

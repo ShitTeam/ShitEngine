@@ -1,3 +1,4 @@
+#include "ShitEngine/Core/pch.h"
 #include "ShitEngine/UI/UIButton.h"
 #include "ShitEngine/UI/UIImage.h"
 #include "ShitEngine/GameObject/GameObject.h"
@@ -65,7 +66,7 @@ namespace Shit {
 		}
 	}
 
-	void UIButton::onRender(SDL_Renderer* /*renderer*/, const SDL_FRect& /*screenRect*/) {
+	void UIButton::onRender(const SDL_FRect& /*screenRect*/) {
 		// UIButton 自身不绘制，渲染交给同 GameObject 的 UIImage。
 		// 状态着色通过 applyCurrentColor 改写 UIImage.color 实现。
 	}

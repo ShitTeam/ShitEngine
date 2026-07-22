@@ -1,3 +1,4 @@
+#include "ShitEngine/Core/pch.h"
 #include "ShitEngine/Core/TextInputGate.h"
 
 #include "ShitEngine/UI/UITextInput.h"

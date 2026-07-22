@@ -71,4 +71,46 @@ namespace Shit {
         SDL_RenderTextureRotated(instance.m_renderer.get(), texture,
             useSrcRect ? &srcRect : nullptr, &destRect, 0.0, nullptr, flip);
     }
+
+    void Renderer::SetDrawColor(const Color& color) {
+        SDL_SetRenderDrawColor(GetInstance().m_renderer.get(),
+            color.red, color.green, color.blue, color.alpha);
+    }
+
+    void Renderer::FillRect(const SDL_FRect& rect) {
+        SDL_RenderFillRect(GetInstance().m_renderer.get(), &rect);
+    }
+
+    void Renderer::SetClipRect(const SDL_Rect* rect) {
+        SDL_SetRenderClipRect(GetInstance().m_renderer.get(), rect);
+    }
+
+    void Renderer::ClearClipRect() {
+        SDL_SetRenderClipRect(GetInstance().m_renderer.get(), nullptr);
+    }
+
+    void Renderer::SetViewport(const SDL_Rect* viewport) {
+        SDL_SetRenderViewport(GetInstance().m_renderer.get(), viewport);
+    }
+
+    void Renderer::ClearViewport() {
+        SDL_SetRenderViewport(GetInstance().m_renderer.get(), nullptr);
+    }
+
+    void Renderer::DrawTexture(SDL_Texture* texture, const SDL_FRect* src, const SDL_FRect& dst) {
+        SDL_RenderTexture(GetInstance().m_renderer.get(), texture, src, &dst);
+    }
+
+    void Renderer::DrawTextureRotated(SDL_Texture* texture, const SDL_FRect* src, const SDL_FRect& dst,
+        double angle, const SDL_FPoint* center, SDL_FlipMode flip) {
+        SDL_RenderTextureRotated(GetInstance().m_renderer.get(), texture, src, &dst, angle, center, flip);
+    }
+
+    void Renderer::RenderCoordinatesToWindow(float x, float y, float* winX, float* winY) {
+        SDL_RenderCoordinatesToWindow(GetInstance().m_renderer.get(), x, y, winX, winY);
+    }
+
+    SDL_Texture* Renderer::CreateTextureFromSurface(SDL_Surface* surface) {
+        return SDL_CreateTextureFromSurface(GetInstance().m_renderer.get(), surface);
+    }
 }

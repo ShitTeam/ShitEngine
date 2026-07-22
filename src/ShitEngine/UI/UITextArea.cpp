@@ -1,15 +1,11 @@
+#include "ShitEngine/Core/pch.h"
 #include "ShitEngine/UI/UITextArea.h"
+#include "ShitEngine/Render/Renderer.h"
 #include "ShitEngine/Core/Log.h"
+#include "ShitEngine/Core/TextInputGate.h"
 
-#include <SDL3/SDL_render.h>
 #include <SDL3_ttf/SDL_ttf.h>
-
-#include <memory>
 #include <cmath>
-#include <algorithm>
-#include <vector>
-#include <cstring>
-#include <sstream>
 
 namespace Shit {
 	namespace {
@@ -24,11 +20,14 @@ namespace Shit {
 			std::vector<std::string> lines;
 			std::istringstream stream(text);
 			std::string line;
-			while (std::getline(stream, line))
+			while (std::getline(stream, line)) {
+				// 去除 Windows CRLF 残留的 '\r'
+				if (!line.empty() && line.back() == '\r')
+					line.pop_back();
 				lines.push_back(line);
+			}
 			// getline 遇到 \n 分隔符时不产生末尾空串，例如 "a\n" 只产生 {"a"}。
-			// 后面缺少一个空行。补偿策略：若原文本以 \n 结尾，补充一个空串行。
-			// 完全空文本也补充一个空行，保证始终至少有一行。
+			// 补偿：若原文本以 \n 结尾或完全为空，补充一个空串行保证至少一行。
 			if (text.empty() || text.back() == '\n')
 				lines.push_back("");
 			return lines;
@@ -53,6 +52,19 @@ namespace Shit {
 			lineIdx = static_cast<int>(lines.size()) - 1;
 			lineOffset = lines.empty() ? 0 : lines.back().size();
 		}
+
+		void renderLineTo(TTF_Font* font, const std::string& text, SDL_Color color, float x, float y) {
+			if (text.empty() || !font) return;
+			SDL_Surface* surf = TTF_RenderText_Blended(font, text.c_str(), text.length(), color);
+			if (!surf) return;
+			SDL_Texture* tex = Renderer::CreateTextureFromSurface(surf);
+			if (tex) {
+				SDL_FRect dst{ x, y, static_cast<float>(surf->w), static_cast<float>(surf->h) };
+				Renderer::DrawTexture(tex, nullptr, dst);
+				SDL_DestroyTexture(tex);
+			}
+			SDL_DestroySurface(surf);
+		}
 	}
 
 	UITextArea::UITextArea() {
@@ -72,6 +84,7 @@ namespace Shit {
 					for (int i = 0; i < lineIdx; ++i)
 						pos += lines[i].size() + 1;
 					const std::string& prevLine = lines[lineIdx];
+					// 将当前行字符偏移转为新行字节偏移（保留列位置）
 					size_t targetChar = UITextInput::byteToChar(prevLine, lineOff);
 					size_t newOff = UITextInput::charToByte(prevLine,
 						std::min(targetChar, UITextInput::byteToChar(prevLine, prevLine.size())));
@@ -92,6 +105,7 @@ namespace Shit {
 					for (int i = 0; i < lineIdx; ++i)
 						pos += lines[i].size() + 1;
 					const std::string& nextLine = lines[lineIdx];
+					// 将当前行字符偏移转为新行字节偏移（保留列位置）
 					size_t targetChar = UITextInput::byteToChar(nextLine, lineOff);
 					size_t newOff = UITextInput::charToByte(nextLine,
 						std::min(targetChar, UITextInput::byteToChar(nextLine, nextLine.size())));
@@ -111,7 +125,6 @@ namespace Shit {
 	}
 
 	void UITextArea::insertNewline() {
-		// 在光标处插入 '\n'
 		deleteSelection();
 		m_text.insert(m_cursor, "\n");
 		m_cursor += 1; // '\n' is 1 byte in UTF-8
@@ -119,7 +132,7 @@ namespace Shit {
 		m_isDirty = true;
 	}
 
-	void UITextArea::onRender(SDL_Renderer* renderer, const SDL_FRect& screenRect) {
+	void UITextArea::onRender(const SDL_FRect& screenRect) {
 		TTF_Font* font = acquireFont();
 		if (!font) return;
 
@@ -130,9 +143,7 @@ namespace Shit {
 		auto lines = splitLines(m_text);
 		const std::string& displayText = (!m_text.empty() || m_isFocused) ? m_text : m_placeholder;
 		bool usePlaceholder = m_text.empty() && !m_isFocused;
-		SDL_Color textColor = usePlaceholder
-			? SDL_Color{ m_placeholderColor.red, m_placeholderColor.green, m_placeholderColor.blue, m_placeholderColor.alpha }
-			: SDL_Color{ m_textColor.red, m_textColor.green, m_textColor.blue, m_textColor.alpha };
+		SDL_Color textColor = usePlaceholder ? toSDLColor(m_placeholderColor) : toSDLColor(m_textColor);
 
 		SDL_Rect clipRect{
 			static_cast<int>(screenRect.x),
@@ -140,22 +151,14 @@ namespace Shit {
 			static_cast<int>(screenRect.w),
 			static_cast<int>(screenRect.h)
 		};
-		SDL_SetRenderClipRect(renderer, &clipRect);
+		Renderer::SetClipRect(&clipRect);
 
 		float yPos = screenRect.y + padding;
 
 		if (usePlaceholder) {
-			SDL_Surface* surf = TTF_RenderText_Blended(font, displayText.c_str(), displayText.length(), textColor);
-			if (surf) {
-				SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surf);
-				if (tex) {
-					SDL_FRect dst{ screenRect.x + padding, yPos, static_cast<float>(surf->w), static_cast<float>(surf->h) };
-					SDL_RenderTexture(renderer, tex, nullptr, &dst);
-					SDL_DestroyTexture(tex);
-				}
-				SDL_DestroySurface(surf);
-			}
+			renderLineTo(font, displayText, textColor, screenRect.x + padding, yPos);
 		} else {
+			// 先绘制文本和选区高亮
 			for (size_t i = 0; i < lines.size(); ++i) {
 				if (yPos + m_fontHeight > screenRect.y + screenRect.h) break;
 
@@ -176,37 +179,27 @@ namespace Shit {
 						std::string selText = line.substr(localSelStart, localSelEnd - localSelStart);
 						int beforeW = measureWidth(font, beforeSel.c_str(), beforeSel.length());
 						int selW = measureWidth(font, selText.c_str(), selText.length());
-						SDL_SetRenderDrawColor(renderer, 80, 140, 220, 120);
-						SDL_FRect selRect{
+
+						Renderer::SetDrawColor({ 80, 140, 220, 120 });
+						Renderer::FillRect(SDL_FRect{
 							screenRect.x + padding + static_cast<float>(beforeW),
 							yPos,
 							std::max(1.0f, static_cast<float>(selW)),
 							m_fontHeight
-						};
-						SDL_RenderFillRect(renderer, &selRect);
+							});
 					}
 				}
 
-				SDL_Surface* surf = TTF_RenderText_Blended(font, line.c_str(), line.length(), textColor);
-				if (surf) {
-					SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surf);
-					if (tex) {
-						SDL_FRect dst{ screenRect.x + padding, yPos, static_cast<float>(surf->w), static_cast<float>(surf->h) };
-						SDL_RenderTexture(renderer, tex, nullptr, &dst);
-						SDL_DestroyTexture(tex);
-					}
-					SDL_DestroySurface(surf);
-				}
-
+				renderLineTo(font, line, textColor, screenRect.x + padding, yPos);
 				yPos += lineStep;
 			}
-		}
+			Renderer::ClearClipRect();
 
-		// 光标
-		if (m_isFocused && !usePlaceholder) {
-			Uint64 ticks = SDL_GetTicks();
-			bool cursorVisible = (ticks / 500) % 2 == 0;
-			if (cursorVisible) {
+			// 光标（在 clip 清除前绘制）
+			if (m_isFocused) {
+				Uint64 ticks = SDL_GetTicks();
+				bool cursorVisible = (ticks / 500) % 2 == 0;
+
 				int lineIdx = 0; size_t lineOff = 0;
 				locateCursor(m_text, m_cursor, lines, lineIdx, lineOff);
 
@@ -218,14 +211,23 @@ namespace Shit {
 					cx += static_cast<float>(measureWidth(font, line.c_str(), offsetInLine));
 				}
 
-				SDL_SetRenderDrawColor(renderer,
-					m_cursorColor.red, m_cursorColor.green, m_cursorColor.blue, m_cursorColor.alpha);
-				SDL_FRect cursorRect{ cx, cy, 2.0f, m_fontHeight };
-				SDL_RenderFillRect(renderer, &cursorRect);
+				// 通知 IME 光标位置（逻辑坐标 → 窗口物理像素坐标）
+				float winX1, winY1, winX2, winY2;
+				Renderer::RenderCoordinatesToWindow(cx, cy, &winX1, &winY1);
+				Renderer::RenderCoordinatesToWindow(cx + 2.0f, cy + m_fontHeight, &winX2, &winY2);
+				SDL_Rect imeRect{
+					static_cast<int>(winX1), static_cast<int>(winY1),
+					static_cast<int>(winX2 - winX1), static_cast<int>(winY2 - winY1)
+				};
+				TextInputGate::GetInstance().updateCursorRect(imeRect, 0);
+
+				if (cursorVisible) {
+					Renderer::SetDrawColor(m_cursorColor);
+					Renderer::FillRect(SDL_FRect{ cx, cy, 2.0f, m_fontHeight });
+				}
 			}
 		}
 
-		SDL_SetRenderClipRect(renderer, nullptr);
 		m_isDirty = false;
 	}
 }

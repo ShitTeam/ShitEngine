@@ -45,7 +45,7 @@ namespace Shit {
 		void setOnClick(std::function<void()> callback) { m_onClick = std::move(callback); }
 
 	protected:
-		void onRender(SDL_Renderer* renderer, const SDL_FRect& screenRect) override;
+		void onRender(const SDL_FRect& /*screenRect*/) override;
 
 	private:
 		void setState(State newState);

@@ -1,3 +1,4 @@
+#include "ShitEngine/Core/pch.h"
 #include "ShitEngine/Resource/AudioManager.h"
 #include "ShitEngine/Core/Log.h"
 #include "ShitEngine/Core/pch.h"

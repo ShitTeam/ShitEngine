@@ -1,4 +1,6 @@
+#include "ShitEngine/Core/pch.h"
 #include "ShitEngine/UI/UIImage.h"
+#include "ShitEngine/Render/Renderer.h"
 #include "ShitEngine/Resource/ResourceManager.h"
 #include "ShitEngine/Core/Log.h"
 
@@ -11,7 +13,7 @@ namespace Shit {
 
 	UIImage::~UIImage() = default;
 
-	void UIImage::onRender(SDL_Renderer* renderer, const SDL_FRect& screenRect) {
+	void UIImage::onRender(const SDL_FRect& screenRect) {
 		SDL_Texture* texture = ResourceManager::GetTexture(m_sprite.getTexturePath());
 		if (!texture) {
 			ST_CORE_ERROR("UIImage: 无法获取纹理 {}", m_sprite.getTexturePath());
@@ -30,7 +32,7 @@ namespace Shit {
 		}
 
 		SDL_FlipMode flip = m_sprite.isFlipped() ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-		SDL_RenderTextureRotated(renderer, texture, srcPtr, &screenRect, 0.0, nullptr, flip);
+		Renderer::DrawTextureRotated(texture, srcPtr, screenRect, 0.0, nullptr, flip);
 
 		// 还原默认颜色调制，避免影响后续渲染
 		SDL_SetTextureColorMod(texture, 255, 255, 255);

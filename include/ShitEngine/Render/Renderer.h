@@ -43,6 +43,19 @@ namespace Shit {
 		 */
 		static void DrawSprite(const Sprite& sprite, const Vector2& position, const std::optional<Vector2>& size = std::nullopt);
 
+	// --- 绘制原语（封装 SDL3 绘制 API，供 UI / HUD 使用）---
+	static void SetDrawColor(const Color& color);   ///< 设置绘制颜色（SDL_SetRenderDrawColor）
+	static void FillRect(const SDL_FRect& rect);     ///< 实心矩形（SDL_RenderFillRect）
+	static void SetClipRect(const SDL_Rect* rect);  ///< 设置裁剪矩形（传 nullptr 清除）
+	static void ClearClipRect();                    ///< 清除裁剪矩形
+	static void SetViewport(const SDL_Rect* viewport); ///< 设置视口（传 nullptr 恢复全屏）
+	static void ClearViewport();                    ///< 恢复全屏视口
+	static void DrawTexture(SDL_Texture* texture, const SDL_FRect* src, const SDL_FRect& dst); ///< 绘制纹理（SDL_RenderTexture）
+	static void DrawTextureRotated(SDL_Texture* texture, const SDL_FRect* src, const SDL_FRect& dst,
+		double angle, const SDL_FPoint* center, SDL_FlipMode flip); ///< 旋转/翻转绘制（SDL_RenderTextureRotated）
+	static void RenderCoordinatesToWindow(float x, float y, float* winX, float* winY); ///< 逻辑坐标 → 窗口物理像素坐标
+	static SDL_Texture* CreateTextureFromSurface(SDL_Surface* surface); ///< surface → texture（SDL_CreateTextureFromSurface）
+
 	private:
 		Renderer() = default;
 		~Renderer() = default;

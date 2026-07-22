@@ -1,3 +1,4 @@
+#include "ShitEngine/Core/pch.h"
 #include "ShitEngine/System/System.h"
 
 #include "ShitEngine/GameObject/GameObject.h"

@@ -1,3 +1,4 @@
+#include "ShitEngine/Core/pch.h"
 #include "ShitEngine/Audio/AudioTrack.h"
 
 #include "ShitEngine/Audio/AudioPlayer.h"  // friend 访问 m_group / applyTrackGain

@@ -1,3 +1,4 @@
+#include "ShitEngine/Core/pch.h"
 #include "ShitEngine/Resource/FontManager.h"
 #include "ShitEngine/Core/Log.h"
 #include <cmath>
