@@ -25,4 +25,9 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 add_subdirectory(Engine)
-add_subdirectory(Examples)
+
+# Examples 可选（外部用户 FetchContent 时跳过）
+option(BUILD_EXAMPLES "构建示例项目" OFF)
+if(BUILD_EXAMPLES)
+    add_subdirectory(Examples)
+endif()

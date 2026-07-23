@@ -94,6 +94,7 @@ jobs:
             -DCMAKE_C_COMPILER=${{ matrix.cc }} \
             -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
             -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_EXAMPLES=ON \
             $LINUX_FLAGS
       - name: Build Release
         run: cmake --build build/release --parallel
@@ -112,6 +113,7 @@ jobs:
             -DCMAKE_C_COMPILER=${{ matrix.cc }} \
             -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
             -DCMAKE_BUILD_TYPE=Debug \
+            -DBUILD_EXAMPLES=ON \
             $LINUX_FLAGS
       - name: Build Debug
         run: cmake --build build/debug --parallel
