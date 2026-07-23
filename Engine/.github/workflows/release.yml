@@ -75,7 +75,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/build
-          key: ${{ matrix.artifact }}-v2-${{ hashFiles('cmake/DependencyManager.cmake', 'CMakeLists.txt') }}
+          key: ${{ matrix.artifact }}-v2-${{ hashFiles('Engine/cmake/DependencyManager.cmake', 'Engine/CMakeLists.txt') }}
           restore-keys: |
             ${{ matrix.artifact }}-v2-
             ${{ matrix.artifact }}-

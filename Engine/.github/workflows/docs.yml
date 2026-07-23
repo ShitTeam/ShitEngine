@@ -27,8 +27,8 @@ jobs:
       - name: 缓存 CMake FetchContent
         uses: actions/cache@v4
         with:
-          path: engine/build/_deps
-          key: deps-${{ runner.os }}-${{ hashFiles('engine/cmake/DependencyManager.cmake', 'engine/CMakeLists.txt') }}
+          path: engine/Engine/build/_deps
+          key: deps-${{ runner.os }}-${{ hashFiles('engine/Engine/cmake/DependencyManager.cmake', 'engine/Engine/CMakeLists.txt') }}
 
       - name: 安装 SDL3 构建依赖
         run: |
@@ -53,17 +53,17 @@ jobs:
           doxygen --version
 
       - name: CMake 配置
-        working-directory: engine
+        working-directory: engine/Engine
         run: cmake -B build -DCMAKE_BUILD_TYPE=Debug
 
       - name: 生成 API 文档
-        working-directory: engine
+        working-directory: engine/Engine
         run: cmake --build build --target docs
 
       - name: 复制到 docs/public/api/
         run: |
           rm -rf docs/public/api
-          cp -r engine/build/docs/api docs/public/api
+          cp -r engine/Engine/build/docs/api docs/public/api
 
       - name: 提交并推送
         run: |
