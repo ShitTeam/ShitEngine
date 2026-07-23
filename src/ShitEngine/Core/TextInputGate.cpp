@@ -71,7 +71,6 @@ namespace Shit {
 				m_focused->onTextEditing(event.edit.text, event.edit.start, event.edit.length);
 				break;
 			case SDL_EVENT_KEY_DOWN: {
-				if (event.key.repeat) break;
 				SDL_Scancode sc = event.key.scancode;
 				bool shift = (event.key.mod & SDL_KMOD_SHIFT) != 0;
 				bool ctrl  = (event.key.mod & SDL_KMOD_CTRL) != 0;
@@ -80,6 +79,8 @@ namespace Shit {
 					sc == SDL_SCANCODE_HOME || sc == SDL_SCANCODE_END ||
 					sc == SDL_SCANCODE_BACKSPACE || sc == SDL_SCANCODE_DELETE ||
 					sc == SDL_SCANCODE_UP || sc == SDL_SCANCODE_DOWN);
+				// 导航键允许 repeat（长按退格/方向键连续操作），非导航键跳过
+				if (!navKeys && event.key.repeat) break;
 				if (navKeys) {
 					m_focused->onKeyDown(sc, shift, ctrl);
 				} else if (sc == SDL_SCANCODE_ESCAPE) {

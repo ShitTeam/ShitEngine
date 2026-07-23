@@ -21,13 +21,10 @@ namespace Shit {
 			std::istringstream stream(text);
 			std::string line;
 			while (std::getline(stream, line)) {
-				// 去除 Windows CRLF 残留的 '\r'
 				if (!line.empty() && line.back() == '\r')
 					line.pop_back();
 				lines.push_back(line);
 			}
-			// getline 遇到 \n 分隔符时不产生末尾空串，例如 "a\n" 只产生 {"a"}。
-			// 补偿：若原文本以 \n 结尾或完全为空，补充一个空串行保证至少一行。
 			if (text.empty() || text.back() == '\n')
 				lines.push_back("");
 			return lines;
@@ -47,7 +44,7 @@ namespace Shit {
 				if (cursorByte <= lineEnd) {
 					lineIdx = i; lineOffset = cursorByte - pos; return;
 				}
-				pos = lineEnd + 1; // skip '\n'
+				pos = lineEnd + 1;
 			}
 			lineIdx = static_cast<int>(lines.size()) - 1;
 			lineOffset = lines.empty() ? 0 : lines.back().size();
@@ -71,6 +68,7 @@ namespace Shit {
 		m_isMultiline = true;
 	}
 
+	// ── UP / DOWN 跨行导航（用当前行 + lineOff 计算列位置，避免全文偏移） ──
 	bool UITextArea::onKeyDown(SDL_Scancode scancode, bool shift, bool ctrl) {
 		switch (scancode) {
 			case SDL_SCANCODE_UP: {
@@ -79,15 +77,14 @@ namespace Shit {
 				int lineIdx = 0; size_t lineOff = 0;
 				locateCursor(m_text, m_cursor, lines, lineIdx, lineOff);
 				if (lineIdx > 0) {
+					size_t curChar = UITextInput::byteToChar(lines[lineIdx], lineOff);
 					--lineIdx;
 					size_t pos = 0;
 					for (int i = 0; i < lineIdx; ++i)
 						pos += lines[i].size() + 1;
 					const std::string& prevLine = lines[lineIdx];
-					// 把当前光标的字符位置映射到目标行（保持列位置）
-					size_t targetChar = UITextInput::byteToChar(m_text, m_cursor);
 					size_t newOff = UITextInput::charToByte(prevLine,
-						std::min(targetChar, UITextInput::byteToChar(prevLine, prevLine.size())));
+						std::min(curChar, UITextInput::byteToChar(prevLine, prevLine.size())));
 					m_cursor = pos + newOff;
 					if (!shift) m_selectionAnchor = m_cursor;
 					m_isDirty = true;
@@ -100,15 +97,14 @@ namespace Shit {
 				int lineIdx = 0; size_t lineOff = 0;
 				locateCursor(m_text, m_cursor, lines, lineIdx, lineOff);
 				if (lineIdx < static_cast<int>(lines.size()) - 1) {
+					size_t curChar = UITextInput::byteToChar(lines[lineIdx], lineOff);
 					++lineIdx;
 					size_t pos = 0;
 					for (int i = 0; i < lineIdx; ++i)
 						pos += lines[i].size() + 1;
 					const std::string& nextLine = lines[lineIdx];
-					// 把当前光标的字符位置映射到目标行（保持列位置）
-					size_t targetChar = UITextInput::byteToChar(m_text, m_cursor);
 					size_t newOff = UITextInput::charToByte(nextLine,
-						std::min(targetChar, UITextInput::byteToChar(nextLine, nextLine.size())));
+						std::min(curChar, UITextInput::byteToChar(nextLine, nextLine.size())));
 					m_cursor = pos + newOff;
 					if (!shift) m_selectionAnchor = m_cursor;
 					m_isDirty = true;
@@ -127,7 +123,7 @@ namespace Shit {
 	void UITextArea::insertNewline() {
 		deleteSelection();
 		m_text.insert(m_cursor, "\n");
-		m_cursor += 1; // '\n' is 1 byte in UTF-8
+		m_cursor += 1;
 		m_selectionAnchor = m_cursor;
 		m_isDirty = true;
 	}
@@ -153,14 +149,31 @@ namespace Shit {
 		};
 		Renderer::SetClipRect(&clipRect);
 
-		float yPos = screenRect.y + padding;
+		float contentHeight = lines.size() * lineStep;
+		float visibleHeight = screenRect.h - padding * 2;
+		float maxScroll = std::max(0.0f, contentHeight - visibleHeight);
+
+		// ── 光标移动后自动跟随滚动 ──
+		if (!usePlaceholder && m_isFocused) {
+			int cursorLine = 0; size_t dummy = 0;
+			locateCursor(m_text, m_cursor, lines, cursorLine, dummy);
+			float cursorTop  = cursorLine * lineStep - m_scrollY;
+			float cursorBot  = cursorTop + m_fontHeight;
+			if (cursorTop < 0.0f) {
+				m_scrollY = cursorLine * lineStep;
+			} else if (cursorBot > visibleHeight) {
+				m_scrollY = cursorLine * lineStep + m_fontHeight - visibleHeight;
+			}
+			m_scrollY = std::clamp(m_scrollY, 0.0f, maxScroll);
+		}
+
+		float yPos = screenRect.y + padding - m_scrollY;
 
 		if (usePlaceholder) {
 			renderLineTo(font, displayText, textColor, screenRect.x + padding, yPos);
 		} else {
-			// 先绘制文本和选区高亮
 			for (size_t i = 0; i < lines.size(); ++i) {
-				if (yPos + m_fontHeight > screenRect.y + screenRect.h) break;
+				if (yPos > screenRect.y + screenRect.h) break;
 
 				const std::string& line = lines[i];
 				size_t byteStart = 0;
@@ -193,9 +206,8 @@ namespace Shit {
 				renderLineTo(font, line, textColor, screenRect.x + padding, yPos);
 				yPos += lineStep;
 			}
-			Renderer::ClearClipRect();
 
-			// 光标（在 clip 清除前绘制）
+			// ── 光标（在 ClearClipRect 之前绘制，保证 clip 有效） ──
 			if (m_isFocused) {
 				Uint64 ticks = SDL_GetTicks();
 				bool cursorVisible = (ticks / 500) % 2 == 0;
@@ -204,14 +216,14 @@ namespace Shit {
 				locateCursor(m_text, m_cursor, lines, lineIdx, lineOff);
 
 				float cx = screenRect.x + padding;
-				float cy = screenRect.y + padding + lineIdx * lineStep;
+				float cy = screenRect.y + padding - m_scrollY + lineIdx * lineStep;
 				if (lineOff > 0 && !lines.empty() && lineIdx < static_cast<int>(lines.size())) {
 					const std::string& line = lines[lineIdx];
 					size_t offsetInLine = std::min(lineOff, line.size());
 					cx += static_cast<float>(measureWidth(font, line.c_str(), offsetInLine));
 				}
 
-				// 通知 IME 光标位置（逻辑坐标 → 窗口物理像素坐标）
+				// IME 光标位置（逻辑坐标 → 窗口物理像素坐标）
 				float winX1, winY1, winX2, winY2;
 				Renderer::RenderCoordinatesToWindow(cx, cy, &winX1, &winY1);
 				Renderer::RenderCoordinatesToWindow(cx + 2.0f, cy + m_fontHeight, &winX2, &winY2);
@@ -227,6 +239,9 @@ namespace Shit {
 				}
 			}
 		}
+
+		// 所有分支都复原 clip，避免泄漏给后续 UI
+		Renderer::ClearClipRect();
 
 		m_isDirty = false;
 	}

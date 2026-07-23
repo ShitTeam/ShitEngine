@@ -17,15 +17,12 @@ namespace Shit {
 		UITextArea();
 		~UITextArea() override = default;
 
-		/// @brief 获取垂直滚动偏移量（像素）
-		float getScrollY() const { return m_scrollY; }
-
 	protected:
 		void onRender(const SDL_FRect& screenRect) override;
 		bool onKeyDown(SDL_Scancode scancode, bool shift, bool ctrl) override;
 		void insertNewline() override;
 
 	private:
-		float m_scrollY = 0.0f; ///< 垂直滚动偏移量（像素），渲染时 yPos -= m_scrollY
+		float m_scrollY = 0.0f; ///< 垂直滚动偏移（像素），光标移出可见区时自动调整
 	};
 }
