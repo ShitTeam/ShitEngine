@@ -1,0 +1,22 @@
+{
+  "project": "Example",
+  "window": {
+    "title": "Test",
+    "width": 1000,
+    "height": 1000,
+    "targetFPS": 144
+  },
+  "inputMappings": {
+    "actions": {
+      "Jump": ["Space"],
+      "Attack": ["J", "E"],
+      "Sprint": ["Left Shift"],
+      "Interact": ["F"],
+      "Menu": ["Escape"]
+    },
+    "axes": {
+      "Horizontal": { "negative": ["A"], "positive": ["D"] },
+      "Vertical":   { "negative": ["S"], "positive": ["W"] }
+    }
+  }
+}

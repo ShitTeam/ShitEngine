@@ -1,0 +1,144 @@
+name: Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            cc: gcc
+            cxx: g++
+            artifact: ShitEngine-windows-mingw
+            deps-setup: |
+              curl -L -o ninja.zip https://github.com/ninja-build/ninja/releases/download/v1.12.1/ninja-win.zip
+              7z x ninja.zip -oninja > nul
+              echo "${{ github.workspace }}/ninja" >> $env:GITHUB_PATH
+
+          - os: windows-latest
+            cc: cl
+            cxx: cl
+            artifact: ShitEngine-windows-msvc
+            deps-setup: |
+              curl -L -o ninja.zip https://github.com/ninja-build/ninja/releases/download/v1.12.1/ninja-win.zip
+              7z x ninja.zip -oninja > nul
+              echo "${{ github.workspace }}/ninja" >> $env:GITHUB_PATH
+
+          - os: ubuntu-latest
+            cc: gcc
+            cxx: g++
+            artifact: ShitEngine-linux
+            deps-setup: |
+              sudo apt-get update
+              sudo apt-get install -y ninja-build build-essential \
+                libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev \
+                libwayland-dev libegl1-mesa-dev libgles2-mesa-dev libgl1-mesa-dev \
+                libxkbcommon-dev libdbus-1-dev \
+                libpulse-dev libpipewire-0.3-dev \
+                libdrm-dev libgbm-dev
+
+          - os: macos-latest
+            cc: clang
+            cxx: clang++
+            artifact: ShitEngine-macos
+            deps-setup: |
+              brew install ninja ccache
+              # 全局设置 SDKROOT，CMake 会自动使用
+              echo "SDKROOT=$(xcrun --show-sdk-path)" >> $GITHUB_ENV
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: ${{ matrix.deps-setup }}
+
+      - name: Setup MSVC
+        if: matrix.cc == 'cl'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Setup ccache
+        if: runner.os != 'Windows' && runner.os != 'Linux'
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ${{ matrix.artifact }}
+
+      - name: Restore CMake cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/build
+          key: ${{ matrix.artifact }}-v2-${{ hashFiles('Engine/cmake/DependencyManager.cmake', 'Engine/CMakeLists.txt') }}
+          restore-keys: |
+            ${{ matrix.artifact }}-v2-
+            ${{ matrix.artifact }}-
+
+      # macOS: 强制清除旧缓存（Iconv::Iconv 指向不存在的 SDK 路径）
+      - name: Force full reconfigure on macOS
+        if: runner.os == 'macOS'
+        run: rm -rf build
+
+      # Release
+      - name: Configure Release
+        shell: bash
+        run: |
+          LINUX_FLAGS=""
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            LINUX_FLAGS="-DSDL_X11_XCURSOR=OFF -DSDL_X11_XFIXES=OFF"
+          fi
+          cmake -B build/release -G Ninja \
+            -DCMAKE_C_COMPILER=${{ matrix.cc }} \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
+            -DCMAKE_BUILD_TYPE=Release \
+            $LINUX_FLAGS
+      - name: Build Release
+        run: cmake --build build/release --parallel
+      - name: Install Release
+        run: cmake --install build/release --prefix install
+
+      # Debug
+      - name: Configure Debug
+        shell: bash
+        run: |
+          LINUX_FLAGS=""
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            LINUX_FLAGS="-DSDL_X11_XCURSOR=OFF -DSDL_X11_XFIXES=OFF"
+          fi
+          cmake -B build/debug -G Ninja \
+            -DCMAKE_C_COMPILER=${{ matrix.cc }} \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
+            -DCMAKE_BUILD_TYPE=Debug \
+            $LINUX_FLAGS
+      - name: Build Debug
+        run: cmake --build build/debug --parallel
+      - name: Install Debug
+        run: cmake --install build/debug --prefix install
+
+      # 复制第三方动态库（主输出在 bin/，第三方在 _deps/）
+      - name: Copy shared libs
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            find build/release/bin -name "*.dll" -exec cp -n {} install/bin/ \;
+            find build/release/bin -name "*.lib" -exec cp -n {} install/lib/ \;
+            find build/release/lib -name "*.lib" -exec cp -n {} install/lib/ \;
+            find build/release/_deps -name "*.dll" -exec cp -n {} install/bin/ \;
+            find build/release/_deps -name "*.dll.a" -exec cp -n {} install/lib/ \;
+          elif [ "$RUNNER_OS" = "Linux" ]; then
+            find build/release/bin -name "*.so*" -exec cp -n {} install/lib/ \;
+            find build/release/_deps -name "*.so*" ! -name "*.so.t*" -exec cp -n {} install/lib/ \;
+          elif [ "$RUNNER_OS" = "macOS" ]; then
+            find build/release/bin -name "*.dylib" -exec cp -n {} install/lib/ \;
+            find build/release/_deps -name "*.dylib" -exec cp -n {} install/lib/ \;
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: install/
+          if-no-files-found: error

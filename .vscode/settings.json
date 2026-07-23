@@ -1,0 +1,4 @@
+{
+    "cmake.additionalBuildProblemMatchers": [],
+    "cmake.makeProgram": "D:/CLion/bin/ninja/win/x64/ninja.exe"
+}
