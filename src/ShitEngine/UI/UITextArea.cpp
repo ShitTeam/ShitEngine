@@ -167,10 +167,13 @@ namespace Shit {
 			m_scrollY = std::clamp(m_scrollY, 0.0f, maxScroll);
 		}
 
+		// 文本清空时复位滚动（防占位符偏移）
+		if (m_text.empty()) m_scrollY = 0.0f;
+
 		float yPos = screenRect.y + padding - m_scrollY;
 
 		if (usePlaceholder) {
-			renderLineTo(font, displayText, textColor, screenRect.x + padding, yPos);
+			renderLineTo(font, displayText, textColor, screenRect.x + padding, screenRect.y + padding);
 		} else {
 			for (size_t i = 0; i < lines.size(); ++i) {
 				if (yPos > screenRect.y + screenRect.h) break;
