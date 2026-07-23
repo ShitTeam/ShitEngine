@@ -1,13 +1,18 @@
-out/
-.vs/
-.idea/
-.vscode/
-cmake-build-*/
+# Build artifacts
 build/
-external/
+build_test/
+cmake-build-*/
+out/
+
+# IDE
+.vs/
+.vscode/
+.idea/
 *.user
 *.swp
 *.swo
+
+# Compiled binaries
 *.exe
 *.dll
 *.pdb
@@ -16,11 +21,16 @@ external/
 *.so
 *.dylib
 *.exp
-*.ilk
+
+# External / dependencies
+external/
+
+# OS
 .DS_Store
 Thumbs.db
-fuck-u-code*
-build_prefab/
-.claude/
+
+# Project specific
 Examples/bin/
 Examples/lib/
+build_prefab/
+.claude/
