@@ -84,8 +84,8 @@ namespace Shit {
 					for (int i = 0; i < lineIdx; ++i)
 						pos += lines[i].size() + 1;
 					const std::string& prevLine = lines[lineIdx];
-					// 将当前行字符偏移转为新行字节偏移（保留列位置）
-					size_t targetChar = UITextInput::byteToChar(prevLine, lineOff);
+					// 把当前光标的字符位置映射到目标行（保持列位置）
+					size_t targetChar = UITextInput::byteToChar(m_text, m_cursor);
 					size_t newOff = UITextInput::charToByte(prevLine,
 						std::min(targetChar, UITextInput::byteToChar(prevLine, prevLine.size())));
 					m_cursor = pos + newOff;
@@ -105,8 +105,8 @@ namespace Shit {
 					for (int i = 0; i < lineIdx; ++i)
 						pos += lines[i].size() + 1;
 					const std::string& nextLine = lines[lineIdx];
-					// 将当前行字符偏移转为新行字节偏移（保留列位置）
-					size_t targetChar = UITextInput::byteToChar(nextLine, lineOff);
+					// 把当前光标的字符位置映射到目标行（保持列位置）
+					size_t targetChar = UITextInput::byteToChar(m_text, m_cursor);
 					size_t newOff = UITextInput::charToByte(nextLine,
 						std::min(targetChar, UITextInput::byteToChar(nextLine, nextLine.size())));
 					m_cursor = pos + newOff;

@@ -18,9 +18,6 @@ namespace Shit {
 		UICanvas() = default;
 		~UICanvas() override = default;
 
-		void onAttach() override;
-		void onDetach() override;
-
 		/// @brief Canvas 屏幕矩形（默认 = 渲染器逻辑分辨率）
 		SDL_FRect getScreenRect() const;
 

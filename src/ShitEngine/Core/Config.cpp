@@ -1,14 +1,13 @@
-﻿#include "ShitEngine/Core/pch.h"
+#include "ShitEngine/Core/pch.h"
 #include "ShitEngine/Core/Config.h"
 #include <fstream>
 
 namespace Shit {
-	bool Config::init() // 初始化
-	{
+	bool Config::init() {
 		std::ifstream file("settings.json");
 		if (!file.is_open()) {
 			ST_CORE_WARN("配置文件无法打开，正在使用默认配置。");
-			return true; // 使用默认值，不阻止引擎初始化
+			return true;
 		}
 
 		Json j;
@@ -17,8 +16,7 @@ namespace Shit {
 		return true;
 	}
 
-	void Config::loadFromJson(const Json& j) // 读取Json配置
-	{
+	void Config::loadFromJson(const Json& j) {
 		if (j.contains("project")) {
 			m_projectConfig.name = j["project"].get<std::string>();
 		}
@@ -36,10 +34,44 @@ namespace Shit {
 				m_windowConfig.targetFPS = j["window"]["targetFPS"].get<unsigned int>();
 			}
 		}
+		if (j.contains("inputMappings")) {
+			const auto& im = j["inputMappings"];
+
+			// 加载动作绑定
+			if (im.contains("actions")) {
+				for (auto& [actionName, bindings] : im["actions"].items()) {
+					ActionBinding ab;
+					if (bindings.is_array()) {
+						for (auto& key : bindings) {
+							ab.keys.push_back(key.get<std::string>());
+						}
+					}
+					m_inputMappings.actions[actionName] = ab;
+				}
+			}
+
+			// 加载轴绑定
+			if (im.contains("axes")) {
+				for (auto& [axisName, cfg] : im["axes"].items()) {
+					AxisBinding ab;
+					if (cfg.contains("negative")) {
+						for (auto& key : cfg["negative"]) {
+							ab.negative.push_back(key.get<std::string>());
+						}
+					}
+					if (cfg.contains("positive")) {
+						for (auto& key : cfg["positive"]) {
+							ab.positive.push_back(key.get<std::string>());
+						}
+					}
+					m_inputMappings.axes[axisName] = ab;
+				}
+			}
+		}
 	}
 
-	Config& Config::GetInstance() { // 获取单例
+	Config& Config::GetInstance() {
 		static Config instance;
 		return instance;
 	}
-}
+} // namespace Shit

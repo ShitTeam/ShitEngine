@@ -46,15 +46,56 @@ namespace Shit {
 			return;
 		}
 
-		SDL_Surface* surface = TTF_RenderText_Blended(font, m_text.c_str(), m_text.length(), toSDLColor(m_color));
-		if (!surface) {
-			ST_CORE_ERROR("UIText: 文字渲染失败 '{}': {}", m_text, SDL_GetError());
+		// 收集所有行
+		std::vector<std::string> lines;
+		std::string line;
+		for (size_t i = 0; i < m_text.size(); ++i) {
+			if (m_text[i] == '\n') {
+				lines.push_back(line);
+				line.clear();
+			} else {
+				line.push_back(m_text[i]);
+			}
+		}
+		lines.push_back(line); // 最后一行（或唯一行）
+
+		int lineHeight = TTF_GetFontHeight(font);
+
+		int maxWidth = 0;
+		for (const auto& l : lines) {
+			int w = 0, h = 0;
+			if (!l.empty())
+				TTF_GetStringSize(font, l.c_str(), l.length(), &w, &h);
+			if (w > maxWidth) maxWidth = w;
+		}
+
+		// 合并所有行为一张纹理
+		int totalHeight = static_cast<int>(lines.size()) * lineHeight;
+		if (totalHeight <= 0 || maxWidth <= 0) {
 			m_isDirty = false;
 			return;
 		}
 
-		m_cachedTexture = Renderer::CreateTextureFromSurface(surface);
-		SDL_DestroySurface(surface);
+		SDL_Surface* merged = SDL_CreateSurface(maxWidth, totalHeight, SDL_PIXELFORMAT_RGBA32);
+		if (!merged) {
+			ST_CORE_ERROR("UIText: 无法创建多行纹理: {}", SDL_GetError());
+			m_isDirty = false;
+			return;
+		}
+		// merged surface 默认已为全零（全部为零的内存分配），即为黑色透明，无需额外填充
+
+		SDL_Color color = toSDLColor(m_color);
+		for (size_t i = 0; i < lines.size(); ++i) {
+			if (lines[i].empty()) continue;
+			SDL_Surface* lineSurf = TTF_RenderText_Blended(font, lines[i].c_str(), lines[i].length(), color);
+			if (!lineSurf) continue;
+			SDL_Rect dstRect{0, static_cast<int>(i) * lineHeight, 0, 0};
+			SDL_BlitSurface(lineSurf, nullptr, merged, &dstRect);
+			SDL_DestroySurface(lineSurf);
+		}
+
+		m_cachedTexture = Renderer::CreateTextureFromSurface(merged);
+		SDL_DestroySurface(merged);
 
 		if (!m_cachedTexture) {
 			ST_CORE_ERROR("UIText: 文字纹理创建失败 '{}': {}", m_text, SDL_GetError());

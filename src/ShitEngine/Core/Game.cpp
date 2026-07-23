@@ -52,6 +52,9 @@ namespace Shit {
 			ST_CORE_WARN("音频系统初始化失败，音频功能将不可用");
 		}
 
+		// 预编译 settings.json 中的 inputMappings（Config 已加载）
+		Input::InitMappings();
+
 		m_isInited = true;
 		return true;
 	}
@@ -85,7 +88,8 @@ namespace Shit {
 
 			SceneManager::Update();
 
-			Input::Update(); // 更新 Input
+			// 帧末翻页：必须在 SceneManager::Update（读输入）之后
+			Input::Update();
 
 			// 更新音频：清理已播完的 track，避免内存泄漏与 group 悬空指针
 			AudioPlayer::Update();
