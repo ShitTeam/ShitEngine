@@ -1,31 +1,8 @@
-# CMakeList.txt: ShitEngine 的 CMake 项目
-cmake_minimum_required (VERSION 3.20)
+# Engine 库目标
+# 根 CMakeLists.txt 通过 add_subdirectory(Engine) 引入本文件
 
-project(ShitEngine VERSION 1.0.0 LANGUAGES C CXX)
-
-# UTF-8
-if(MSVC)
-    add_compile_options(/utf-8)
-endif()
-
-# MSVC 热重载
-if (POLICY CMP0141)
-  cmake_policy(SET CMP0141 NEW)
-  set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
-endif()
-
-# MinGW: 允许 COFF 目标文件超过 65535 段
-if(MINGW)
-    set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -Wa,-mbig-obj")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wa,-mbig-obj")
-endif()
-
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-
+# ── 依赖 ──
 option(BUILD_SHARED_LIBS "依赖库默认编译为动态库" ON)
-
 include(cmake/DependencyManager.cmake)
 setup_project_dependencies()
 
@@ -92,10 +69,8 @@ add_library(ShitEngine SHARED
 )
 
 set_target_properties(ShitEngine PROPERTIES
-    VERSION       ${PROJECT_VERSION}
-    SOVERSION     ${PROJECT_VERSION_MAJOR}
-    DEBUG_POSTFIX "-d"                              # Debug 版本加 -d 后缀
-    OUTPUT_NAME   "ShitEngine"                      # 库名保持 ShitEngine（目录名不影响）
+    OUTPUT_NAME   "ShitEngine"
+    DEBUG_POSTFIX "-d"
 )
 
 target_include_directories(ShitEngine PUBLIC
