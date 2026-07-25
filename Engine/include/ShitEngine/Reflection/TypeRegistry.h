@@ -1,0 +1,166 @@
+#pragma once
+
+#include "ShitEngine/Reflection/TypeInfo.h"
+#include "ShitEngine/Core/Core.h"
+
+#include <string_view>
+#include <functional>
+#include <list>
+#include <unordered_map>
+#include <string>
+
+// ── P1-3: 类型名 demangle 依赖 ──────────────────────
+#if defined(__GNUC__) || defined(__clang__)
+#if __has_include(<cxxabi.h>)
+#include <cxxabi.h>
+#define SHIT_HAS_CXXABI 1
+#endif
+#endif
+
+namespace Shit {
+
+class TypeInfoBuilder;
+
+class SHIT_API TypeRegistry {
+public:
+	void registerType(TypeInfo info);
+	void initBuiltinTypes();
+
+	[[nodiscard]] const TypeInfo* getType(std::string_view name) const;
+
+	template<typename T>
+	[[nodiscard]] const TypeInfo* getType() const {
+		auto it = m_typeIndexMap.find(std::type_index(typeid(T)));
+		return it != m_typeIndexMap.end() ? it->second : nullptr;
+	}
+
+	void forEach(std::function<void(const TypeInfo&)> callback) const;
+	[[nodiscard]] size_t count() const { return m_typeStorage.size(); }
+
+	// ── 静态门面 ──
+
+	static TypeRegistry& GetInstance();
+
+	static void Register(TypeInfo info) { GetInstance().registerType(std::move(info)); }
+	static void InitBuiltinTypes() { GetInstance().initBuiltinTypes(); }
+	static const TypeInfo* Get(std::string_view name) { return GetInstance().getType(name); }
+
+	template<typename T>
+	static const TypeInfo* Get() { return GetInstance().getType<T>(); }
+
+	static void ForEach(std::function<void(const TypeInfo&)> callback) { GetInstance().forEach(std::move(callback)); }
+	static size_t Count() { return GetInstance().count(); }
+
+	TypeRegistry(const TypeRegistry&) = delete;
+	TypeRegistry& operator=(const TypeRegistry&) = delete;
+	TypeRegistry(TypeRegistry&&) = delete;
+	TypeRegistry& operator=(TypeRegistry&&) = delete;
+
+private:
+	TypeRegistry() = default;
+	~TypeRegistry() = default;
+
+	friend class TypeInfoBuilder;
+
+	// list 保证元素地址稳定
+	std::list<TypeInfo>                                  m_typeStorage;
+	std::unordered_map<std::string, TypeInfo*>           m_nameMap;
+	std::unordered_map<std::type_index, const TypeInfo*> m_typeIndexMap;
+};
+
+// ── P1-3: 类型名 demangle ────────────────────────────
+// GCC/MinGW: abi::__cxa_demangle, MSVC: typeid 直接可读
+inline std::string DemangleTypeName(const char* mangled) {
+#if defined(SHIT_HAS_CXXABI)
+	int status = 0;
+	char* demangled = abi::__cxa_demangle(mangled, nullptr, nullptr, &status);
+	if (status == 0 && demangled) {
+		std::string result(demangled);
+		::free(demangled);
+		return result;
+	}
+#endif
+	// MSVC 或 demangle 失败：直接返回原名
+	return std::string(mangled);
+}
+
+class SHIT_API TypeInfoBuilder {
+public:
+	TypeInfoBuilder& Base(const TypeInfo* baseType) {
+		m_info.baseType = baseType;
+		return *this;
+	}
+
+	template<typename T>
+	TypeInfoBuilder& Base() {
+		m_info.baseType = TypeRegistry::Get<T>();
+		return *this;
+	}
+
+	// 原始 Field 注册（offset + size）
+	TypeInfoBuilder& Field(const char* name, size_t offset, size_t size, const char* typeName) {
+		m_info.fields.push_back({name, offset, size, typeName});
+		return *this;
+	}
+
+	// ── P1-3: 成员指针重载（自动推导 offset + size + typeName）──
+	template<typename T, typename M>
+	TypeInfoBuilder& Field(const char* name, M T::*member) {
+		m_info.fields.push_back({
+			name,
+			memberOffset(member),
+			sizeof(M),
+			DemangleTypeName(typeid(M).name())
+		});
+		return *this;
+	}
+
+	template<typename T, typename M>
+	TypeInfoBuilder& Field(const char* name, M T::*member, const char* typeName) {
+		m_info.fields.push_back({
+			name,
+			memberOffset(member),
+			sizeof(M),
+			typeName
+		});
+		return *this;
+	}
+
+	// ── P1-2: 工厂注册 ─────────────────────────────────
+	template<typename T>
+	TypeInfoBuilder& Factory() {
+		m_info.factory = [](void* mem) -> void* {
+			if (mem) return ::new(mem) T();
+			return new T();
+		};
+		return *this;
+	}
+
+	template<typename T>
+	void Register() {
+		m_info.typeIndex = std::type_index(typeid(T));
+		TypeRegistry::Register(std::move(m_info));
+	}
+
+private:
+	friend TypeInfoBuilder ReflectType(const char* name, size_t size);
+
+	explicit TypeInfoBuilder(const char* name, size_t size)
+		: m_info{name, size, nullptr, {}, typeid(nullptr)} {}
+
+	TypeInfo m_info;
+};
+
+inline TypeInfoBuilder ReflectType(const char* name, size_t size) {
+	return TypeInfoBuilder(name, size);
+}
+
+/// 计算成员指针相对于类基址的偏移量（供反射注册代码使用）
+/// 用法: memberOffset(&MyClass::myField)
+/// 需要通过 friend 声明获取 private/protected 成员的访问权
+template<typename T, typename M>
+inline size_t memberOffset(M T::*member) {
+	return reinterpret_cast<size_t>(&(static_cast<T*>(nullptr)->*member));
+}
+
+} // namespace Shit

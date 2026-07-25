@@ -15,7 +15,8 @@ namespace Shit {
 	 * 所有可渲染的组件（SpriteRenderer 等）须继承此类并重写 onRender。
 	 * 由 RenderSystem 每帧按 Z-Index 排序后统一调用。
 	 */
-	class SHIT_API RendererComponent : public Component {
+	SHIT_CLASS(RendererComponent, Fields) SHIT_API : public Component {
+		SHIT_REFLECT(RendererComponent)
 	public:
 		RendererComponent();
 		~RendererComponent() override = default;

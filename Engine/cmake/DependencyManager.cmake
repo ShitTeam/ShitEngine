@@ -80,9 +80,9 @@ macro(find_or_fetch_dependency DEP_NAME PACKAGE_NAME GIT_REPO GIT_TAG LOCAL_PATH
             set(SDL_INSTALL_TESTS OFF CACHE BOOL "" FORCE)
         endif()
         
-        # 其他库的通用选项
+        # 其他库的通用选项（不用 CACHE FORCE，避免覆盖主项目的 BUILD_EXAMPLES）
         set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
-        set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+        set(BUILD_EXAMPLES OFF)
         set(BUILD_DOCS OFF CACHE BOOL "" FORCE)
         
         # SDL3_image特定选项：禁用可能导致构建问题的格式支持
@@ -110,8 +110,8 @@ macro(find_or_fetch_dependency DEP_NAME PACKAGE_NAME GIT_REPO GIT_TAG LOCAL_PATH
             set(SDLTTF_VENDORED ON CACHE BOOL "" FORCE)
         endif()
 
-        # 智能选择：优先本地源码，否则在线获取
-        set(LOCAL_SOURCE_DIR ${CMAKE_SOURCE_DIR}/${LOCAL_PATH})
+        # 智能选择：优先本地源码（Engine/external/ 下），否则在线获取
+        set(LOCAL_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/${LOCAL_PATH})
         if(EXISTS ${LOCAL_SOURCE_DIR})
             # 检测到本地源码，使用本地编译
             message(STATUS "  → 使用本地源码: ${LOCAL_SOURCE_DIR}")

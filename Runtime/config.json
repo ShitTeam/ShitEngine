@@ -1,0 +1,9 @@
+{
+    "plugins": [
+        {
+            "name": "ExamplePlugin",
+            "path": "ExamplePlugin.dll",
+            "autoStart": true
+        }
+    ]
+}

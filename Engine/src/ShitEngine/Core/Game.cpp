@@ -13,6 +13,10 @@
 #include "ShitEngine/Audio/AudioPlayer.h"
 #include "ShitEngine/Event/EventBus.h"
 #include "ShitEngine/Core/TextInputGate.h"
+#include "ShitEngine/Reflection/TypeRegistry.h"
+
+// 自动生成的反射注册代码（由 ReflectionScanner 生成）
+#include "reflection/ReflectionRegisterAll.h"
 
 namespace Shit {
 	Game::Game() = default;
@@ -25,6 +29,12 @@ namespace Shit {
 
 		// 初始化配置
 		if (!Config::Init()) return false;
+
+		// 初始化反射系统内置类型
+		TypeRegistry::InitBuiltinTypes();
+
+		// 注册所有 SHIT_CLASS 标记的引擎类型（由 ReflectionScanner 生成）
+		RegisterAllReflectedTypes();
 
 		// 初始SDL3
 		if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {

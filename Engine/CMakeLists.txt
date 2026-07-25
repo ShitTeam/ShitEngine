@@ -55,6 +55,8 @@ add_library(ShitEngine SHARED
     # System
     "src/ShitEngine/System/System.cpp"
     "src/ShitEngine/System/BehaviorSystem.cpp"
+    # Reflection
+    "src/ShitEngine/Reflection/TypeRegistry.cpp"
     # UI
     "src/ShitEngine/UI/UITransform.cpp"
     "src/ShitEngine/UI/UIRendererComponent.cpp"
@@ -77,6 +79,11 @@ target_include_directories(ShitEngine PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 
+# 生成代码只有 Engine 内部 (Game.cpp) 需要，不对消费者暴露
+# 避免 Plugin 编译时 Engine/generated 和 Plugin/generated 的 ReflectionRegisterAll.h 冲突
+target_include_directories(ShitEngine PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/generated>)
+
 target_precompile_headers(ShitEngine PUBLIC "include/ShitEngine/Core/pch.h")
 target_compile_definitions(ShitEngine PRIVATE SHIT_EXPORTS)
 
@@ -90,6 +97,26 @@ target_link_libraries(ShitEngine PUBLIC
     nlohmann_json::nlohmann_json)
 
 set_target_properties(ShitEngine PROPERTIES CXX_STANDARD 20)
+
+# ── 反射扫描（须在依赖配置后，以传入 glm/SDL3 等 include 路径，否则
+# 反射头里的 Vector2=glm::vec2、SDL_FRect 等类型会解析失败）──
+if(BUILD_TOOLS)
+    FetchContent_GetProperties(glm)
+    FetchContent_GetProperties(SDL3)
+    set(_ENGINE_REFLECT_INCS "")
+    if(glm_SOURCE_DIR)
+        list(APPEND _ENGINE_REFLECT_INCS "${glm_SOURCE_DIR}")
+    endif()
+    if(SDL3_SOURCE_DIR)
+        list(APPEND _ENGINE_REFLECT_INCS "${SDL3_SOURCE_DIR}/include")
+    endif()
+    setup_reflection_scan(engine
+        "${CMAKE_CURRENT_SOURCE_DIR}/include/ShitEngine"
+        "${CMAKE_CURRENT_SOURCE_DIR}/generated/reflection"
+        "${CMAKE_CURRENT_SOURCE_DIR}/include"
+        ${_ENGINE_REFLECT_INCS}
+    )
+endif()
 
 # MSVC 使用者也需要 /utf-8（spdlog 要求）
 if(MSVC)
@@ -155,3 +182,9 @@ set(CPACK_PACKAGE_NAME ShitEngine)
 set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Lightweight 2D game engine based on C++20 and SDL3")
 include(CPack)
+
+# 当 BUILD_TOOLS=ON 时，自动运行 Scanner 生成反射代码
+if(BUILD_TOOLS AND TARGET reflect-engine)
+    add_dependencies(ShitEngine reflect-engine)
+    message(STATUS "ReflectionScanner integration enabled (engine) — auto-generating .gen.h files")
+endif()

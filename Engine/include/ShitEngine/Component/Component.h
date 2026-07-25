@@ -1,5 +1,6 @@
 #pragma once
 #include "../Core/Config.h"
+#include "../Reflection/Macros.h"
 
 namespace Shit {
 	class GameObject; // 前向声明
@@ -15,8 +16,9 @@ namespace Shit {
 	 *   onDetach  — 组件即将从场景中移除时（在 onDestroy 前调用）
 	 *   onDestroy — 组件被销毁时
 	 */
-	class SHIT_API Component {
+	SHIT_CLASS(Component, Fields) SHIT_API {
 		friend class GameObject; // 只能通过GameObject初始化组件
+		SHIT_REFLECT(Component)
 
 	public:
 		Component();

@@ -5,6 +5,7 @@
 #include <SDL3/SDL_rect.h>
 
 namespace Shit {
+
 	/**
 	 * @brief 相机组件，定义"从哪个角度观察世界"
 	 *
@@ -12,7 +13,8 @@ namespace Shit {
 	 * m_worldSize 决定能看到的世界范围，m_viewportRatio 决定渲染到屏幕的哪个区域。
 	 * 支持多相机分屏渲染（按 priority 排序）。
 	 */
-	class SHIT_API CameraComponent : public Component {
+	SHIT_CLASS(CameraComponent, Fields) SHIT_API : public Component {
+		SHIT_REFLECT(CameraComponent)
 	public:
 		CameraComponent();
 

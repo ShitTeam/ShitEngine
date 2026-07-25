@@ -1,18 +1,48 @@
-# Examples — 示例项目（需要根 CMakeLists.txt 开启 BUILD_EXAMPLES）
+# ExamplePlugin — 示例插件（SHARED 库，供 Runtime 动态加载）
+# 需要根 CMakeLists.txt 开启 BUILD_EXAMPLES
 
-add_executable(Example
-    "src/main.cpp"
+add_library(ExamplePlugin SHARED
+    "src/plugin_export.cpp"
     "src/Player.cpp"
     "src/Player.h"
     "src/UITestScene.cpp"
     "src/UITestScene.h"
     "src/InputMappingTestScene.cpp"
     "src/InputMappingTestScene.h"
+    "src/ReflectionTestScene.cpp"
+    "src/ReflectionTestScene.h"
+    "src/ReflectionTestTypes.h"
 )
 
-target_link_libraries(Example PRIVATE ShitEngine)
-set_target_properties(Example PROPERTIES CXX_STANDARD 20)
+target_link_libraries(ExamplePlugin PRIVATE ShitEngine)
+set_target_properties(ExamplePlugin PROPERTIES CXX_STANDARD 20)
 
-# 运行时输出到根级 bin/（DLL 和 exe 在一起方便调试）
-set_target_properties(Example PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+# 插件自身的头文件和生成代码
+target_include_directories(ExamplePlugin PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/src"
+    "${CMAKE_CURRENT_SOURCE_DIR}/generated")
+
+# ── 反射扫描（须在依赖配置后，传入 Engine/glm/SDL3 include 路径）──
+if(BUILD_TOOLS)
+    FetchContent_GetProperties(glm)
+    FetchContent_GetProperties(SDL3)
+    set(_EX_REFLECT_INCS "${CMAKE_SOURCE_DIR}/Engine/include")
+    if(glm_SOURCE_DIR)
+        list(APPEND _EX_REFLECT_INCS "${glm_SOURCE_DIR}")
+    endif()
+    if(SDL3_SOURCE_DIR)
+        list(APPEND _EX_REFLECT_INCS "${SDL3_SOURCE_DIR}/include")
+    endif()
+    setup_reflection_scan(examples
+        "${CMAKE_CURRENT_SOURCE_DIR}/src"
+        "${CMAKE_CURRENT_SOURCE_DIR}/generated/reflection"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src"
+        ${_EX_REFLECT_INCS}
+    )
+endif()
+
+# 当 BUILD_TOOLS=ON 时，自动运行 Scanner 生成反射代码
+if(BUILD_TOOLS AND TARGET reflect-examples)
+    add_dependencies(ExamplePlugin reflect-examples)
+    message(STATUS "ReflectionScanner integration enabled (examples) — auto-generating .gen.h files")
+endif()

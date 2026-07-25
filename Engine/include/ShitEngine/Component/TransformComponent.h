@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "Component.h"
 #include "../Math.h"
 
@@ -7,12 +7,10 @@ namespace Shit {
 
 	/**
 	 * @brief 变换组件，决定 GameObject 的位置 / 缩放 / 旋转
-	 *
-	 * 每个 GameObject 默认不含 TransformComponent，需手动 addComponent。
-	 * 位置单位为世界坐标，旋转单位为度。
 	 */
-	class SHIT_API TransformComponent : public Component {
+	SHIT_CLASS(TransformComponent, Fields) SHIT_API : public Component {
 		friend class GameObject;
+		SHIT_REFLECT(TransformComponent)
 	public:
 		explicit TransformComponent();
 		~TransformComponent() override = default;
@@ -28,8 +26,8 @@ namespace Shit {
 		void setRotation(float rotation) { m_rotation = rotation; }
 
 	private:
-		Vector2 m_position{ 0.0f, 0.0f }; ///< 位置（世界坐标）
-		Vector2 m_scale{ 1.0f, 1.0f };    ///< 缩放系数
-		float m_rotation = 0.0f;           ///< 旋转角度（度）
+		Vector2 m_position{ 0.0f, 0.0f };
+		Vector2 m_scale{ 1.0f, 1.0f };
+		float m_rotation = 0.0f;
 	};
 }

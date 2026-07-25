@@ -49,6 +49,11 @@
 // Resource
 #include "ShitEngine/Resource/ResourceManager.h"
 
+// Reflection
+#include "ShitEngine/Reflection/TypeInfo.h"
+#include "ShitEngine/Reflection/TypeRegistry.h"
+#include "ShitEngine/Reflection/Macros.h"
+
 // UI
 #include "ShitEngine/UI/UITransform.h"
 #include "ShitEngine/UI/UIRendererComponent.h"

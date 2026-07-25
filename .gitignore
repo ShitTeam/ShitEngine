@@ -21,6 +21,7 @@ out/
 *.so
 *.dylib
 *.exp
+*.log
 
 # External / dependencies
 external/
@@ -34,3 +35,7 @@ Examples/bin/
 Examples/lib/
 build_prefab/
 .claude/
+.codebuild/
+
+# fuck-u-code
+fuck-u-code.bat
