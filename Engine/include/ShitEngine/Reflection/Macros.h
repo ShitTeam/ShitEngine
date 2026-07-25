@@ -40,8 +40,11 @@
 // 消除类名重复。clang 要求 annotate 在 struct/class 关键字之后。
 //
 // 用法：
-//   SHIT_CLASS(MyComponent, Fields) SHIT_API : public Base { ... };
+//   SHIT_API SHIT_CLASS(MyComponent, Fields) : public Base { ... };
 //   SHIT_STRUCT(MyStruct, Fields)                { ... };
+//
+// 注意：SHIT_API（__declspec）必须在宏之前——GCC 的 -fdeclspec 不接受
+// __declspec 出现在类名与 { 之间。放在 class 关键字前是 MSVC/GCC 通用位置。
 #define SHIT_STRUCT(Type, Mode) struct SHIT_DETAIL_ANNOTATE("shit-struct:" #Mode) Type
 #define SHIT_CLASS(Type, Mode)  class  SHIT_DETAIL_ANNOTATE("shit-class:"  #Mode) Type
 
