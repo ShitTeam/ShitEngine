@@ -84,6 +84,14 @@ inline std::string DemangleTypeName(const char* mangled) {
 	return std::string(mangled);
 }
 
+/// 计算成员指针相对于类基址的偏移量（供反射注册代码使用）
+/// 用法: memberOffset(&MyClass::myField)
+/// 需要通过 friend 声明获取 private/protected 成员的访问权
+template<typename T, typename M>
+inline size_t memberOffset(M T::*member) {
+	return reinterpret_cast<size_t>(&(static_cast<T*>(nullptr)->*member));
+}
+
 class SHIT_API TypeInfoBuilder {
 public:
 	TypeInfoBuilder& Base(const TypeInfo* baseType) {
@@ -153,14 +161,6 @@ private:
 
 inline TypeInfoBuilder ReflectType(const char* name, size_t size) {
 	return TypeInfoBuilder(name, size);
-}
-
-/// 计算成员指针相对于类基址的偏移量（供反射注册代码使用）
-/// 用法: memberOffset(&MyClass::myField)
-/// 需要通过 friend 声明获取 private/protected 成员的访问权
-template<typename T, typename M>
-inline size_t memberOffset(M T::*member) {
-	return reinterpret_cast<size_t>(&(static_cast<T*>(nullptr)->*member));
 }
 
 } // namespace Shit
