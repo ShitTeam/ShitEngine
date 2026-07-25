@@ -11,6 +11,8 @@
 // 类型定义已移至 ReflectionTestTypes.h（供 ReflectionScanner 扫描）
 // 类型注册由 plugin_export.cpp → RegisterAllReflectedTypes() 自动完成
 
+namespace {
+
 // ══════════════════════════════════════════════════════
 // Behavior — 验证反射功能
 // ══════════════════════════════════════════════════════
