@@ -16,7 +16,7 @@ namespace Shit {
 	 *   onDetach  — 组件即将从场景中移除时（在 onDestroy 前调用）
 	 *   onDestroy — 组件被销毁时
 	 */
-	SHIT_API SHIT_CLASS(Component, Fields) {
+	class SHIT_API SHIT_CLASS(Component, Fields) {
 		friend class GameObject; // 只能通过GameObject初始化组件
 		SHIT_REFLECT(Component)
 

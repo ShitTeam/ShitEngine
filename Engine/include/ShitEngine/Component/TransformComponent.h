@@ -8,7 +8,7 @@ namespace Shit {
 	/**
 	 * @brief 变换组件，决定 GameObject 的位置 / 缩放 / 旋转
 	 */
-	SHIT_API SHIT_CLASS(TransformComponent, Fields) : public Component {
+	class SHIT_API SHIT_CLASS(TransformComponent, Fields) : public Component {
 		friend class GameObject;
 		SHIT_REFLECT(TransformComponent)
 	public:

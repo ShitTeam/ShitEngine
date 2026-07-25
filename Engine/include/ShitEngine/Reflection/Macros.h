@@ -36,17 +36,19 @@
   #define SHIT_DETAIL_ANNOTATE(str)
 #endif
 
-// 类型级注解：宏展开为完整的 class/struct 声明头部（含类名+注解），
-// 消除类名重复。clang 要求 annotate 在 struct/class 关键字之后。
+// 类型级注解：宏只展开为 annotate + 类型名，不含 class/struct 关键字。
+// 用户自行书写 class/struct 和 SHIT_API，确保 __declspec 和 __attribute__
+// 都在 class/struct 关键字之后（GCC -fdeclspec 和 libClang 均要求此位置）。
 //
 // 用法：
-//   SHIT_API SHIT_CLASS(MyComponent, Fields) : public Base { ... };
-//   SHIT_STRUCT(MyStruct, Fields)                { ... };
+//   class  SHIT_API SHIT_CLASS(MyComponent, Fields) : public Base { ... };
+//   struct           SHIT_STRUCT(MyStruct, Fields)                { ... };
 //
-// 注意：SHIT_API（__declspec）必须在宏之前——GCC 的 -fdeclspec 不接受
-// __declspec 出现在类名与 { 之间。放在 class 关键字前是 MSVC/GCC 通用位置。
-#define SHIT_STRUCT(Type, Mode) struct SHIT_DETAIL_ANNOTATE("shit-struct:" #Mode) Type
-#define SHIT_CLASS(Type, Mode)  class  SHIT_DETAIL_ANNOTATE("shit-class:"  #Mode) Type
+// 展开示例（libClang 下）：
+//   class  __declspec(dllexport) __attribute__((annotate("shit-class:Fields"))) MyComponent : public Base {
+//   struct                          __attribute__((annotate("shit-struct:Fields"))) MyStruct {
+#define SHIT_STRUCT(Type, Mode) SHIT_DETAIL_ANNOTATE("shit-struct:" #Mode) Type
+#define SHIT_CLASS(Type, Mode)  SHIT_DETAIL_ANNOTATE("shit-class:"  #Mode) Type
 
 // 字段级注解（仅 WhiteListFields 模式用）
 #define SHIT_META(...) SHIT_DETAIL_ANNOTATE("shit-meta")

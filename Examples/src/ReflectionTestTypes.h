@@ -9,7 +9,7 @@
 // ══════════════════════════════════════════════════════
 
 // Fields 模式：反射所有 public 字段
-SHIT_STRUCT(TestPlayer, Fields)
+struct SHIT_STRUCT(TestPlayer, Fields)
 {
 	SHIT_REFLECT(TestPlayer)
 public:
@@ -19,7 +19,7 @@ public:
 };
 
 // WhiteListFields 模式：只反射 SHIT_META(Enable) 字段
-SHIT_STRUCT(TestEnemy, WhiteListFields)
+struct SHIT_STRUCT(TestEnemy, WhiteListFields)
 {
 	SHIT_REFLECT(TestEnemy)
 

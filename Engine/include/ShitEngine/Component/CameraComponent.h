@@ -13,7 +13,7 @@ namespace Shit {
 	 * m_worldSize 决定能看到的世界范围，m_viewportRatio 决定渲染到屏幕的哪个区域。
 	 * 支持多相机分屏渲染（按 priority 排序）。
 	 */
-	SHIT_API SHIT_CLASS(CameraComponent, Fields) : public Component {
+	class SHIT_API SHIT_CLASS(CameraComponent, Fields) : public Component {
 		SHIT_REFLECT(CameraComponent)
 	public:
 		CameraComponent();
