@@ -1,8 +1,8 @@
 #pragma once
 #include "../Core/Core.h"
+#include "../Input/KeyCode.h"
 #include "UIRendererComponent.h"
 #include <SDL3/SDL_rect.h>
-#include <SDL3/SDL_scancode.h>
 #include <string>
 #include <cstdint>
 
@@ -53,6 +53,9 @@ namespace Shit {
 		const Color& getCursorColor() const { return m_cursorColor; }
 		void setCursorColor(const Color& color) { m_cursorColor = color; }
 
+		const Color& getSelectionColor() const { return m_selectionColor; }
+		void setSelectionColor(const Color& color) { m_selectionColor = color; }
+
 		// --- 状态查询 ---
 		bool isFocused() const { return m_isFocused; }
 		bool isMultiline() const { return m_isMultiline; }
@@ -70,7 +73,7 @@ namespace Shit {
 
 		/// @brief 子类可覆写：处理键盘控制键（方向键、退格、删除、Home/End、回车）
 		/// @return true 表示已处理该按键，不继续传播
-		virtual bool onKeyDown(SDL_Scancode scancode, bool shift, bool ctrl);
+		virtual bool onKeyDown(KeyCode key, bool shift, bool ctrl);
 
 		/// @brief 子类可覆写：向缓冲插入一段 UTF-8 文本
 		virtual void insertText(const std::string& utf8);
@@ -97,6 +100,7 @@ namespace Shit {
 		Color m_textColor      { 30, 30, 30, 255 };
 		Color m_placeholderColor { 140, 140, 140, 255 };
 		Color m_cursorColor { 80, 140, 220, 255 };
+		Color m_selectionColor { 80, 140, 220, 120 };
 		bool m_isDirty = true;
 
 		// 光标 / 选区（单位：UTF-8 字节偏移）

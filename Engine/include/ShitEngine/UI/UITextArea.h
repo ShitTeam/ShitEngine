@@ -19,7 +19,7 @@ namespace Shit {
 
 	protected:
 		void onRender(const SDL_FRect& screenRect) override;
-		bool onKeyDown(SDL_Scancode scancode, bool shift, bool ctrl) override;
+		bool onKeyDown(KeyCode key, bool shift, bool ctrl) override;
 		void insertNewline() override;
 
 	private:

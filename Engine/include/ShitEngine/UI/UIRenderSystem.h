@@ -5,8 +5,6 @@
 
 #include <vector>
 
-struct SDL_Renderer;
-
 namespace Shit {
 	class UIRendererComponent;
 
@@ -34,8 +32,6 @@ namespace Shit {
 	void markSortDirty() { m_isRenderersNeedSort = true; }     ///< 标记需要重排（zIndex 变更时调用）
 
 private:
-	SDL_Renderer* m_renderer = nullptr;
-
 	std::vector<UIRendererComponent*> m_uiRenderers;
 	bool m_isRenderersNeedSort = false;
 	};

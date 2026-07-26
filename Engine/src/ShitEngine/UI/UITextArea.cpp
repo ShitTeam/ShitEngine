@@ -1,6 +1,7 @@
 #include "ShitEngine/Core/pch.h"
 #include "ShitEngine/UI/UITextArea.h"
 #include "ShitEngine/Render/Renderer.h"
+#include "ShitEngine/Core/Time.h"
 #include "ShitEngine/Core/Log.h"
 #include "ShitEngine/Core/TextInputGate.h"
 
@@ -69,9 +70,9 @@ namespace Shit {
 	}
 
 	// ── UP / DOWN 跨行导航（用当前行 + lineOff 计算列位置，避免全文偏移） ──
-	bool UITextArea::onKeyDown(SDL_Scancode scancode, bool shift, bool ctrl) {
-		switch (scancode) {
-			case SDL_SCANCODE_UP: {
+	bool UITextArea::onKeyDown(KeyCode key, bool shift, bool ctrl) {
+		switch (key) {
+			case KeyCode::Up: {
 				if (!shift) m_selectionAnchor = m_cursor;
 				auto lines = splitLines(m_text);
 				int lineIdx = 0; size_t lineOff = 0;
@@ -91,7 +92,7 @@ namespace Shit {
 				}
 				return true;
 			}
-			case SDL_SCANCODE_DOWN: {
+			case KeyCode::Down: {
 				if (!shift) m_selectionAnchor = m_cursor;
 				auto lines = splitLines(m_text);
 				int lineIdx = 0; size_t lineOff = 0;
@@ -111,12 +112,12 @@ namespace Shit {
 				}
 				return true;
 			}
-			case SDL_SCANCODE_RETURN: {
+			case KeyCode::Return: {
 				insertNewline();
 				return true;
 			}
 			default:
-				return UITextInput::onKeyDown(scancode, shift, ctrl);
+				return UITextInput::onKeyDown(key, shift, ctrl);
 		}
 	}
 
@@ -196,7 +197,7 @@ namespace Shit {
 						int beforeW = measureWidth(font, beforeSel.c_str(), beforeSel.length());
 						int selW = measureWidth(font, selText.c_str(), selText.length());
 
-						Renderer::SetDrawColor({ 80, 140, 220, 120 });
+						Renderer::SetDrawColor(m_selectionColor);
 						Renderer::FillRect(SDL_FRect{
 							screenRect.x + padding + static_cast<float>(beforeW),
 							yPos,
@@ -212,8 +213,7 @@ namespace Shit {
 
 			// ── 光标（在 ClearClipRect 之前绘制，保证 clip 有效） ──
 			if (m_isFocused) {
-				Uint64 ticks = SDL_GetTicks();
-				bool cursorVisible = (ticks / 500) % 2 == 0;
+				bool cursorVisible = std::fmod(Shit::Time::GetTotalTime(), 1.0) < 0.5;
 
 				int lineIdx = 0; size_t lineOff = 0;
 				locateCursor(m_text, m_cursor, lines, lineIdx, lineOff);

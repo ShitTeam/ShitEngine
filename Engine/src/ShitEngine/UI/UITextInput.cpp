@@ -135,21 +135,21 @@ namespace Shit {
 		m_isDirty = true;
 	}
 
-	bool UITextInput::onKeyDown(SDL_Scancode scancode, bool shift, bool ctrl) {
-		switch (scancode) {
-			case SDL_SCANCODE_LEFT:
+	bool UITextInput::onKeyDown(KeyCode key, bool shift, bool ctrl) {
+		switch (key) {
+			case KeyCode::Left:
 				moveCursor(-1, shift);
 				return true;
-			case SDL_SCANCODE_RIGHT:
+			case KeyCode::Right:
 				moveCursor(1, shift);
 				return true;
-			case SDL_SCANCODE_HOME:
+			case KeyCode::Home:
 				moveCursorToBoundary(true, shift);
 				return true;
-			case SDL_SCANCODE_END:
+			case KeyCode::End:
 				moveCursorToBoundary(false, shift);
 				return true;
-			case SDL_SCANCODE_BACKSPACE:
+			case KeyCode::Backspace:
 				if (m_cursor != m_selectionAnchor) {
 					deleteSelection();
 				} else if (m_cursor > 0) {
@@ -160,7 +160,7 @@ namespace Shit {
 					m_isDirty = true;
 				}
 				return true;
-			case SDL_SCANCODE_DELETE:
+			case KeyCode::Delete:
 				if (m_cursor != m_selectionAnchor) {
 					deleteSelection();
 				} else if (m_cursor < m_text.size()) {

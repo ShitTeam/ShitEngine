@@ -16,15 +16,11 @@
 #include <SDL3/SDL_render.h>
 
 namespace Shit {
-	UIRenderSystem::UIRenderSystem(int priority) : System(priority) {
-		m_renderer = Renderer::GetRenderer();
-	}
+	UIRenderSystem::UIRenderSystem(int priority) : System(priority) {}
 
 	UIRenderSystem::~UIRenderSystem() = default;
 
 	void UIRenderSystem::update() {
-		if (!m_renderer) return;
-
 		if (m_isRenderersNeedSort) {
 			std::stable_sort(m_uiRenderers.begin(), m_uiRenderers.end(),
 				[](UIRendererComponent* a, UIRendererComponent* b) {
@@ -116,7 +112,6 @@ namespace Shit {
 		TextInputGate::GetInstance().clearFocus();
 
 		m_uiRenderers.clear();
-		m_renderer = nullptr;
 	}
 
 	void UIRenderSystem::registerUIRenderer(UIRendererComponent* renderer) {

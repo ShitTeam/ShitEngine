@@ -1,10 +1,12 @@
 #include "ShitEngine/Core/pch.h"
 #include "ShitEngine/UI/UITextBox.h"
 #include "ShitEngine/Render/Renderer.h"
+#include "ShitEngine/Core/Time.h"
 #include "ShitEngine/Core/Log.h"
 #include "ShitEngine/Core/TextInputGate.h"
 
 #include <SDL3_ttf/SDL_ttf.h>
+#include <cmath>
 
 namespace Shit {
 	namespace {
@@ -98,7 +100,7 @@ namespace Shit {
 			int beforeW = measureTextWidth(font, beforeSel.c_str(), beforeSel.length());
 			int selW = measureTextWidth(font, selText.c_str(), selText.length());
 
-			Renderer::SetDrawColor({ 80, 140, 220, 120 });
+			Renderer::SetDrawColor(m_selectionColor);
 			Renderer::FillRect(SDL_FRect{
 				screenRect.x + padding + static_cast<float>(beforeW) + scrollX,
 				textY,
@@ -114,8 +116,7 @@ namespace Shit {
 
 		// 闪烁光标（含 preedit 文本）
 		if (m_isFocused) {
-			Uint64 ticks = SDL_GetTicks();
-			bool cursorVisible = (ticks / 500) % 2 == 0;
+			bool cursorVisible = std::fmod(Shit::Time::GetTotalTime(), 1.0) < 0.5;
 
 			std::string beforeCursor = m_text.substr(0, m_cursor);
 			int preX = measureTextWidth(font, beforeCursor.c_str(), beforeCursor.length());
@@ -134,11 +135,12 @@ namespace Shit {
 			Renderer::SetClipRect(&clipRect);
 
 			if (cursorVisible && !m_preedit.empty()) {
-				SDL_Color preColor{ 60, 60, 60, 255 };
-				renderTextTo(font, m_preedit, preColor, cursorPxX, textY);
+				constexpr Color preeditTextColor{ 60, 60, 60, 255 };
+				renderTextTo(font, m_preedit, toSDLColor(preeditTextColor), cursorPxX, textY);
 
 				int preW = measureTextWidth(font, m_preedit.c_str(), m_preedit.length());
-				Renderer::SetDrawColor({ 100, 100, 100, 200 });
+				constexpr Color preeditUnderlineColor{ 100, 100, 100, 200 };
+				Renderer::SetDrawColor(preeditUnderlineColor);
 				Renderer::FillRect(SDL_FRect{
 					cursorPxX,
 					textY + m_fontHeight - 2.0f,

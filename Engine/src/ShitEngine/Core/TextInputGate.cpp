@@ -2,13 +2,13 @@
 #include "ShitEngine/Core/TextInputGate.h"
 
 #include "ShitEngine/UI/UITextInput.h"
+#include "ShitEngine/Input/KeyCode.h"
 #include "ShitEngine/Core/Window.h"
 #include "ShitEngine/Core/Log.h"
 
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_video.h>
 #include <SDL3/SDL_keyboard.h>
-#include <SDL3/SDL_scancode.h>
 
 namespace Shit {
 	TextInputGate& TextInputGate::GetInstance() {
@@ -71,19 +71,19 @@ namespace Shit {
 				m_focused->onTextEditing(event.edit.text, event.edit.start, event.edit.length);
 				break;
 			case SDL_EVENT_KEY_DOWN: {
-				SDL_Scancode sc = event.key.scancode;
+				KeyCode key = static_cast<KeyCode>(event.key.scancode);
 				bool shift = (event.key.mod & SDL_KMOD_SHIFT) != 0;
 				bool ctrl  = (event.key.mod & SDL_KMOD_CTRL) != 0;
 				// 导航键/编辑键（RETURN 由 TEXT_INPUT 处理，避免双插入）
-				bool navKeys = (sc == SDL_SCANCODE_LEFT || sc == SDL_SCANCODE_RIGHT ||
-					sc == SDL_SCANCODE_HOME || sc == SDL_SCANCODE_END ||
-					sc == SDL_SCANCODE_BACKSPACE || sc == SDL_SCANCODE_DELETE ||
-					sc == SDL_SCANCODE_UP || sc == SDL_SCANCODE_DOWN);
+				bool navKeys = (key == KeyCode::Left || key == KeyCode::Right ||
+					key == KeyCode::Home || key == KeyCode::End ||
+					key == KeyCode::Backspace || key == KeyCode::Delete ||
+					key == KeyCode::Up || key == KeyCode::Down);
 				// 导航键允许 repeat（长按退格/方向键连续操作），非导航键跳过
 				if (!navKeys && event.key.repeat) break;
 				if (navKeys) {
-					m_focused->onKeyDown(sc, shift, ctrl);
-				} else if (sc == SDL_SCANCODE_ESCAPE) {
+					m_focused->onKeyDown(key, shift, ctrl);
+				} else if (key == KeyCode::Escape) {
 					releaseFocus(m_focused);
 				}
 				break;
