@@ -86,17 +86,13 @@ namespace Shit {
 			else if (!hit && isHovered)   button->onPointerExit();
 
 			if (hit && mouseDown) button->onPointerDown();
-			if (mouseUp && (hit || button->getState() == UIButton::State::Pressed)) button->onPointerUp();
+			if (mouseUp && (hit || button->getState() == UIButton::State::Pressed || button->wasPointerDown())) button->onPointerUp();
 		}
 
 		// --- 输入框聚焦管理（点击时切换） ---
 		if (mouseDown) {
 			if (hoveredGameObject) {
-				UITextInput* textInput = nullptr;
-				for (auto& [type, comp] : hoveredGameObject->getComponents()) {
-					textInput = dynamic_cast<UITextInput*>(comp.get());
-					if (textInput) break;
-				}
+				UITextInput* textInput = hoveredGameObject->getComponent<UITextInput>();
 				if (textInput) {
 					TextInputGate::GetInstance().requestFocus(textInput);
 				}
@@ -110,6 +106,7 @@ namespace Shit {
 		Renderer::ClearViewport();
 
 		for (auto& entry : visible) {
+			if (!entry.renderer->getOwner()) continue;
 			entry.renderer->onRender(entry.screenRect);
 		}
 	}

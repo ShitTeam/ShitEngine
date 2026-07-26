@@ -115,8 +115,19 @@ int main(int argc, char* argv[]) {
     }
 
     std::cout << "Scanned " << result.totalFilesScanned << " files, "
-              << result.reflectedFiles << " with reflection markers.\n";
+              << result.reflectedFiles << " with reflection markers";
+    if (result.failedFiles > 0)
+        std::cout << ", " << result.failedFiles << " failed";
+    std::cout << ".\n";
     std::cout << "Found " << result.types.size() << " reflected types.\n\n";
+
+    if (result.totalFilesScanned > 0 && result.types.empty()) {
+        std::cerr << "[reflect] WARNING: scanned " << result.totalFilesScanned << " files but found no reflected types.\n";
+        if (result.failedFiles == result.totalFilesScanned) {
+            std::cerr << "[reflect] ERROR: all scanned files failed to parse — aborting.\n";
+            return 1;
+        }
+    }
 
     if (result.types.empty()) {
         std::cout << "Nothing to generate.\n";

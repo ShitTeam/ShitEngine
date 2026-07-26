@@ -34,4 +34,5 @@ struct ScanResult {
     std::vector<ReflectedType> types;
     size_t totalFilesScanned = 0;
     size_t reflectedFiles    = 0;
+    size_t failedFiles       = 0;
 };

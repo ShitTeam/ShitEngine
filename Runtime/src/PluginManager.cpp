@@ -51,9 +51,12 @@ void PluginManager::freeLibrary(void* handle) {
 bool PluginManager::loadPlugin(const std::string& path) {
     void* handle = loadLibrary(path);
     if (!handle) {
+#ifdef _WIN32
+        DWORD err = GetLastError();
+#endif
         ST_CORE_ERROR("[PluginManager] Failed to load plugin: {}", path);
 #ifdef _WIN32
-        ST_CORE_ERROR("  GetLastError() = {}", GetLastError());
+        ST_CORE_ERROR("  GetLastError() = {}", err);
 #else
         ST_CORE_ERROR("  dlerror() = {}", dlerror());
 #endif
@@ -121,6 +124,10 @@ void PluginManager::LoadFromConfig(const std::string& configPath) {
     }
 
     for (const auto& entry : config["plugins"]) {
+        if (!entry.is_object()) {
+            ST_CORE_WARN("[PluginManager] Skipping non-object plugin entry");
+            continue;
+        }
         std::string path = entry.value("path", "");
         if (path.empty()) {
             ST_CORE_WARN("[PluginManager] Skipping plugin entry with empty path");
@@ -147,7 +154,16 @@ std::vector<Shit::Scene*> PluginManager::CreateAllScenes() {
     std::vector<Shit::Scene*> scenes;
     for (auto& plugin : m_plugins) {
         if (plugin.createScene) {
-            auto* scene = plugin.createScene();
+            Shit::Scene* scene = nullptr;
+            try {
+                scene = plugin.createScene();
+            } catch (const std::exception& e) {
+                ST_CORE_ERROR("[PluginManager] Plugin '{}' threw during CreateMainScene: {}",
+                    plugin.name, e.what());
+            } catch (...) {
+                ST_CORE_ERROR("[PluginManager] Plugin '{}' threw unknown exception during CreateMainScene",
+                    plugin.name);
+            }
             if (scene) {
                 ST_CORE_INFO("[PluginManager] Created scene from plugin '{}'", plugin.name);
                 scenes.push_back(scene);

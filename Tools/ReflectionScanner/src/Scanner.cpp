@@ -126,7 +126,10 @@ CXChildVisitResult Scanner::collectFields(CXCursor cursor, CXCursor,
 CXChildVisitResult Scanner::findBase(CXCursor cursor, CXCursor, CXClientData data) {
     if (clang_getCursorKind(cursor) == CXCursor_CXXBaseSpecifier) {
         auto* ctx = static_cast<BaseCtx*>(data);
-        ctx->name = getTypeSpelling(clang_getCursorType(cursor));
+        // 只记录第一个基类（多基类时，第一个通常是主基类）
+        if (ctx->name.empty()) {
+            ctx->name = getTypeSpelling(clang_getCursorType(cursor));
+        }
     }
     return CXChildVisit_Continue;
 }
@@ -240,11 +243,20 @@ ScanResult Scanner::scanDirectory(const std::string& inputDir) {
     static const char* kExtensions[] = {".h", ".hpp", ".hxx"};
     ScanResult result;
     if (!fs::exists(inputDir)) return result;
-    for (const auto& entry : fs::recursive_directory_iterator(inputDir)) {
-        auto ext = entry.path().extension().string();
-        for (auto* e : kExtensions) {
-            if (ext == e) { scanFile(entry.path().string(), result); break; }
+    try {
+        for (const auto& entry : fs::recursive_directory_iterator(inputDir)) {
+            auto ext = entry.path().extension().string();
+            for (auto* e : kExtensions) {
+                if (ext == e) {
+                    if (!scanFile(entry.path().string(), result)) {
+                        ++result.failedFiles;
+                    }
+                    break;
+                }
+            }
         }
+    } catch (const fs::filesystem_error& e) {
+        std::cerr << "[reflect] filesystem error scanning directory: " << e.what() << "\n";
     }
     return result;
 }

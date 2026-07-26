@@ -84,7 +84,7 @@ target_include_directories(ShitEngine PUBLIC
 target_include_directories(ShitEngine PRIVATE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/generated>)
 
-target_precompile_headers(ShitEngine PUBLIC "include/ShitEngine/Core/pch.h")
+target_precompile_headers(ShitEngine PRIVATE "include/ShitEngine/Core/pch.h")
 target_compile_definitions(ShitEngine PRIVATE SHIT_EXPORTS)
 
 target_link_libraries(ShitEngine PUBLIC

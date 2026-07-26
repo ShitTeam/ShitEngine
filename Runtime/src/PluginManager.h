@@ -17,6 +17,8 @@ public:
     using RegisterTypesFn  = void (*)();
     using CreateSceneFn    = Shit::Scene* (*)();
 
+    ~PluginManager() { UnloadAll(); }
+
     /// 已加载的插件信息
     struct LoadedPlugin {
         void*           handle       = nullptr;  ///< 平台句柄 (HMODULE / void*)

@@ -39,9 +39,9 @@ int main() {
     // 5. 主循环
     Shit::Game::Run();
 
-    // 6. 清理
-    Shit::Game::Destroy();
+    // 6. 清理（先卸载插件再销毁引擎，避免 SDL_Quit 后 DLL 析构访问 SDL 状态）
     pluginManager.UnloadAll();
+    Shit::Game::Destroy();
 
     return 0;
 }

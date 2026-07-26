@@ -15,7 +15,11 @@ add_library(ExamplePlugin SHARED
 )
 
 target_link_libraries(ExamplePlugin PRIVATE ShitEngine)
+add_dependencies(ExamplePlugin ShitEngine)
 set_target_properties(ExamplePlugin PROPERTIES CXX_STANDARD 20)
+set_target_properties(ExamplePlugin PROPERTIES
+    PREFIX ""
+    DEBUG_POSTFIX "")
 
 # 插件自身的头文件和生成代码
 target_include_directories(ExamplePlugin PRIVATE

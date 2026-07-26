@@ -8,6 +8,8 @@ add_executable(ShitRuntime
 
 target_link_libraries(ShitRuntime PRIVATE ShitEngine)
 
+add_dependencies(ShitRuntime ShitEngine)
+
 set_target_properties(ShitRuntime PROPERTIES CXX_STANDARD 20)
 
 # 输出到根级 bin/（与 ShitEngine.dll 和 ExamplePlugin.dll 在一起）

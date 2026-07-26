@@ -9,21 +9,25 @@ namespace fs = std::filesystem;
 // ── 辅助：输出 namespace open / close ───────────────
 static void openNamespaces(std::ostream& out, const std::vector<std::string>& ns) {
     for (const auto& n : ns) {
+        if (n.empty()) continue;  // skip anonymous namespaces
         out << "namespace " << n << " {\n";
     }
 }
 
 static void closeNamespaces(std::ostream& out, const std::vector<std::string>& ns) {
     for (auto it = ns.rbegin(); it != ns.rend(); ++it) {
+        if (it->empty()) continue;  // skip anonymous namespaces
         out << "} // namespace " << *it << "\n";
     }
 }
 
 // ── 辅助：命名空间前缀（用于调用 namespace 内的函数）─
 static std::string namespacePrefix(const std::vector<std::string>& ns) {
-    if (ns.empty()) return "";
     std::string p;
-    for (const auto& n : ns) p += n + "::";
+    for (const auto& n : ns) {
+        if (n.empty()) continue;  // skip anonymous namespaces
+        p += n + "::";
+    }
     return p;
 }
 
