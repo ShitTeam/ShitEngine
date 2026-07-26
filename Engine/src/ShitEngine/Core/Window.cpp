@@ -30,13 +30,13 @@ namespace Shit {
 	}
 
 	void Window::handleEvent(const SDL_Event& event) {
-		if (event.type == SDL_EVENT_QUIT) {
-			close();
+		if (event.type == SDL_EVENT_QUIT || event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) {
+			m_isOpen = false;  // 只设标志，不销毁窗口
 		}
 	}
 
 	void Window::close() {
 		m_isOpen = false;
-		m_window.reset();
+		m_window.reset();  // SDL_DestroyWindow
 	}
 }

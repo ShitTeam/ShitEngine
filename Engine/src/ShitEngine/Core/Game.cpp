@@ -43,10 +43,10 @@ namespace Shit {
 		}
 
 		// 初始化窗口
-		if (!Window::Init()) return false;
+		if (!Window::Init()) { SDL_Quit(); return false; }
 
 		// 初始化渲染器
-		if (!Renderer::Init()) return false;
+		if (!Renderer::Init()) { SDL_Quit(); return false; }
 
 		// 初始化 Time
 		Time::Init();

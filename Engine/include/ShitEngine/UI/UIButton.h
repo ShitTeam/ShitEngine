@@ -38,6 +38,7 @@ namespace Shit {
 		void setInteractable(bool interactable);
 
 		State getState() const { return m_state; }
+		bool wasPointerDown() const { return m_isPressed; }
 
 		const ColorBlock& getColors() const { return m_colors; }
 		void setColors(const ColorBlock& colors) { m_colors = colors; applyCurrentColor(); }
