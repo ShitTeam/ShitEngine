@@ -68,6 +68,11 @@ add_library(ShitEngine SHARED
     "src/ShitEngine/UI/UITextInput.cpp"
     "src/ShitEngine/UI/UITextBox.cpp"
     "src/ShitEngine/UI/UITextArea.cpp"
+    # Physics
+    "src/ShitEngine/Physics/PhysicsSystem2D.cpp"
+    "src/ShitEngine/Physics/RigidBody2D.cpp"
+    "src/ShitEngine/Physics/BoxCollider2D.cpp"
+    "src/ShitEngine/Physics/CircleCollider2D.cpp"
 )
 
 set_target_properties(ShitEngine PROPERTIES
@@ -94,7 +99,8 @@ target_link_libraries(ShitEngine PUBLIC
     SDL3_ttf::SDL3_ttf
     spdlog::spdlog
     glm::glm
-    nlohmann_json::nlohmann_json)
+    nlohmann_json::nlohmann_json
+    box2d::box2d)
 
 set_target_properties(ShitEngine PROPERTIES CXX_STANDARD 20)
 

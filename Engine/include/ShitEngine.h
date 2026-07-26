@@ -65,3 +65,8 @@
 #include "ShitEngine/UI/UITextInput.h"
 #include "ShitEngine/UI/UITextBox.h"
 #include "ShitEngine/UI/UITextArea.h"
+
+// Physics
+#include "ShitEngine/Physics/RigidBody2D.h"
+#include "ShitEngine/Physics/BoxCollider2D.h"
+#include "ShitEngine/Physics/CircleCollider2D.h"

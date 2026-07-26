@@ -12,6 +12,8 @@ add_library(ExamplePlugin SHARED
     "src/ReflectionTestScene.cpp"
     "src/ReflectionTestScene.h"
     "src/ReflectionTestTypes.h"
+    "src/PhysicsTestScene.cpp"
+    "src/PhysicsTestScene.h"
 )
 
 target_link_libraries(ExamplePlugin PRIVATE ShitEngine)

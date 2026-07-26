@@ -261,5 +261,15 @@ macro(setup_project_dependencies)
         "external/spdlog"
         STATIC  # 推荐静态链接，避免运行时依赖
     )
-    
+
+    # box2d — 2D 物理引擎
+    find_or_fetch_dependency(
+        box2d
+        box2d
+        "https://github.com/erincatto/box2d.git"
+        "v3.1.1"
+        "external/box2d"
+        STATIC
+    )
+
 endmacro()
