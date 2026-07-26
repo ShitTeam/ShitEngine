@@ -11,14 +11,24 @@ namespace Shit {
 		}
 
 		Json j;
-		file >> j;
+		try {
+			file >> j;
+		} catch (const std::exception& e) {
+			ST_CORE_WARN("配置文件解析失败: {}，使用默认配置", e.what());
+			return true;
+		}
 		loadFromJson(j);
 		return true;
 	}
 
 	void Config::loadFromJson(const Json& j) {
 		if (j.contains("project")) {
-			m_projectConfig.name = j["project"].get<std::string>();
+			// "project": { "name": "..." } 或 "project": "My Game"（向后兼容）
+			if (j["project"].is_object() && j["project"].contains("name")) {
+				m_projectConfig.name = j["project"]["name"].get<std::string>();
+			} else if (j["project"].is_string()) {
+				m_projectConfig.name = j["project"].get<std::string>();
+			}
 		}
 		if (j.contains("window")) {
 			if (j["window"].contains("title")) {
