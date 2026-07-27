@@ -19,7 +19,7 @@
 //   访问 private/protected 成员的权限（供成员指针取 offset，ABI 安全）。
 //   注意：必须保留，annotate 无法替代 friend 的运行期授权作用。
 //
-// SHIT_META(Enable)
+// SHIT_META()
 //   放在字段上方（仅 WhiteListFields 模式需要）。展开为
 //   __attribute__((annotate("shit-meta")))，附着到紧随其后的字段声明。
 //   Scanner 据此判断该字段启用反射。
@@ -51,7 +51,7 @@
 #define SHIT_CLASS(Type, Mode)  SHIT_DETAIL_ANNOTATE("shit-class:"  #Mode) Type
 
 // 字段级注解（仅 WhiteListFields 模式用）
-#define SHIT_META(...) SHIT_DETAIL_ANNOTATE("shit-meta")
+#define SHIT_META() SHIT_DETAIL_ANNOTATE("shit-meta")
 
 // friend 授权宏（运行期需要，不可去除）
 #define SHIT_REFLECT(Type) friend bool Register_##Type();
