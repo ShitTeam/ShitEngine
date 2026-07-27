@@ -44,11 +44,11 @@ namespace Shit {
 		float dt = std::min(Shit::Time::GetDeltaTime(), 1.0f / 30.0f);
 		b2World_Step(worldId, dt, 4);
 
-		// 将所有 Dynamic 刚体的位置/旋转同步到 TransformComponent
-		// 注：因 b2SetLengthUnitsPerMeter 设置，Box2D 返回的坐标已是像素值
+		// 将所有 Dynamic 和 Kinematic 刚体的位置/旋转同步到 TransformComponent
+		// 注：Static 刚体不受物理引擎驱动，无需同步
 		for (auto* body : m_bodies) {
 			if (!body || !body->m_bodyValid) continue;
-			if (body->m_type != RigidBody2D::Type::Dynamic) continue;
+			if (body->m_type == RigidBody2D::Type::Static) continue;
 
 			b2BodyId bodyId = Internal::MakeBodyId(body->m_bodyIndex, body->m_bodyWorld0, body->m_bodyGeneration);
 

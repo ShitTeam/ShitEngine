@@ -1,3 +1,13 @@
+#ifdef _WIN32
+	#ifndef NOMINMAX
+		#define NOMINMAX
+	#endif
+	#ifndef WIN32_LEAN_AND_MEAN
+		#define WIN32_LEAN_AND_MEAN
+	#endif
+	#include <Windows.h>
+#endif
+
 #include "ShitEngine/Core/pch.h"
 
 #include "ShitEngine/Core/Game.h"
@@ -77,10 +87,7 @@ namespace Shit {
 
 		while (Window::IsOpen())
 		{
-			Time::Update(); //计算上一帧到当前帧的时间差
-
-
-			// 获取SDL3的Event
+			// 先处理事件（包括窗口关闭事件），再更新 Time，确保关闭立即响应
 			while (SDL_PollEvent(&event))
 			{
 				Window::HandleEvent(event);
@@ -88,8 +95,9 @@ namespace Shit {
 				TextInputGate::HandleEvent(event);
 			}
 
-
 			if (!Window::IsOpen()) break;
+
+			Time::Update(); //计算上一帧到当前帧的时间差
 
 			//ST_CORE_DEBUG("测试");
 

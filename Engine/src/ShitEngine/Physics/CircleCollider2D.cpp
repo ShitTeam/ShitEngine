@@ -51,16 +51,19 @@ namespace Shit {
 
 		if (m_shapeValid) {
 			b2ShapeId shapeId = Internal::MakeShapeId(m_shapeIndex, m_shapeWorld0, m_shapeGeneration);
-			b2DestroyShape(shapeId, true);
+			if (b2Shape_IsValid(shapeId)) {
+				b2DestroyShape(shapeId, true);
+			}
 			m_shapeValid = false;
 		}
 	}
 
 	void CircleCollider2D::onDestroy() {
 		if (m_shapeValid) {
-			ST_CORE_WARN("[CircleCollider2D] 组件直接销毁而未 detach");
 			b2ShapeId shapeId = Internal::MakeShapeId(m_shapeIndex, m_shapeWorld0, m_shapeGeneration);
-			b2DestroyShape(shapeId, true);
+			if (b2Shape_IsValid(shapeId)) {
+				b2DestroyShape(shapeId, true);
+			}
 			m_shapeValid = false;
 		}
 		Component::onDestroy();

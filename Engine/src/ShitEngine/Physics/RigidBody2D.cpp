@@ -72,7 +72,9 @@ namespace Shit {
 			}
 
 			b2BodyId bodyId = Internal::MakeBodyId(m_bodyIndex, m_bodyWorld0, m_bodyGeneration);
-			b2DestroyBody(bodyId);
+			if (b2Body_IsValid(bodyId)) {
+				b2DestroyBody(bodyId);
+			}
 			m_bodyValid = false;
 		}
 	}
@@ -81,7 +83,9 @@ namespace Shit {
 		if (m_bodyValid) {
 			ST_CORE_WARN("[RigidBody2D] 组件直接销毁而未 detach");
 			b2BodyId bodyId = Internal::MakeBodyId(m_bodyIndex, m_bodyWorld0, m_bodyGeneration);
-			b2DestroyBody(bodyId);
+			if (b2Body_IsValid(bodyId)) {
+				b2DestroyBody(bodyId);
+			}
 			m_bodyValid = false;
 		}
 		Component::onDestroy();

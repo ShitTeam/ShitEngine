@@ -21,7 +21,6 @@ std::unique_ptr<Shit::Scene> createPhysicsTestScene() {
 
 	auto* physics = scene->getSystem<Shit::PhysicsSystem2D>();
 	physics->setGravity({ 0.0f, 500.0f });
-	physics->setPixelsPerMeter(32.0f);
 
 	// ── 相机（居中观察物理区域） ──
 	{
