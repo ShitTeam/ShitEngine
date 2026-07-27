@@ -51,7 +51,8 @@
 #define SHIT_CLASS(Type, Mode)  SHIT_DETAIL_ANNOTATE("shit-class:"  #Mode) Type
 
 // 字段级注解（仅 WhiteListFields 模式用）
-#define SHIT_META() SHIT_DETAIL_ANNOTATE("shit-meta")
+// 变参接受兼容旧代码的 SHIT_META(Enable) 写法，参数内容被忽略
+#define SHIT_META(...) SHIT_DETAIL_ANNOTATE("shit-meta")
 
 // friend 授权宏（运行期需要，不可去除）
 #define SHIT_REFLECT(Type) friend bool Register_##Type();
