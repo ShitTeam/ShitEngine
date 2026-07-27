@@ -73,7 +73,7 @@ CXChildVisitResult Scanner::findReflectedTypes(CXCursor cursor, CXCursor,
                 clang_visitChildren(cursor, findFriendRegister, &friendCtx);
                 type.hasReflect = friendCtx.found;
 
-                // 字段（WhiteListFields 时按 shit-meta 注解过滤）
+                // 字段（WhiteListFields 时按 shit-meta: 前缀过滤）
                 FieldCtx fieldCtx{type.mode, {}};
                 clang_visitChildren(cursor, collectFields, &fieldCtx);
                 type.fields = std::move(fieldCtx.fields);
@@ -99,13 +99,13 @@ CXChildVisitResult Scanner::collectFields(CXCursor cursor, CXCursor,
 
     auto* ctx = static_cast<FieldCtx*>(data);
 
-    // WhiteListFields 模式：仅收集带 shit-meta 注解的字段
+    // WhiteListFields 模式：仅收集带 shit-meta: 前缀的字段
     if (ctx->mode == ReflectionMode::WhiteListFields) {
         AnnotateCtx actx;
         clang_visitChildren(cursor, collectAnnotations, &actx);
         bool enabled = false;
         for (const auto& ann : actx.annotations)
-            if (ann == "shit-meta") { enabled = true; break; }
+            if (ann.rfind("shit-meta:", 0) == 0) { enabled = true; break; }
         if (!enabled) return CXChildVisit_Continue;
     }
 
