@@ -28,7 +28,8 @@ namespace Shit
      *   anim->addAnimation("walk", std::move(walkAnim));
      *   anim->play("walk");
      */
-    class SHIT_API AnimationComponent : public Behavior {
+    class SHIT_API SHIT_REFLECT(BlackList) AnimationComponent : public Behavior {
+        SHIT_REFLECT_BODY(AnimationComponent)
     public:
         AnimationComponent();
         ~AnimationComponent() override;
@@ -71,12 +72,18 @@ namespace Shit
         // 把当前帧源矩形回写到 SpriteRenderer（若存在且纹理一致）
         void applyCurrentFrame();
 
+        SHIT_META(Disable)
         std::unordered_map<std::string, std::unique_ptr<Animation>> m_animations;
+        SHIT_META(Disable)
         Animation* m_currentAnimation = nullptr;
+        SHIT_META(({.displayName = "Current Animation", .readOnly = true}))
         std::string m_currentAnimationName;
+        SHIT_META(({.displayName = "Current Time", .readOnly = true}))
         float m_currentTime = 0.0f;
 
+        SHIT_META(({.displayName = "Playing", .readOnly = true}))
         bool m_isPlaying = false;
+        SHIT_META(({.displayName = "Paused", .readOnly = true}))
         bool m_isPaused = false;
     };
 }

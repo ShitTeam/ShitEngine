@@ -22,8 +22,8 @@ namespace Shit {
 	public:
 		Renderer(const Renderer&) = delete;
 		Renderer& operator=(const Renderer&) = delete;
-		Renderer(Renderer&&) = default;
-		Renderer& operator=(Renderer&&) = default;
+		Renderer(Renderer&&) = delete;
+		Renderer& operator=(Renderer&&) = delete;
 
 		// --- 静态API ---
 		static Renderer& GetInstance();

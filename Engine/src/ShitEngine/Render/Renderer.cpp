@@ -1,6 +1,6 @@
-#include "ShitEngine/Render/Renderer.h"
-
 #include "ShitEngine/Core/pch.h"
+
+#include "ShitEngine/Render/Renderer.h"
 #include "ShitEngine/Core/Window.h"
 #include "ShitEngine/Core/Log.h"
 #include "ShitEngine/Core/Config.h"

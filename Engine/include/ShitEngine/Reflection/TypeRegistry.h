@@ -5,7 +5,7 @@
 
 #include <string_view>
 #include <functional>
-#include <list>
+#include <deque>
 #include <unordered_map>
 #include <string>
 
@@ -25,6 +25,8 @@ class SHIT_API TypeRegistry {
 public:
 	void registerType(TypeInfo info);
 	void initBuiltinTypes();
+	void resolveBases();                ///< 解析所有未解析的基类引用（消除 SIOF）
+	bool unregisterType(std::string_view name);  ///< 按名称卸载类型
 
 	[[nodiscard]] const TypeInfo* getType(std::string_view name) const;
 
@@ -43,6 +45,8 @@ public:
 
 	static void Register(TypeInfo info) { GetInstance().registerType(std::move(info)); }
 	static void InitBuiltinTypes() { GetInstance().initBuiltinTypes(); }
+	static void ResolveBases() { GetInstance().resolveBases(); }
+	static bool UnregisterType(std::string_view name) { return GetInstance().unregisterType(name); }
 	static const TypeInfo* Get(std::string_view name) { return GetInstance().getType(name); }
 
 	template<typename T>
@@ -62,8 +66,8 @@ private:
 
 	friend class TypeInfoBuilder;
 
-	// list 保证元素地址稳定
-	std::list<TypeInfo>                                  m_typeStorage;
+	// deque 保证元素地址稳定（push_back/emplace_back 不失效指向元素的指针）
+	std::deque<TypeInfo>                                  m_typeStorage;
 	std::unordered_map<std::string, TypeInfo*>           m_nameMap;
 	std::unordered_map<std::type_index, const TypeInfo*> m_typeIndexMap;
 };
@@ -96,6 +100,13 @@ class SHIT_API TypeInfoBuilder {
 public:
 	TypeInfoBuilder& Base(const TypeInfo* baseType) {
 		m_info.baseType = baseType;
+		return *this;
+	}
+
+	/// @brief 按名称指定基类（延迟解析，消除 SIOF）
+	/// Register() 时尝试解析，ResolveBases() 时再次尝试
+	TypeInfoBuilder& Base(const char* name) {
+		m_info.baseTypeName = name ? name : "";
 		return *this;
 	}
 
@@ -134,19 +145,39 @@ public:
 		return *this;
 	}
 
+	// ── P2: 字段元数据（编辑器属性显示用）───────────
+	TypeInfoBuilder& Meta(const FieldMeta& meta) {
+		if (!m_info.fields.empty()) {
+			m_info.fields.back().meta.push_back(meta);
+		}
+		return *this;
+	}
+
+	// ── P3: 枚举常量 ──────────────────────────────────
+	TypeInfoBuilder& Value(const char* name, int64_t val) {
+		m_info.enumValues.push_back({name, val});
+		return *this;
+	}
+
 	// ── P1-2: 工厂注册 ─────────────────────────────────
 	template<typename T>
 	TypeInfoBuilder& Factory() {
-		m_info.factory = [](void* mem) -> void* {
-			if (mem) return ::new(mem) T();
-			return new T();
-		};
+		m_info.factory = makeFactory<T>(std::is_abstract<T>{});
 		return *this;
 	}
 
 	template<typename T>
 	void Register() {
 		m_info.typeIndex = std::type_index(typeid(T));
+
+		// 尝试立即解析 baseTypeName（若已注册则直接链接，未注册时留待 ResolveBases 处理）
+		if (!m_info.baseType && !m_info.baseTypeName.empty()) {
+			auto* resolved = TypeRegistry::Get(m_info.baseTypeName.c_str());
+			if (resolved) {
+				m_info.baseType = resolved;
+			}
+		}
+
 		TypeRegistry::Register(std::move(m_info));
 	}
 
@@ -154,7 +185,21 @@ private:
 	friend TypeInfoBuilder ReflectType(const char* name, size_t size);
 
 	explicit TypeInfoBuilder(const char* name, size_t size)
-		: m_info{name, size, nullptr, {}, typeid(nullptr)} {}
+		: m_info{name, size, nullptr, {}, {}, {}, typeid(nullptr)} {}
+
+	// ── Factory SFINAE 辅助：抽象类型跳过 factory ──
+	template<typename T>
+	static std::function<void*(void*)> makeFactory(std::false_type /* not abstract */) {
+		return [](void* mem) -> void* {
+			if (mem) return ::new(mem) T();
+			return new T();
+		};
+	}
+
+	template<typename T>
+	static std::function<void*(void*)> makeFactory(std::true_type /* abstract */) {
+		return nullptr;
+	}
 
 	TypeInfo m_info;
 };

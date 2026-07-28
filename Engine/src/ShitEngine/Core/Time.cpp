@@ -1,6 +1,6 @@
-﻿#include "ShitEngine/Core/Time.h"
+﻿#include "ShitEngine/Core/pch.h"
 
-#include "ShitEngine/Core/pch.h"
+#include "ShitEngine/Core/Time.h"
 #include "ShitEngine/Core/Log.h"
 
 #include <algorithm>

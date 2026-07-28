@@ -13,8 +13,8 @@ namespace Shit {
 	 * m_worldSize 决定能看到的世界范围，m_viewportRatio 决定渲染到屏幕的哪个区域。
 	 * 支持多相机分屏渲染（按 priority 排序）。
 	 */
-	class SHIT_API SHIT_CLASS(CameraComponent, Fields) : public Component {
-		SHIT_REFLECT(CameraComponent)
+	class SHIT_API SHIT_REFLECT(BlackList) CameraComponent : public Component {
+		SHIT_REFLECT_BODY(CameraComponent)
 	public:
 		CameraComponent();
 
@@ -39,9 +39,13 @@ namespace Shit {
 		void setViewportRatio(const SDL_FRect& ratio) { m_viewportRatio = ratio; } ///< 设置视口比例
 
 	private:
-		Vector2 m_worldSize{ 1280.0f, 720.0f };  ///< 看到的世界范围（世界单位）
+		SHIT_META(({.displayName = "World Size", .tooltip = "可见世界范围（世界单位）"}))
+		Vector2 m_worldSize{ 1280.0f, 720.0f };
+		SHIT_META(({.displayName = "Zoom", .range = {0.1, 10}, .step = 0.1}))
 		float m_zoom = 1.0f;
+		SHIT_META(({.displayName = "Priority", .tooltip = "渲染优先级（小值先画）"}))
 		int m_priority = 0;
-		SDL_FRect m_viewportRatio{ 0.0f, 0.0f, 1.0f, 1.0f }; ///< 相对于逻辑分辨率的裁剪区域 (0~1)
+		SHIT_META(({.displayName = "Viewport Ratio", .tooltip = "相对于逻辑分辨率的视口区域 (0~1)"}))
+		SDL_FRect m_viewportRatio{ 0.0f, 0.0f, 1.0f, 1.0f };
 	};
 }

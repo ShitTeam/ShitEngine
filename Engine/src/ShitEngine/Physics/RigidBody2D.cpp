@@ -82,6 +82,13 @@ namespace Shit {
 	void RigidBody2D::onDestroy() {
 		if (m_bodyValid) {
 			ST_CORE_WARN("[RigidBody2D] 组件直接销毁而未 detach");
+			auto* scene = m_owner ? m_owner->getScene() : nullptr;
+			if (scene) {
+				auto* physics = scene->getSystem<PhysicsSystem2D>();
+				if (physics) {
+					physics->unregisterRigidBody(this);
+				}
+			}
 			b2BodyId bodyId = Internal::MakeBodyId(m_bodyIndex, m_bodyWorld0, m_bodyGeneration);
 			if (b2Body_IsValid(bodyId)) {
 				b2DestroyBody(bodyId);

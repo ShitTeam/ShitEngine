@@ -21,7 +21,8 @@ namespace Shit {
 	 * 创建 Collider 前必须先挂 RigidBody2D（BoxCollider2D/CircleCollider2D
 	 * 的 onAttach 会自动查找同 GameObject 上的 RigidBody2D）。
 	 */
-	class SHIT_API RigidBody2D : public Component {
+	class SHIT_API SHIT_REFLECT(BlackList) RigidBody2D : public Component {
+		SHIT_REFLECT_BODY(RigidBody2D)
 	public:
 		enum class Type {
 			Static    = 0, ///< 不受力，不可移动（默认）
@@ -69,14 +70,22 @@ namespace Shit {
 		friend class PhysicsSystem2D;
 
 		// b2BodyId = {int32_t index1; uint16_t world0; uint16_t generation;}
+		SHIT_META(Disable)
 		int32_t m_bodyIndex = 0;
+		SHIT_META(Disable)
 		uint16_t m_bodyWorld0 = 0;
+		SHIT_META(Disable)
 		uint16_t m_bodyGeneration = 0;
+		SHIT_META(Disable)
 		bool m_bodyValid = false;
 
+		SHIT_META(({.displayName = "Body Type", .tooltip = "Static=不动, Kinematic=用户控制, Dynamic=物理驱动"}))
 		Type m_type = Type::Static;
+		SHIT_META(({.displayName = "Gravity Scale", .tooltip = "重力影响系数", .range = {0, 10}, .step = 0.1}))
 		float m_gravityScale = 1.0f;
+		SHIT_META(({.displayName = "Linear Damping", .tooltip = "线性阻尼", .range = {0, 10}, .step = 0.1}))
 		float m_linearDamping = 0.0f;
+		SHIT_META(({.displayName = "Fixed Rotation", .tooltip = "锁定旋转"}))
 		bool m_fixedRotation = false;
 	};
 }

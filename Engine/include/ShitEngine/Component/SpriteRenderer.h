@@ -19,8 +19,9 @@ namespace Shit {
 	 * 整图渲染时 sourceRect 留空；用于 sprite-sheet 逐帧动画时，
 	 * 由 AnimationComponent 把当前帧的 SDL_FRect 写回 setSourceRect。
 	 */
-	class SHIT_API SpriteRenderer : public RendererComponent {
+	class SHIT_API SHIT_REFLECT(BlackList) SpriteRenderer : public RendererComponent {
 		friend class GameObject;
+		SHIT_REFLECT_BODY(SpriteRenderer)
 	public:
 		SpriteRenderer() = default;
 		~SpriteRenderer() override = default;
@@ -39,6 +40,7 @@ namespace Shit {
 
 		SDL_FRect getGlobalBounds() override;
 	private:
-		Sprite m_sprite; // 描述"画什么"的数据
+		SHIT_META(({.displayName = "Sprite Data", .readOnly = true}))
+		Sprite m_sprite; ///< 描述"画什么"的数据
 	};
 }

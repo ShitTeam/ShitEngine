@@ -5,8 +5,11 @@
 
 #include "TestPlayer.gen.h"
 #include "TestEnemy.gen.h"
+#include "TestDirection.gen.h"
 
 inline void RegisterAllReflectedTypes() {
     Register_TestPlayer();
     Register_TestEnemy();
+    Register_TestDirection();
+    Shit::TypeRegistry::ResolveBases();
 }

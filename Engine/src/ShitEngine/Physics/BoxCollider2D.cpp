@@ -62,6 +62,7 @@ namespace Shit {
 	}
 
 	void BoxCollider2D::onDestroy() {
+		// onDetach 已处理 shape 销毁，此处仅做保险清理
 		if (m_shapeValid) {
 			b2ShapeId shapeId = Internal::MakeShapeId(m_shapeIndex, m_shapeWorld0, m_shapeGeneration);
 			if (b2Shape_IsValid(shapeId)) {
@@ -74,17 +75,42 @@ namespace Shit {
 
 	void BoxCollider2D::setSize(const Vector2& size) {
 		m_size = { std::max(1.0f, size.x), std::max(1.0f, size.y) };
+		if (m_shapeValid) {
+			b2ShapeId shapeId = Internal::MakeShapeId(m_shapeIndex, m_shapeWorld0, m_shapeGeneration);
+			if (b2Shape_IsValid(shapeId)) {
+				b2Polygon box = b2MakeBox(m_size.x * 0.5f, m_size.y * 0.5f);
+				b2Shape_SetPolygon(shapeId, &box);
+			}
+		}
 	}
 
 	void BoxCollider2D::setDensity(float density) {
 		m_density = density;
+		if (m_shapeValid) {
+			b2ShapeId shapeId = Internal::MakeShapeId(m_shapeIndex, m_shapeWorld0, m_shapeGeneration);
+			if (b2Shape_IsValid(shapeId)) {
+				b2Shape_SetDensity(shapeId, m_density, true);
+			}
+		}
 	}
 
 	void BoxCollider2D::setFriction(float friction) {
 		m_friction = friction;
+		if (m_shapeValid) {
+			b2ShapeId shapeId = Internal::MakeShapeId(m_shapeIndex, m_shapeWorld0, m_shapeGeneration);
+			if (b2Shape_IsValid(shapeId)) {
+				b2Shape_SetFriction(shapeId, m_friction);
+			}
+		}
 	}
 
 	void BoxCollider2D::setRestitution(float restitution) {
 		m_restitution = restitution;
+		if (m_shapeValid) {
+			b2ShapeId shapeId = Internal::MakeShapeId(m_shapeIndex, m_shapeWorld0, m_shapeGeneration);
+			if (b2Shape_IsValid(shapeId)) {
+				b2Shape_SetRestitution(shapeId, m_restitution);
+			}
+		}
 	}
 }

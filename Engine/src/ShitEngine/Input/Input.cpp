@@ -316,12 +316,12 @@ namespace Shit {
 				}
 				break;
 			case SDL_EVENT_MOUSE_BUTTON_DOWN:
-				if (event.button.button < static_cast<int>(MouseButton::Count)) {
+				if (event.button.button > 0 && event.button.button < static_cast<int>(MouseButton::Count)) {
 					m_currentMouseButtons[event.button.button] = true;
 				}
 				break;
 			case SDL_EVENT_MOUSE_BUTTON_UP:
-				if (event.button.button < static_cast<int>(MouseButton::Count)) {
+				if (event.button.button > 0 && event.button.button < static_cast<int>(MouseButton::Count)) {
 					m_currentMouseButtons[event.button.button] = false;
 				}
 				break;

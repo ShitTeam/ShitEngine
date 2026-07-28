@@ -15,8 +15,8 @@ namespace Shit {
 	 * 所有可渲染的组件（SpriteRenderer 等）须继承此类并重写 onRender。
 	 * 由 RenderSystem 每帧按 Z-Index 排序后统一调用。
 	 */
-	class SHIT_API SHIT_CLASS(RendererComponent, Fields) : public Component {
-		SHIT_REFLECT(RendererComponent)
+	class SHIT_API SHIT_REFLECT(BlackList) RendererComponent : public Component {
+		SHIT_REFLECT_BODY(RendererComponent)
 	public:
 		RendererComponent();
 		~RendererComponent() override = default;
@@ -35,7 +35,9 @@ namespace Shit {
 		void setVisible(bool isVisible) { m_isVisible = isVisible; }
 
 	protected:
-		int m_zIndex = 0;       ///< 渲染顺序（值越大越靠上）
-		bool m_isVisible = true; ///< 是否参与渲染
+		SHIT_META(({.displayName = "Z-Index", .tooltip = "渲染层级（值越大越靠上）"}))
+		int m_zIndex = 0;
+		SHIT_META(({.displayName = "Visible"}))
+		bool m_isVisible = true;
 	};
 }

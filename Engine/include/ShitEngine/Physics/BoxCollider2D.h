@@ -17,7 +17,8 @@ namespace Shit {
 	 *   box->setDensity(1.0f);
 	 *   box->setFriction(0.3f);
 	 */
-	class SHIT_API BoxCollider2D : public Component {
+	class SHIT_API SHIT_REFLECT(BlackList) BoxCollider2D : public Component {
+		SHIT_REFLECT_BODY(BoxCollider2D)
 	public:
 		BoxCollider2D();
 		explicit BoxCollider2D(const Vector2& size);
@@ -41,15 +42,23 @@ namespace Shit {
 		float getRestitution() const { return m_restitution; }
 
 	private:
+		SHIT_META(({.displayName = "Size", .tooltip = "碰撞盒像素尺寸（宽/高）"}))
 		Vector2 m_size{ 32.0f, 32.0f };
+		SHIT_META(({.displayName = "Density", .range = {0, 100}, .step = 0.1}))
 		float m_density = 1.0f;
+		SHIT_META(({.displayName = "Friction", .tooltip = "摩擦系数", .range = {0, 1}, .step = 0.05}))
 		float m_friction = 0.3f;
+		SHIT_META(({.displayName = "Restitution", .tooltip = "弹性系数", .range = {0, 1}, .step = 0.05}))
 		float m_restitution = 0.0f;
 
 		// b2ShapeId = {int32_t index1; uint16_t world0; uint16_t generation;}
+		SHIT_META(Disable)
 		int32_t m_shapeIndex = 0;
+		SHIT_META(Disable)
 		uint16_t m_shapeWorld0 = 0;
+		SHIT_META(Disable)
 		uint16_t m_shapeGeneration = 0;
+		SHIT_META(Disable)
 		bool m_shapeValid = false;
 	};
 }

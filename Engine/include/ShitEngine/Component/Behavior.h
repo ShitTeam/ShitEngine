@@ -15,8 +15,9 @@ namespace Shit {
 	 *
 	 * 挂载后由 BehaviorSystem 自动驱动，无需手动调用。
 	 */
-	class SHIT_API Behavior : public Component {
+	class SHIT_API SHIT_REFLECT(BlackList) Behavior : public Component {
 		friend class GameObject;
+		SHIT_REFLECT_BODY(Behavior)
 	public:
 		Behavior() = default;
 		~Behavior() override = default;
@@ -33,6 +34,7 @@ namespace Shit {
 		void setStarted(bool isStarted) { m_isStarted = isStarted; }
 
 	protected:
+		SHIT_META(({.displayName = "Started", .tooltip = "onStart 是否已执行过", .readOnly = true}))
 		bool m_isStarted = false;
 	};
 }

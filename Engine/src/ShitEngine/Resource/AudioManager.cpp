@@ -1,7 +1,6 @@
 #include "ShitEngine/Core/pch.h"
 #include "ShitEngine/Resource/AudioManager.h"
 #include "ShitEngine/Core/Log.h"
-#include "ShitEngine/Core/pch.h"
 
 namespace Shit {
 	MIX_Audio* AudioManager::loadAudio(const std::string& filePath) {

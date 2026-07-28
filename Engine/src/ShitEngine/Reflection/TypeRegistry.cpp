@@ -82,4 +82,46 @@ void TypeRegistry::initBuiltinTypes() {
 	reg("size_t",      sizeof(std::size_t), typeid(std::size_t));
 }
 
+void TypeRegistry::resolveBases() {
+	for (auto& info : m_typeStorage) {
+		if (info.baseType || info.baseTypeName.empty()) continue;
+		auto* resolved = getType(info.baseTypeName);
+		if (resolved) {
+			info.baseType = resolved;
+		}
+	}
+}
+
+bool TypeRegistry::unregisterType(std::string_view name) {
+	auto it = m_nameMap.find(std::string(name));
+	if (it == m_nameMap.end()) return false;
+
+	TypeInfo* info = it->second;
+
+	// 从 typeIndex 映射中移除
+	if (info->typeIndex != std::type_index(typeid(nullptr))) {
+		m_typeIndexMap.erase(info->typeIndex);
+	}
+
+	// 清除所有引用此类型的基类链接
+	for (auto& stored : m_typeStorage) {
+		if (stored.baseType == info) {
+			stored.baseType = nullptr;
+		}
+	}
+
+	// 从 name 映射中移除
+	m_nameMap.erase(it);
+
+	// 从 storage 中移除
+	for (auto si = m_typeStorage.begin(); si != m_typeStorage.end(); ++si) {
+		if (&(*si) == info) {
+			m_typeStorage.erase(si);
+			break;
+		}
+	}
+
+	return true;
+}
+
 } // namespace Shit

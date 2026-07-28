@@ -84,8 +84,8 @@ namespace Shit {
     }
 
     void AudioTrack::setVolume(float gain) {
-        // 仅记录 track 自身系数；实际硬件增益由 AudioPlayer 统一计算下发
-        m_gain = gain;
+		// 仅记录 track 自身系数；实际硬件增益由 AudioPlayer 统一计算下发
+		m_gain = std::clamp(gain, 0.0f, 1.0f);
         if (m_group) {
             AudioPlayer::ApplyTrackGain(this, m_group);
         } else {

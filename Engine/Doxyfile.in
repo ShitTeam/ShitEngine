@@ -138,9 +138,9 @@ SEARCH_INCLUDES        = YES
 INCLUDE_PATH           = "@CMAKE_CURRENT_SOURCE_DIR@/include"
 INCLUDE_FILE_PATTERNS  =
 PREDEFINED             = SHIT_API= \
-                         SHIT_CLASS(Type,Mode)=Type \
-                         SHIT_STRUCT(Type,Mode)=Type \
-                         SHIT_REFLECT(Type)= \
+                         SHIT_REFLECT(Mode)= \
+                         SHIT_REFLECT_BODY(Type)= \
+                         SHIT_ENUM(Type)=Type \
                          SHIT_META(...)= \
                          ST_CORE_TRACE(x)= \
                          ST_CORE_INFO(x)= \

@@ -16,9 +16,9 @@ namespace Shit {
 	 *   onDetach  — 组件即将从场景中移除时（在 onDestroy 前调用）
 	 *   onDestroy — 组件被销毁时
 	 */
-	class SHIT_API SHIT_CLASS(Component, Fields) {
+	class SHIT_API SHIT_REFLECT(BlackList) Component {
 		friend class GameObject; // 只能通过GameObject初始化组件
-		SHIT_REFLECT(Component)
+		SHIT_REFLECT_BODY(Component)
 
 	public:
 		Component();
@@ -43,7 +43,9 @@ namespace Shit {
 		inline void setOwner(GameObject* owner) { m_owner = owner; }
 
 	protected:
+		SHIT_META(({.displayName = "Owner", .readOnly = true}))
 		GameObject* m_owner = nullptr; // 组件的拥有者
+		SHIT_META(({.displayName = "Registered", .readOnly = true}))
 		bool m_isRegistered = false;
 	};
 }

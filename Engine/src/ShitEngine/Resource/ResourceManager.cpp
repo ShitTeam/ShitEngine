@@ -13,7 +13,8 @@ namespace Shit {
 	ResourceManager::ResourceManager() = default;
 
 	ResourceManager::~ResourceManager() {
-		// m_fontManager 已按成员逆序先析构（所有 TTF_Font 已 TTF_CloseFont），此时 Quit 安全。
+		// 先手动释放 FontManager（关闭所有 TTF_Font），再 TTF_Quit()
+		m_fontManager.reset();
 		if (TTF_WasInit()) {
 			TTF_Quit();
 		}
@@ -22,7 +23,7 @@ namespace Shit {
 	void ResourceManager::init() {
 		// 初始化 SDL_ttf：必须在任何 TTF_OpenFont 之前调用，否则报 "Library not initialized"。
 		// UIText 的进程级字体缓存与本管理器的 FontManager 都依赖此初始化。
-		if (!TTF_Init()) {
+		if (TTF_Init() != 0) {
 			ST_CORE_WARN("SDL_ttf 初始化失败：{}。字体功能将不可用。", SDL_GetError());
 		}
 

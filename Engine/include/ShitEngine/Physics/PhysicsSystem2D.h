@@ -46,6 +46,7 @@ namespace Shit {
 
 		Vector2 m_gravity{ 0.0f, 320.0f };
 		std::vector<RigidBody2D*> m_bodies;
+		float m_accumulator = 0.0f; // 物理固定步长累积器
 
 		// b2WorldId = {uint16_t index1; uint16_t generation;}
 		uint16_t m_worldIndex = 0;

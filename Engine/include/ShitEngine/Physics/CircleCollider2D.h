@@ -18,7 +18,8 @@ namespace Shit {
 	 *   auto* collider = ball->addComponent<Shit::CircleCollider2D>();
 	 *   collider->setRadius(24);
 	 */
-	class SHIT_API CircleCollider2D : public Component {
+	class SHIT_API SHIT_REFLECT(BlackList) CircleCollider2D : public Component {
+		SHIT_REFLECT_BODY(CircleCollider2D)
 	public:
 		CircleCollider2D();
 		explicit CircleCollider2D(float radius);
@@ -42,15 +43,23 @@ namespace Shit {
 		float getRestitution() const { return m_restitution; }
 
 	private:
+		SHIT_META(({.displayName = "Radius", .tooltip = "碰撞圆半径（像素）", .range = {1, 1024}, .step = 1}))
 		float m_radius = 16.0f;
+		SHIT_META(({.displayName = "Density", .range = {0, 100}, .step = 0.1}))
 		float m_density = 1.0f;
+		SHIT_META(({.displayName = "Friction", .tooltip = "摩擦系数", .range = {0, 1}, .step = 0.05}))
 		float m_friction = 0.3f;
+		SHIT_META(({.displayName = "Restitution", .tooltip = "弹性系数", .range = {0, 1}, .step = 0.05}))
 		float m_restitution = 0.0f;
 
 		// b2ShapeId = {int32_t index1; uint16_t world0; uint16_t generation;}
+		SHIT_META(Disable)
 		int32_t m_shapeIndex = 0;
+		SHIT_META(Disable)
 		uint16_t m_shapeWorld0 = 0;
+		SHIT_META(Disable)
 		uint16_t m_shapeGeneration = 0;
+		SHIT_META(Disable)
 		bool m_shapeValid = false;
 	};
 }

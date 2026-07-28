@@ -114,16 +114,17 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    std::cout << "Scanned " << result.totalFilesScanned << " files, "
-              << result.reflectedFiles << " with reflection markers";
-    if (result.failedFiles > 0)
-        std::cout << ", " << result.failedFiles << " failed";
+    std::cout << "Scanned " << result.totalFilesScanned << " files: "
+              << result.reflectedFiles << " with reflection markers, "
+              << result.skippedFiles << " skipped (no reflection markers)";
+    if (result.parseFailedFiles > 0)
+        std::cout << ", " << result.parseFailedFiles << " parse errors";
     std::cout << ".\n";
     std::cout << "Found " << result.types.size() << " reflected types.\n\n";
 
     if (result.totalFilesScanned > 0 && result.types.empty()) {
         std::cerr << "[reflect] WARNING: scanned " << result.totalFilesScanned << " files but found no reflected types.\n";
-        if (result.failedFiles == result.totalFilesScanned) {
+        if (result.parseFailedFiles == result.totalFilesScanned) {
             std::cerr << "[reflect] ERROR: all scanned files failed to parse — aborting.\n";
             return 1;
         }
@@ -137,11 +138,16 @@ int main(int argc, char* argv[]) {
     // 列出来
     for (const auto& type : result.types) {
         std::cout << "  " << type.name;
-        if (!type.baseName.empty())
-            std::cout << " : " << type.baseName;
-        std::cout << " (" << type.fields.size() << " fields";
-        if (type.mode == ReflectionMode::WhiteListFields) std::cout << ", whitelist";
-        std::cout << ")\n";
+        if (type.isEnum) {
+            std::cout << " (enum, " << type.enumValues.size() << " values)\n";
+        } else {
+            if (!type.baseName.empty())
+                std::cout << " : " << type.baseName;
+            std::cout << " (" << type.fields.size() << " fields";
+            if (type.mode == ReflectionMode::WhiteList) std::cout << ", whitelist";
+            else if (type.mode == ReflectionMode::BlackList) std::cout << ", blacklist";
+            std::cout << ")\n";
+        }
     }
 
     // 生成

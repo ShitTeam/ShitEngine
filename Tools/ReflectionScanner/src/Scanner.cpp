@@ -17,7 +17,21 @@ CXChildVisitResult Scanner::collectAnnotations(CXCursor cursor, CXCursor,
     return CXChildVisit_Continue;
 }
 
-// ── 主 visitor：发现带 shit-struct/shit-class 注解的类型 ──
+// ── 枚举常量收集 ───────────────────────────────────
+CXChildVisitResult Scanner::collectEnumValues(CXCursor cursor, CXCursor,
+                                                CXClientData data) {
+    if (clang_getCursorKind(cursor) != CXCursor_EnumConstantDecl)
+        return CXChildVisit_Continue;
+
+    auto* values = static_cast<std::vector<ReflectedEnumValue>*>(data);
+    ReflectedEnumValue ev;
+    ev.name  = getCursorSpelling(cursor);
+    ev.value = clang_getEnumConstantDeclValue(cursor);
+    values->push_back(std::move(ev));
+    return CXChildVisit_Continue;
+}
+
+// ── 主 visitor：发现带 shit-struct/shit-class/shit-enum 注解的类型 ──
 CXChildVisitResult Scanner::findReflectedTypes(CXCursor cursor, CXCursor,
                                                 CXClientData data) {
     auto* ctx = static_cast<ScanCtx*>(data);
@@ -38,20 +52,23 @@ CXChildVisitResult Scanner::findReflectedTypes(CXCursor cursor, CXCursor,
             clang_visitChildren(cursor, collectAnnotations, &actx);
 
             for (const auto& ann : actx.annotations) {
-                // 匹配 "shit-struct:Mode" / "shit-class:Mode"
-                const std::string kStruct = "shit-struct:";
-                const std::string kClass  = "shit-class:";
-                bool isStruct = ann.rfind(kStruct, 0) == 0;
-                bool isClass  = ann.rfind(kClass, 0) == 0;
-                if (!isStruct && !isClass) continue;
+                // 匹配 "shit-reflection:Mode" / "shit-struct:Mode" / "shit-class:Mode"
+                const std::string kReflect   = "shit-reflection:";
+                const std::string kStruct    = "shit-struct:";
+                const std::string kClass     = "shit-class:";
+                bool isReflect = ann.rfind(kReflect, 0) == 0;
+                bool isStruct  = ann.rfind(kStruct, 0) == 0;
+                bool isClass   = ann.rfind(kClass, 0) == 0;
+                if (!isReflect && !isStruct && !isClass) continue;
 
-                std::string mode = ann.substr((isStruct ? kStruct : kClass).size());
+                std::string mode = ann.substr(
+                    (isReflect ? kReflect : isStruct ? kStruct : kClass).size());
 
                 ReflectedType type;
                 type.name         = getCursorSpelling(cursor);
-                type.mode         = (mode == "WhiteListFields")
-                                  ? ReflectionMode::WhiteListFields
-                                  : ReflectionMode::Fields;
+                type.mode         = (mode == "WhiteList" || mode == "WhiteListFields")
+                                  ? ReflectionMode::WhiteList
+                                  : ReflectionMode::BlackList;
                 type.sourceFile   = getFileName(cursor);
                 type.namespacePath = getNamespacePath(cursor);
 
@@ -73,7 +90,7 @@ CXChildVisitResult Scanner::findReflectedTypes(CXCursor cursor, CXCursor,
                 clang_visitChildren(cursor, findFriendRegister, &friendCtx);
                 type.hasReflect = friendCtx.found;
 
-                // 字段（WhiteListFields 时按 shit-meta: 前缀过滤）
+                // 字段（WhiteList 时按 SHIT_META(Enable) 过滤）
                 FieldCtx fieldCtx{type.mode, {}};
                 clang_visitChildren(cursor, collectFields, &fieldCtx);
                 type.fields = std::move(fieldCtx.fields);
@@ -83,6 +100,43 @@ CXChildVisitResult Scanner::findReflectedTypes(CXCursor cursor, CXCursor,
             }
         }
         return CXChildVisit_Continue;  // 不递归进入类体
+    }
+
+    // ── 枚举类型 ──────────────────────────────────────
+    if (kind == CXCursor_EnumDecl) {
+        // 跳过前向声明
+        if (clang_isCursorDefinition(cursor)) {
+            CXSourceLocation loc = clang_getCursorLocation(cursor);
+            CXFile file = nullptr;
+            clang_getSpellingLocation(loc, &file, nullptr, nullptr, nullptr);
+            if (file != ctx->mainFile)
+                return CXChildVisit_Continue;
+
+            AnnotateCtx actx;
+            clang_visitChildren(cursor, collectAnnotations, &actx);
+
+            for (const auto& ann : actx.annotations) {
+                const std::string kEnum = "shit-enum:";
+                if (ann.rfind(kEnum, 0) != 0) continue;
+
+                std::string typeName = ann.substr(kEnum.size());
+
+                ReflectedType type;
+                type.name         = typeName;
+                type.sourceFile   = getFileName(cursor);
+                type.namespacePath = getNamespacePath(cursor);
+                type.isEnum       = true;
+
+                // 提取枚举常量
+                std::vector<ReflectedEnumValue> values;
+                clang_visitChildren(cursor, collectEnumValues, &values);
+                type.enumValues = std::move(values);
+
+                ctx->result->types.push_back(std::move(type));
+                break;
+            }
+        }
+        return CXChildVisit_Continue;
     }
 
     // 递归进入命名空间 / TU 顶层
@@ -99,14 +153,28 @@ CXChildVisitResult Scanner::collectFields(CXCursor cursor, CXCursor,
 
     auto* ctx = static_cast<FieldCtx*>(data);
 
-    // WhiteListFields 模式：仅收集带 shit-meta: 前缀的字段
-    if (ctx->mode == ReflectionMode::WhiteListFields) {
-        AnnotateCtx actx;
-        clang_visitChildren(cursor, collectAnnotations, &actx);
+    // 收集字段上的所有 annotate 属性
+    AnnotateCtx actx;
+    clang_visitChildren(cursor, collectAnnotations, &actx);
+
+    // 字段级反射控制
+    //   WhiteList → 仅 SHIT_META(Enable) 标记的字段
+    //   BlackList → 跳过 SHIT_META(Disable) 标记的字段
+    if (ctx->mode == ReflectionMode::WhiteList) {
         bool enabled = false;
-        for (const auto& ann : actx.annotations)
-            if (ann.rfind("shit-meta:", 0) == 0) { enabled = true; break; }
+        for (const auto& ann : actx.annotations) {
+            if (ann.rfind("shit-meta:", 0) != 0) continue;
+            std::string tag = ann.substr(10); // strip "shit-meta:"
+            // SHIT_META(Enable) = 显式启用；结构化 SHIT_META(({…})) 不算启用
+            if (tag == "Enable") { enabled = true; break; }
+        }
         if (!enabled) return CXChildVisit_Continue;
+    } else if (ctx->mode == ReflectionMode::BlackList) {
+        for (const auto& ann : actx.annotations) {
+            if (ann.rfind("shit-meta:", 0) != 0) continue;
+            std::string tag = ann.substr(10);
+            if (tag == "Disable") return CXChildVisit_Continue;
+        }
     }
 
     CXType ft = clang_getCursorType(cursor);
@@ -119,6 +187,27 @@ CXChildVisitResult Scanner::collectFields(CXCursor cursor, CXCursor,
     field.offset   = (bits != -1 && bits % 8 == 0) ? static_cast<size_t>(bits / 8) : 0;
 
     field.enabled  = true;
+
+    // ── 捕获 SHIT_META 原文 ──
+    // 仅结构体语法 SHIT_META(({...})) → shit-meta:({...}) 存入 metaInit
+    // 简单标记（如 SHIT_META(Enable)）只影响 WhiteList 模式，不写入 metaInit
+    const std::string kMetaPrefix = "shit-meta:";
+    for (const auto& ann : actx.annotations) {
+        if (ann.rfind(kMetaPrefix, 0) != 0) continue;
+        std::string raw = ann.substr(kMetaPrefix.size());
+        auto trim = [](std::string s) -> std::string {
+            size_t start = s.find_first_not_of(" \t\r\n");
+            if (start == std::string::npos) return "";
+            size_t end = s.find_last_not_of(" \t\r\n");
+            return s.substr(start, end - start + 1);
+        };
+        raw = trim(raw);
+        // 仅以 ({ 开头的视为结构化元数据
+        if (raw.size() >= 2 && raw.front() == '(' && raw[1] == '{') {
+            field.metaInit = std::move(raw);
+        }
+    }
+
     ctx->fields.push_back(std::move(field));
     return CXChildVisit_Continue;
 }
@@ -224,6 +313,7 @@ bool Scanner::scanFile(const std::string& filePath, ScanResult& result) {
     if (parseErr != CXError_Success || !tu) {
         std::cerr << "[reflect] parse failed: " << filePath
                   << " (err=" << parseErr << ")\n";
+        ++result.parseFailedFiles;
         return false;
     }
 
@@ -234,7 +324,10 @@ bool Scanner::scanFile(const std::string& filePath, ScanResult& result) {
     clang_visitChildren(tuCursor, findReflectedTypes, &ctx);
 
     bool foundAny = result.types.size() > before;
-    if (foundAny) ++result.reflectedFiles;
+    if (foundAny)
+        ++result.reflectedFiles;
+    else
+        ++result.skippedFiles;
     clang_disposeTranslationUnit(tu);
     return foundAny;
 }
@@ -249,7 +342,7 @@ ScanResult Scanner::scanDirectory(const std::string& inputDir) {
             for (auto* e : kExtensions) {
                 if (ext == e) {
                     if (!scanFile(entry.path().string(), result)) {
-                        ++result.failedFiles;
+                        // scanFile 内部已更新 parseFailedFiles / skippedFiles 计数器
                     }
                     break;
                 }

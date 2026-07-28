@@ -8,8 +8,8 @@
 
 /// 基于 libClang C API 的反射标记扫描器
 ///
-/// 通过 AST 中的 __attribute__((annotate("shit-struct:Mode"))) /
-/// annotate("shit-meta") 注解识别反射类型与字段，无需正则预扫文本，
+/// 通过 AST 中的 __attribute__((annotate("shit-reflection:Mode"))) /
+/// annotate("shit-enum") / annotate("shit-meta") 注解识别反射类型、枚举与字段，
 /// 也不依赖行号匹配，支持嵌套命名空间。
 class Scanner {
 public:
@@ -49,6 +49,8 @@ private:
                                                   CXClientData data);
     static CXChildVisitResult collectFields(CXCursor cursor, CXCursor parent,
                                              CXClientData data);
+    static CXChildVisitResult collectEnumValues(CXCursor cursor, CXCursor parent,
+                                                CXClientData data);
     static CXChildVisitResult findBase(CXCursor cursor, CXCursor parent,
                                         CXClientData data);
     /// 检测类体内是否有 friend bool Register_Type() 声明（hasReflect）

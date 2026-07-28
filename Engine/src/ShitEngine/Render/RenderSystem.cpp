@@ -61,10 +61,10 @@ namespace Shit {
 			if (worldSize.x <= 0 || worldSize.y <= 0) continue;
 			float basePpu = (std::min)(static_cast<float>(viewport.w) / worldSize.x, static_cast<float>(viewport.h) / worldSize.y);
 			SDL_Rect clipRect;
-			clipRect.x = static_cast<int>((static_cast<float>(viewport.w) - worldSize.x * basePpu) / 2.0f);
-			clipRect.y = static_cast<int>((static_cast<float>(viewport.h) - worldSize.y * basePpu) / 2.0f);
 			clipRect.w = static_cast<int>(worldSize.x * basePpu);
 			clipRect.h = static_cast<int>(worldSize.y * basePpu);
+			clipRect.x = static_cast<int>((static_cast<float>(viewport.w) - static_cast<float>(clipRect.w)) / 2.0f);
+			clipRect.y = static_cast<int>((static_cast<float>(viewport.h) - static_cast<float>(clipRect.h)) / 2.0f);
 
 			SDL_SetRenderClipRect(m_renderer, &clipRect);
 

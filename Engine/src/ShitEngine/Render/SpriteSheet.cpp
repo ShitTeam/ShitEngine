@@ -5,12 +5,12 @@ namespace Shit {
 
 SpriteSheet::SpriteSheet(int rows, int cols, float frameWidth, float frameHeight,
                          float margin, float spacing)
-    : m_rows(rows)
-    , m_cols(cols)
-    , m_frameWidth(frameWidth)
-    , m_frameHeight(frameHeight)
-    , m_margin(margin)
-    , m_spacing(spacing)
+    : m_rows(std::max(1, rows))
+    , m_cols(std::max(1, cols))
+    , m_frameWidth(std::max(0.0f, frameWidth))
+    , m_frameHeight(std::max(0.0f, frameHeight))
+    , m_margin(std::max(0.0f, margin))
+    , m_spacing(std::max(0.0f, spacing))
 {
 }
 

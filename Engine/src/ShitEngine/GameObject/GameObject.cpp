@@ -34,6 +34,14 @@ namespace Shit {
 		// 自身做父节点无意义
 		if (parent == this) return;
 
+		// 检查间接循环引用（如 A -> B -> A）
+		for (GameObject* ancestor = parent; ancestor; ancestor = ancestor->m_parent) {
+			if (ancestor == this) {
+				ST_CORE_WARN("GameObject {} 设置父物体将造成循环引用，已拒绝", m_name);
+				return;
+			}
+		}
+
 		// 从旧父物体的子列表移除自己
 		removeFromParentChildren();
 
@@ -81,7 +89,10 @@ namespace Shit {
 		removeFromParentChildren();
 
 		// 子物体由各自在 Scene 的销毁流程回收，这里不主动 clean 子物体，
-		// 仅清空自身的镜像列表（这些指针随后也会被 Scene clean 掉）
+		// 但需清空子物体的父指针，避免悬空引用
+		for (auto* child : m_children) {
+			if (child) child->m_parent = nullptr;
+		}
 		m_children.clear();
 
 		for (auto& [type, comp] : m_components) {

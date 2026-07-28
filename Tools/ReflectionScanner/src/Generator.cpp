@@ -60,30 +60,46 @@ std::string Generator::generateTypeFile(const ReflectedType& type, const std::st
 
     out << "inline bool Register_" << type.name << "() {\n";
 
-    // 延迟查基类，规避 SIOF
-    if (!type.baseName.empty()) {
-        out << "    const auto* base = Shit::TypeRegistry::Get(\"" << type.baseName << "\");\n";
-    }
-
     out << "    Shit::ReflectType(\"" << type.name << "\", sizeof(" << type.name << "))\n";
 
-    if (!type.baseName.empty()) {
-        out << "        .Base(base)\n";
-    }
+    if (type.isEnum) {
+        // 枚举：登记每个枚举常量
+        for (const auto& ev : type.enumValues) {
+            out << "        .Value(\"" << ev.name << "\", "
+                << ev.value << ")\n";
+        }
+    } else {
+        if (!type.baseName.empty()) {
+            // 按名称指定基类，Register<T>() 时延迟解析，消除 SIOF
+            out << "        .Base(\"" << type.baseName << "\")\n";
+        }
 
-    for (const auto& field : type.fields) {
-        out << "        .Field(\"" << field.name << "\",\n";
-        if (type.hasReflect) {
-            // P1-3: 成员指针重载（自动计算 offset + sizeof，ABI 安全）
-            out << "            &" << qualifiedType << "::" << field.name
-                << ", \"" << field.typeName << "\")\n";
-        } else {
-            // 回退：libClang 数值 offset + size（无 friend 授权时无法用成员指针）
-            out << "            " << field.offset << ", "
-                << field.size << ", \"" << field.typeName << "\")\n";
+        for (const auto& field : type.fields) {
+            out << "        .Field(\"" << field.name << "\",\n";
+            if (type.hasReflect) {
+                // P1-3: 成员指针重载（自动计算 offset + sizeof，ABI 安全）
+                out << "            &" << qualifiedType << "::" << field.name
+                    << ", \"" << field.typeName << "\")\n";
+            } else {
+                // 回退：libClang 数值 offset + size（无 friend 授权时无法用成员指针）
+                out << "            " << field.offset << ", "
+                    << field.size << ", \"" << field.typeName << "\")\n";
+            }
+
+            // SHIT_META 结构化元数据
+            if (!field.metaInit.empty()) {
+                std::string init = field.metaInit;
+                if (init.size() >= 2 && init.front() == '(' && init.back() == ')') {
+                    init = init.substr(1, init.size() - 2);
+                }
+                out << "        .Meta(FieldMeta" << init << ")\n";
+            }
         }
     }
 
+    if (!type.isEnum) {
+        out << "        .Factory<" << type.name << ">()\n";
+    }
     out << "        .Register<" << type.name << ">();\n";
     out << "    return true;\n";
     out << "}\n\n";
@@ -116,6 +132,8 @@ std::string Generator::generateRegisterAll(const ScanResult& result, const std::
         // 用命名空间前缀调用（函数在 namespace 内部定义）
         out << "    " << namespacePrefix(type.namespacePath) << "Register_" << type.name << "();\n";
     }
+    // 注册全部完成后统一解析基类引用（消除 SIOF：所有 Register_X() 都已执行）
+    out << "    Shit::TypeRegistry::ResolveBases();\n";
     out << "}\n";
 
     out.close();

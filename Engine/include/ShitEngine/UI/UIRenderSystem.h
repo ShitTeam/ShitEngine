@@ -26,12 +26,12 @@ namespace Shit {
 		void update() override;
 		void destroy() override;
 
-	void registerUIRenderer(UIRendererComponent* renderer);   ///< 注册 UI 渲染控件
-	void unregisterUIRenderer(UIRendererComponent* renderer); ///< 注销 UI 渲染控件
+		void registerUIRenderer(UIRendererComponent* renderer);   ///< 注册 UI 渲染控件
+		void unregisterUIRenderer(UIRendererComponent* renderer); ///< 注销 UI 渲染控件
 
-	void markSortDirty() { m_isRenderersNeedSort = true; }     ///< 标记需要重排（zIndex 变更时调用）
+		void markSortDirty() { m_isRenderersNeedSort = true; }     ///< 标记需要重排（zIndex 变更时调用）
 
-private:
+	private:
 	std::vector<UIRendererComponent*> m_uiRenderers;
 	bool m_isRenderersNeedSort = false;
 	};

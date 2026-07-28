@@ -41,8 +41,21 @@ namespace Shit {
 		if (!m_initialized) return;
 
 		b2WorldId worldId = Internal::MakeWorldId(m_worldIndex, m_worldGeneration);
-		float dt = std::min(Shit::Time::GetDeltaTime(), 1.0f / 30.0f);
-		b2World_Step(worldId, dt, 4);
+		// 使用固定时间步长保证物理稳定性，避免低帧率导致穿透
+		constexpr float FIXED_TIME_STEP = 1.0f / 60.0f;
+		constexpr int MAX_SUB_STEPS = 3;
+		float dt = Shit::Time::GetDeltaTime();
+		m_accumulator += dt;
+		int steps = 0;
+		while (m_accumulator >= FIXED_TIME_STEP && steps < MAX_SUB_STEPS) {
+			b2World_Step(worldId, FIXED_TIME_STEP, 4);
+			m_accumulator -= FIXED_TIME_STEP;
+			++steps;
+		}
+		// 防止 accumulator 无限增长（如断点调试时）
+		if (m_accumulator > FIXED_TIME_STEP * MAX_SUB_STEPS) {
+			m_accumulator = FIXED_TIME_STEP * MAX_SUB_STEPS;
+		}
 
 		// 将所有 Dynamic 和 Kinematic 刚体的位置/旋转同步到 TransformComponent
 		// 注：Static 刚体不受物理引擎驱动，无需同步

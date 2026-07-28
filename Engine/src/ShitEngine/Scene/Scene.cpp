@@ -146,15 +146,18 @@ namespace Shit {
 			}
 		}
 		else {
-			auto it = std::find_if(m_gameObjects.begin(), m_gameObjects.end(), [&name](const std::unique_ptr<GameObject>& go) {
-				return go->getName() == name;
-				});
-
-			if (it != m_gameObjects.end()) {
-				(*it)->clean();
-				m_gameObjects.erase(it);
+			bool found = false;
+			for (auto it = m_gameObjects.begin(); it != m_gameObjects.end(); ) {
+				if ((*it)->getName() == name) {
+					(*it)->clean();
+					it = m_gameObjects.erase(it);
+					found = true;
+				}
+				else {
+					++it;
+				}
 			}
-			else {
+			if (!found) {
 				ST_CORE_WARN("没有在场景 {} 中找到名称为 {} 的游戏对象！", m_name, name);
 			}
 		}

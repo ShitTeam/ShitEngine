@@ -1,6 +1,6 @@
-#include "ShitEngine/Audio/AudioPlayer.h"
-
 #include "ShitEngine/Core/pch.h"
+
+#include "ShitEngine/Audio/AudioPlayer.h"
 #include "ShitEngine/Core/Log.h"
 #include "ShitEngine/Resource/ResourceManager.h"
 
@@ -27,7 +27,7 @@ void AudioTrackGroup::unregisterTrack(AudioTrack* track) {
         std::remove(m_tracks.begin(), m_tracks.end(), track),
         m_tracks.end()
     );
-    if (track) track->m_group = nullptr;
+    track->m_group = nullptr;
 }
 
 void AudioTrackGroup::pauseAll() {
@@ -47,7 +47,7 @@ void AudioTrackGroup::stopAll() {
 }
 
 void AudioTrackGroup::setVolume(float gain) {
-    m_gain = gain;
+		m_gain = std::clamp(gain, 0.0f, 1.0f);
     for (auto* track : m_tracks) {
         AudioPlayer::ApplyTrackGain(track, this);
     }
@@ -157,16 +157,22 @@ AudioTrack* AudioPlayer::play(const std::string& filePath, AudioTrackGroup* grou
     // 启动播放：当要求循环（loopCount != 0）时通过 properties 写入
     // MIX_PROP_PLAY_LOOPS_NUMBER，使循环随 PlayTrack 生效（而非仅在播放中改）。
     // loopCount: 0=不循环(默认), -1=无限, N=循环 N 次。
-    if (loopCount != 0) {
-        SDL_PropertiesID props = SDL_CreateProperties();
-        if (props) {
-            SDL_SetNumberProperty(props, MIX_PROP_PLAY_LOOPS_NUMBER, static_cast<Sint64>(loopCount));
-        }
-        MIX_PlayTrack(handle, props ? props : 0);
-        if (props) SDL_DestroyProperties(props);
-    } else {
-        MIX_PlayTrack(handle, 0);
-    }
+    bool playOk = false;
+		if (loopCount != 0) {
+			SDL_PropertiesID props = SDL_CreateProperties();
+			if (props) {
+				SDL_SetNumberProperty(props, MIX_PROP_PLAY_LOOPS_NUMBER, static_cast<Sint64>(loopCount));
+			}
+			playOk = MIX_PlayTrack(handle, props ? props : 0);
+			if (props) SDL_DestroyProperties(props);
+		} else {
+			playOk = MIX_PlayTrack(handle, 0);
+		}
+		if (!playOk) {
+			ST_CORE_ERROR("AudioPlayer 播放音频失败: {}", SDL_GetError());
+			MIX_DestroyTrack(handle);
+			return nullptr;
+		}
 
     auto track = std::unique_ptr<AudioTrack>(new AudioTrack(handle));
     auto* trackPtr = track.get();
@@ -182,7 +188,7 @@ AudioTrack* AudioPlayer::play(const std::string& filePath, AudioTrackGroup* grou
 }
 
 void AudioPlayer::setMasterVolume(float gain) {
-    m_masterGain = gain;
+		m_masterGain = std::clamp(gain, 0.0f, 1.0f);
     // 每条 track 重新计算 master × group × track
     for (auto& track : m_tracks) {
         applyTrackGain(track.get(), track->m_group);

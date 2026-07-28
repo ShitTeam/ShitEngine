@@ -70,18 +70,43 @@ namespace Shit {
 	}
 
 	void CircleCollider2D::setRadius(float radius) {
-		m_radius = radius;
+		m_radius = std::max(1.0f, radius);
+		if (m_shapeValid) {
+			b2ShapeId shapeId = Internal::MakeShapeId(m_shapeIndex, m_shapeWorld0, m_shapeGeneration);
+			if (b2Shape_IsValid(shapeId)) {
+				b2Circle circle = { { 0.0f, 0.0f }, m_radius };
+				b2Shape_SetCircle(shapeId, &circle);
+			}
+		}
 	}
 
 	void CircleCollider2D::setDensity(float density) {
 		m_density = density;
+		if (m_shapeValid) {
+			b2ShapeId shapeId = Internal::MakeShapeId(m_shapeIndex, m_shapeWorld0, m_shapeGeneration);
+			if (b2Shape_IsValid(shapeId)) {
+				b2Shape_SetDensity(shapeId, m_density, true);
+			}
+		}
 	}
 
 	void CircleCollider2D::setFriction(float friction) {
 		m_friction = friction;
+		if (m_shapeValid) {
+			b2ShapeId shapeId = Internal::MakeShapeId(m_shapeIndex, m_shapeWorld0, m_shapeGeneration);
+			if (b2Shape_IsValid(shapeId)) {
+				b2Shape_SetFriction(shapeId, m_friction);
+			}
+		}
 	}
 
 	void CircleCollider2D::setRestitution(float restitution) {
 		m_restitution = restitution;
+		if (m_shapeValid) {
+			b2ShapeId shapeId = Internal::MakeShapeId(m_shapeIndex, m_shapeWorld0, m_shapeGeneration);
+			if (b2Shape_IsValid(shapeId)) {
+				b2Shape_SetRestitution(shapeId, m_restitution);
+			}
+		}
 	}
 }

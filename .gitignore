@@ -36,6 +36,7 @@ Examples/lib/
 build_prefab/
 .claude/
 .codebuild/
+CLAUDE.md
 
 # fuck-u-code
 fuck-u-code.bat

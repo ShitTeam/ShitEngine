@@ -9,6 +9,7 @@ inline bool Register_TestEnemy() {
             &TestEnemy::m_health, "float")
         .Field("m_damage",
             &TestEnemy::m_damage, "int")
+        .Factory<TestEnemy>()
         .Register<TestEnemy>();
     return true;
 }

@@ -43,7 +43,7 @@ namespace Shit {
 		// 初始化反射系统内置类型
 		TypeRegistry::InitBuiltinTypes();
 
-		// 注册所有 SHIT_CLASS 标记的引擎类型（由 ReflectionScanner 生成）
+	// 注册所有 SHIT_REFLECT 标记的引擎类型（由 ReflectionScanner 生成）
 		RegisterAllReflectedTypes();
 
 		// 初始SDL3

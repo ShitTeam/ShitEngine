@@ -90,6 +90,7 @@ namespace Shit {
 			// 若已挂载场景则立即执行 onAttach（注册到 System）
 			if (m_scene) {
 				new_component->onAttach();
+				new_component->m_isRegistered = true;
 			}
 
 			m_components[type_index] = std::unique_ptr<Component>(new_component.release());

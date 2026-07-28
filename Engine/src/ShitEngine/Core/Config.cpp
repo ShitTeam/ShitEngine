@@ -35,10 +35,12 @@ namespace Shit {
 				m_windowConfig.title = j["window"]["title"].get<std::string>();
 			}
 			if (j["window"].contains("width")) {
-				m_windowConfig.width = j["window"]["width"].get<unsigned int>();
+				unsigned int w = j["window"]["width"].get<unsigned int>();
+				m_windowConfig.width = (w > 0) ? w : 800;
 			}
 			if (j["window"].contains("height")) {
-				m_windowConfig.height = j["window"]["height"].get<unsigned int>();
+				unsigned int h = j["window"]["height"].get<unsigned int>();
+				m_windowConfig.height = (h > 0) ? h : 600;
 			}
 			if (j["window"].contains("targetFPS")) {
 				m_windowConfig.targetFPS = j["window"]["targetFPS"].get<unsigned int>();
