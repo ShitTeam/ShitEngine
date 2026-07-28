@@ -12,7 +12,8 @@ namespace Shit {
 	 * 位置 / 尺寸由同 GameObject 上的 UITransform 决定；Color 用于按钮状态着色。
 	 * 不走游戏世界的相机变换，直接用屏幕坐标。
 	 */
-	class SHIT_API UIImage : public UIRendererComponent {
+	class SHIT_API SHIT_REFLECT(BlackList) UIImage : public UIRendererComponent {
+		SHIT_REFLECT_BODY(UIImage)
 	public:
 		UIImage() = default;
 		explicit UIImage(const std::string& texturePath);
@@ -35,7 +36,9 @@ namespace Shit {
 		void setColor(const Color& color) { m_color = color; }
 
 	private:
+		SHIT_META(({.displayName = "Sprite", .readOnly = true}))
 		Sprite m_sprite;          ///< 描述"画什么"的数据
+		SHIT_META(({.displayName = "Color", .tooltip = "颜色叠加（用于按钮状态切换着色）"}))
 		Color  m_color;           ///< 颜色叠加（用于按钮状态切换着色）
 	};
 }

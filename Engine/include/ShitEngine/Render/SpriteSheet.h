@@ -4,6 +4,7 @@
 #include <SDL3/SDL_rect.h>
 #include <vector>
 #include <cstddef>
+#include <algorithm>
 
 namespace Shit {
 
@@ -54,12 +55,12 @@ public:
     float getSpacing() const { return m_spacing; }
     int getFrameCount() const { return m_rows * m_cols; }
 
-    void setRows(int rows) { m_rows = rows; }
-    void setCols(int cols) { m_cols = cols; }
-    void setFrameWidth(float width) { m_frameWidth = width; }
-    void setFrameHeight(float height) { m_frameHeight = height; }
-    void setMargin(float margin) { m_margin = margin; }
-    void setSpacing(float spacing) { m_spacing = spacing; }
+    void setRows(int rows) { m_rows = std::max(1, rows); }
+    void setCols(int cols) { m_cols = std::max(1, cols); }
+    void setFrameWidth(float width) { m_frameWidth = std::max(0.0f, width); }
+    void setFrameHeight(float height) { m_frameHeight = std::max(0.0f, height); }
+    void setMargin(float margin) { m_margin = std::max(0.0f, margin); }
+    void setSpacing(float spacing) { m_spacing = std::max(0.0f, spacing); }
 
 private:
     int m_rows = 0;

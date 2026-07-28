@@ -22,7 +22,8 @@ namespace Shit {
 	 * 注意坐标系：SDL Y 轴向下，(0,0) 为父级左上角，(1,1) 为右下角。
 	 * 父级矩形查找顺序：沿 GameObject 父链查最近的 UITransform；若无则用 Canvas 屏幕矩形。
 	 */
-	class SHIT_API UITransform : public Component {
+	class SHIT_API SHIT_REFLECT(BlackList) UITransform : public Component {
+		SHIT_REFLECT_BODY(UITransform)
 	public:
 		UITransform() = default;
 		~UITransform() override = default;
@@ -59,12 +60,19 @@ namespace Shit {
 		SDL_FRect resolveParentRect() const;
 
 	private:
+		SHIT_META(({.displayName = "Anchor Min", .tooltip = "锚点左上（归一化 0-1，相对父级）", .range = {0, 1}, .step = 0.01}))
 		Vector2 m_anchorMin{ 0.5f, 0.5f };  ///< 锚点左上（归一化 0-1，相对父级）；SDL Y 向下，(0,0)=父级左上
+		SHIT_META(({.displayName = "Anchor Max", .tooltip = "锚点右下（归一化 0-1，相对父级）", .range = {0, 1}, .step = 0.01}))
 		Vector2 m_anchorMax{ 0.5f, 0.5f };  ///< 锚点右下
+		SHIT_META(({.displayName = "Pivot", .tooltip = "轴心（归一化 0-1，相对自身）", .range = {0, 1}, .step = 0.01}))
 		Vector2 m_pivot{ 0.5f, 0.5f };      ///< 轴心（归一化 0-1，相对自身）
+		SHIT_META(({.displayName = "Anchored Position", .tooltip = "相对锚点的偏移（像素）"}))
 		Vector2 m_anchoredPosition{ 0.0f, 0.0f }; ///< 相对锚点的偏移（像素）
+		SHIT_META(({.displayName = "Width", .tooltip = "宽度（仅 anchorMin==anchorMax 轴生效）", .range = {0, 99999}}))
 		float   m_width  = 100.0f;           ///< 宽度（仅 anchorMin==anchorMax 轴生效）
+		SHIT_META(({.displayName = "Height", .tooltip = "高度", .range = {0, 99999}}))
 		float   m_height = 100.0f;           ///< 高度
+		SHIT_META(({.displayName = "Z-Index", .tooltip = "渲染层级（值越大越靠上）"}))
 		int     m_zIndex = 0;                ///< 渲染层级（值越大越靠上）
 	};
 }

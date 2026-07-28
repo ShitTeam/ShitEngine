@@ -13,6 +13,15 @@
 #include "BoxCollider2D.gen.h"
 #include "CircleCollider2D.gen.h"
 #include "RigidBody2D.gen.h"
+#include "UIButton.gen.h"
+#include "UICanvas.gen.h"
+#include "UIImage.gen.h"
+#include "UIRendererComponent.gen.h"
+#include "UIText.gen.h"
+#include "UITextArea.gen.h"
+#include "UITextBox.gen.h"
+#include "UITextInput.gen.h"
+#include "UITransform.gen.h"
 
 inline void RegisterAllReflectedTypes() {
     Shit::Register_AnimationComponent();
@@ -25,5 +34,14 @@ inline void RegisterAllReflectedTypes() {
     Shit::Register_BoxCollider2D();
     Shit::Register_CircleCollider2D();
     Shit::Register_RigidBody2D();
+    Shit::Register_UIButton();
+    Shit::Register_UICanvas();
+    Shit::Register_UIImage();
+    Shit::Register_UIRendererComponent();
+    Shit::Register_UIText();
+    Shit::Register_UITextArea();
+    Shit::Register_UITextBox();
+    Shit::Register_UITextInput();
+    Shit::Register_UITransform();
     Shit::TypeRegistry::ResolveBases();
 }

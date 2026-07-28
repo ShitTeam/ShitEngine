@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <ShitEngine/Physics/RigidBody2D.h>
 #include <ShitEngine/Reflection/TypeRegistry.h>
 
@@ -21,6 +22,18 @@ inline bool Register_RigidBody2D() {
         .Meta(FieldMeta{.displayName = "Fixed Rotation", .tooltip = "锁定旋转"})
         .Factory<RigidBody2D>()
         .Register<RigidBody2D>();
+
+    // Static assertions: regenerate if struct layout changes
+    static_assert(sizeof(RigidBody2D) == 48,
+        "RigidBody2D: size mismatch - regenerate reflection data");
+    static_assert(offsetof(RigidBody2D, m_type) == 32,
+        "RigidBody2D::m_type: offset mismatch - regenerate reflection data");
+    static_assert(offsetof(RigidBody2D, m_gravityScale) == 36,
+        "RigidBody2D::m_gravityScale: offset mismatch - regenerate reflection data");
+    static_assert(offsetof(RigidBody2D, m_linearDamping) == 40,
+        "RigidBody2D::m_linearDamping: offset mismatch - regenerate reflection data");
+    static_assert(offsetof(RigidBody2D, m_fixedRotation) == 44,
+        "RigidBody2D::m_fixedRotation: offset mismatch - regenerate reflection data");
     return true;
 }
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <ReflectionTestTypes.h>
 #include <ShitEngine/Reflection/TypeRegistry.h>
 
@@ -15,6 +16,16 @@ inline bool Register_TestPlayer() {
             &TestPlayer::m_name, "std::string")
         .Factory<TestPlayer>()
         .Register<TestPlayer>();
+
+    // Static assertions: regenerate if struct layout changes
+    static_assert(sizeof(TestPlayer) == 40,
+        "TestPlayer: size mismatch - regenerate reflection data");
+    static_assert(offsetof(TestPlayer, m_hp) == 0,
+        "TestPlayer::m_hp: offset mismatch - regenerate reflection data");
+    static_assert(offsetof(TestPlayer, m_speed) == 4,
+        "TestPlayer::m_speed: offset mismatch - regenerate reflection data");
+    static_assert(offsetof(TestPlayer, m_name) == 8,
+        "TestPlayer::m_name: offset mismatch - regenerate reflection data");
     return true;
 }
 

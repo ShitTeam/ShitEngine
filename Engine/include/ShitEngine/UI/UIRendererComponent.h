@@ -15,7 +15,8 @@ namespace Shit {
 	 * onAttach / onDetach 自动向 UIRenderSystem 注册 / 注销。
 	 * 由 UIRenderSystem 每帧按 zIndex 排序后统一调用 onRender，屏幕矩形由 UITransform 计算。
 	 */
-	class SHIT_API UIRendererComponent : public Component {
+	class SHIT_API SHIT_REFLECT(BlackList) UIRendererComponent : public Component {
+		SHIT_REFLECT_BODY(UIRendererComponent)
 	public:
 		UIRendererComponent();
 		~UIRendererComponent() override = default;
@@ -46,7 +47,9 @@ namespace Shit {
 			return SDL_Color{ color.red, color.green, color.blue, color.alpha };
 		}
 
+		SHIT_META(({.displayName = "Z-Index", .tooltip = "渲染层级（值越大越靠上）"}))
 		int  m_zIndex = 0;       ///< 渲染层级（值越大越靠上）
+		SHIT_META(({.displayName = "Visible", .tooltip = "是否参与渲染与命中"}))
 		bool m_isVisible = true; ///< 是否参与渲染与命中
 	};
 }

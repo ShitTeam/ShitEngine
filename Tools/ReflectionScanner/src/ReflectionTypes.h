@@ -19,6 +19,7 @@ struct ReflectedField {
     size_t      offset  = 0;
     size_t      size    = 0;
     bool        enabled = true;
+    bool        offsetValid = false;  ///< clang 成功计算出 field offset（非 -1）
     std::string metaInit;  ///< SHIT_META 原文（含 {…}，直接嵌入 .gen.h 的 FieldMeta 初始化器）
 };
 
@@ -37,6 +38,7 @@ struct ReflectedType {
     std::vector<ReflectedField> fields;
     std::vector<ReflectedEnumValue> enumValues;  ///< 枚举常量列表（仅枚举类型使用）
     std::string     sourceFile;
+    size_t          size = 0;                 ///< 类型的 sizeof（字节数，用于 static_assert 编译期校验）
     bool            hasReflect = false;       ///< 源文件是否包含 SHIT_REFLECT_BODY(Type) friend 声明
     bool            isEnum = false;           ///< 是否为枚举类型（由 SHIT_ENUM 标记）
 };

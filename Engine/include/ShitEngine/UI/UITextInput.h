@@ -22,7 +22,8 @@ namespace Shit {
 	 * 单行 vs 多行的差异由子类覆写 onRender / onKeyDown / 插入换行策略实现。
 	 * 不直接绘制背景：背景由同 GameObject 上的 UIImage 提供（与按钮一致）。
 	 */
-	class SHIT_API UITextInput : public UIRendererComponent {
+	class SHIT_API SHIT_REFLECT(BlackList) UITextInput : public UIRendererComponent {
+		SHIT_REFLECT_BODY(UITextInput)
 	public:
 		UITextInput() = default;
 		~UITextInput() override;
@@ -90,26 +91,43 @@ namespace Shit {
 		/// @brief 获取或加载字体（进程级缓存，跨 UITextInput/UITextBox/UITextArea 共享）
 		TTF_Font* acquireFont();
 
+		SHIT_META(Disable)
 		bool m_isFocused = false;
+		SHIT_META(Disable)
 		bool m_isMultiline = false;
+		SHIT_META(({.displayName = "Text", .tooltip = "文本内容"}))
 		std::string m_text;
+		SHIT_META(({.displayName = "Placeholder", .tooltip = "占位符文字"}))
 		std::string m_placeholder;
+		SHIT_META(({.displayName = "Font Path", .tooltip = "字体文件路径"}))
 		std::string m_fontPath;
+		SHIT_META(({.displayName = "Font Size", .tooltip = "字号", .range = {1, 300}}))
 		float m_fontSize = 24.0f;
+		SHIT_META(Disable)
 		float m_fontHeight = 0.0f;
+		SHIT_META(({.displayName = "Text Color", .tooltip = "文字颜色"}))
 		Color m_textColor      { 30, 30, 30, 255 };
+		SHIT_META(({.displayName = "Placeholder Color", .tooltip = "占位符颜色"}))
 		Color m_placeholderColor { 140, 140, 140, 255 };
+		SHIT_META(({.displayName = "Cursor Color", .tooltip = "光标颜色"}))
 		Color m_cursorColor { 80, 140, 220, 255 };
+		SHIT_META(({.displayName = "Selection Color", .tooltip = "选区颜色"}))
 		Color m_selectionColor { 80, 140, 220, 120 };
+		SHIT_META(Disable)
 		bool m_isDirty = true;
 
 		// 光标 / 选区（单位：UTF-8 字节偏移）
+		SHIT_META(Disable)
 		size_t m_cursor = 0;
+		SHIT_META(Disable)
 		size_t m_selectionAnchor = 0;
 
 		// IME 组合（preedit）
+		SHIT_META(Disable)
 		std::string m_preedit;
+		SHIT_META(Disable)
 		int m_preeditStart = 0;
+		SHIT_META(Disable)
 		int m_preeditLength = 0;
 
 		// SDL 文本事件编辑辅助

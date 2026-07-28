@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <ShitEngine/Component/Component.h>
 #include <ShitEngine/Reflection/TypeRegistry.h>
 
@@ -14,6 +15,14 @@ inline bool Register_Component() {
         .Meta(FieldMeta{.displayName = "Registered", .readOnly = true})
         .Factory<Component>()
         .Register<Component>();
+
+    // Static assertions: regenerate if struct layout changes
+    static_assert(sizeof(Component) == 24,
+        "Component: size mismatch - regenerate reflection data");
+    static_assert(offsetof(Component, m_owner) == 8,
+        "Component::m_owner: offset mismatch - regenerate reflection data");
+    static_assert(offsetof(Component, m_isRegistered) == 16,
+        "Component::m_isRegistered: offset mismatch - regenerate reflection data");
     return true;
 }
 

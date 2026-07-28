@@ -12,7 +12,8 @@ namespace Shit {
 	 *
 	 * 用法与 UITextBox 一致，构造即可用。
 	 */
-	class SHIT_API UITextArea : public UITextInput {
+	class SHIT_API SHIT_REFLECT(BlackList) UITextArea : public UITextInput {
+		SHIT_REFLECT_BODY(UITextArea)
 	public:
 		UITextArea();
 		~UITextArea() override = default;
@@ -23,6 +24,7 @@ namespace Shit {
 		void insertNewline() override;
 
 	private:
+		SHIT_META(Disable)
 		float m_scrollY = 0.0f; ///< 垂直滚动偏移（像素），光标移出可见区时自动调整
 	};
 }

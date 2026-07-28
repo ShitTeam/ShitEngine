@@ -13,7 +13,8 @@ namespace Shit {
 	 * onDestroy 释放缓存的纹理。字体按 path+size 加载并缓存于进程级映射。
 	 * 对齐方式（左 / 中 / 右）相对 UITransform 的屏幕矩形。
 	 */
-	class SHIT_API UIText : public UIRendererComponent {
+	class SHIT_API SHIT_REFLECT(BlackList) UIText : public UIRendererComponent {
+		SHIT_REFLECT_BODY(UIText)
 	public:
 		enum class TextAnchor { Left, Center, Right };
 
@@ -44,12 +45,19 @@ namespace Shit {
 		void rebuildTexture();
 		TTF_Font* getLoadedFont();
 
+		SHIT_META(({.displayName = "Text", .tooltip = "文字内容"}))
 		std::string  m_text;
+		SHIT_META(({.displayName = "Font Path", .tooltip = "字体文件路径"}))
 		std::string  m_fontPath;
+		SHIT_META(({.displayName = "Font Size", .tooltip = "字号", .range = {1, 300}}))
 		float        m_fontSize = 24.0f;
+		SHIT_META(({.displayName = "Color", .tooltip = "文字颜色"}))
 		Color        m_color;
+		SHIT_META(({.displayName = "Anchor", .tooltip = "对齐方式（左/中/右）"}))
 		TextAnchor   m_anchor = TextAnchor::Center;
+		SHIT_META(Disable)
 		SDL_Texture* m_cachedTexture = nullptr;
+		SHIT_META(Disable)
 		bool         m_isDirty = true;
 	};
 }

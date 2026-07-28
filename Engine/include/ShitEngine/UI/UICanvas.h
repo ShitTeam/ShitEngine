@@ -13,7 +13,8 @@ namespace Shit {
 	 * getScreenRect 默认返回渲染器逻辑分辨率矩形（ScreenSpaceOverlay 模式）。
 	 * 第一版不实现 Canvas Scaler，缩放依赖 SDL 的 logical presentation letterbox。
 	 */
-	class SHIT_API UICanvas : public Component {
+	class SHIT_API SHIT_REFLECT(BlackList) UICanvas : public Component {
+		SHIT_REFLECT_BODY(UICanvas)
 	public:
 		UICanvas() = default;
 		~UICanvas() override = default;
@@ -26,6 +27,7 @@ namespace Shit {
 		void setSortOrder(int sortOrder) { m_sortOrder = sortOrder; }
 
 	private:
+		SHIT_META(({.displayName = "Sort Order", .tooltip = "Canvas 渲染排序"}))
 		int m_sortOrder = 0; ///< Canvas 之间的排序（第一版仅记录，多 Canvas 排序后续扩展）
 	};
 }

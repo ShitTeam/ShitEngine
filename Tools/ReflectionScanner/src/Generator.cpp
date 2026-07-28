@@ -45,10 +45,8 @@ std::string Generator::generateTypeFile(const ReflectedType& type, const std::st
     std::string qualifiedType = namespacePrefix(type.namespacePath) + type.name;
 
     out << "#pragma once\n\n";
-    // offsetof 回退需要 <cstddef>
-    if (!type.hasReflect) {
-        out << "#include <cstddef>\n";
-    }
+    // <cstddef> 提供 offsetof 宏（用于 static_assert 编译期校验）
+    out << "#include <cstddef>\n";
     // 用尖括号 include 源文件路径（已由 main.cpp 修正为相对于 includeRoot 的路径）。
     // 约束：编译此 .gen.h 时，includeRoot 必须在 -I 路径中（Engine/include 或 Examples/src），
     // 否则 #include <相对路径> 找不到源文件。CMake 的 target_include_directories 已保证。
@@ -101,6 +99,32 @@ std::string Generator::generateTypeFile(const ReflectedType& type, const std::st
         out << "        .Factory<" << type.name << ">()\n";
     }
     out << "        .Register<" << type.name << ">();\n";
+
+    if (!type.isEnum) {
+        // 仅当 Scanner 成功获取到语义正确的 type.size 时才生成静态断言
+        // （libClang 对包含外部库类型如 glm::vec2 的类型可能返回 0 或 1）
+        bool sizeValid = type.size > 0 && type.size != 1;
+        if (sizeValid) {
+            out << "\n";
+            out << "    // Static assertions: regenerate if struct layout changes\n";
+            out << "    static_assert(sizeof(" << type.name << ") == "
+                << type.size << ",\n";
+            out << "        \"" << type.name << ": size mismatch - regenerate reflection data\");\n";
+        }
+        for (const auto& field : type.fields) {
+            if (!field.offsetValid) continue;
+            if (!sizeValid) {
+                // 首次输出有效断言时加上空行/标头
+                out << "\n";
+                sizeValid = true;
+            }
+            out << "    static_assert(offsetof(" << type.name << ", "
+                << field.name << ") == " << field.offset << ",\n";
+            out << "        \"" << type.name << "::" << field.name
+                << ": offset mismatch - regenerate reflection data\");\n";
+        }
+    }
+
     out << "    return true;\n";
     out << "}\n\n";
 

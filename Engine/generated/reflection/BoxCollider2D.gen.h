@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <ShitEngine/Physics/BoxCollider2D.h>
 #include <ShitEngine/Reflection/TypeRegistry.h>
 
@@ -21,6 +22,18 @@ inline bool Register_BoxCollider2D() {
         .Meta(FieldMeta{.displayName = "Restitution", .tooltip = "弹性系数", .range = {0, 1}, .step = 0.05})
         .Factory<BoxCollider2D>()
         .Register<BoxCollider2D>();
+
+    // Static assertions: regenerate if struct layout changes
+    static_assert(sizeof(BoxCollider2D) == 56,
+        "BoxCollider2D: size mismatch - regenerate reflection data");
+    static_assert(offsetof(BoxCollider2D, m_size) == 20,
+        "BoxCollider2D::m_size: offset mismatch - regenerate reflection data");
+    static_assert(offsetof(BoxCollider2D, m_density) == 28,
+        "BoxCollider2D::m_density: offset mismatch - regenerate reflection data");
+    static_assert(offsetof(BoxCollider2D, m_friction) == 32,
+        "BoxCollider2D::m_friction: offset mismatch - regenerate reflection data");
+    static_assert(offsetof(BoxCollider2D, m_restitution) == 36,
+        "BoxCollider2D::m_restitution: offset mismatch - regenerate reflection data");
     return true;
 }
 

@@ -119,6 +119,16 @@ namespace Shit {
 		}
 
 		if (Game::IsRunning()) { // 如果正在运行，则使用更安全的移除
+			// 同时检查待添加列表（可能该对象尚未被正式加入场景）
+			auto it = std::find_if(m_pendingAdditions.begin(), m_pendingAdditions.end(),
+				[&gameObject](const std::unique_ptr<GameObject>& go) {
+					return go.get() == gameObject;
+				});
+			if (it != m_pendingAdditions.end()) {
+				(*it)->clean();
+				m_pendingAdditions.erase(it);
+				return;
+			}
 			gameObject->destroy(); // destroy() 会级联标记所有子物体
 		}
 		else {
@@ -139,6 +149,15 @@ namespace Shit {
 	void Scene::removeGameObjectByName(const std::string& name)
 	{
 		if (Game::IsRunning()) {
+			// 同时检查待添加列表
+			for (auto it = m_pendingAdditions.begin(); it != m_pendingAdditions.end(); ) {
+				if ((*it)->getName() == name) {
+					(*it)->clean();
+					it = m_pendingAdditions.erase(it);
+				} else {
+					++it;
+				}
+			}
 			for (auto& go : m_gameObjects) {
 				if (go->getName() == name) {
 					go->destroy(); // destroy() 会级联标记所有子物体
@@ -167,6 +186,10 @@ namespace Shit {
 	{
 		for (auto& go : m_pendingAdditions) {
 			if(go) {
+				if (go->isNeedDestroy()) {
+					go->clean();
+					continue;
+				}
 				go->setScene(this);
 				m_gameObjects.push_back(std::move(go));
 			}

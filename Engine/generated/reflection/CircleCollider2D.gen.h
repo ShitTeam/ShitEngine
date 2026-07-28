@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <ShitEngine/Physics/CircleCollider2D.h>
 #include <ShitEngine/Reflection/TypeRegistry.h>
 
@@ -21,6 +22,18 @@ inline bool Register_CircleCollider2D() {
         .Meta(FieldMeta{.displayName = "Restitution", .tooltip = "弹性系数", .range = {0, 1}, .step = 0.05})
         .Factory<CircleCollider2D>()
         .Register<CircleCollider2D>();
+
+    // Static assertions: regenerate if struct layout changes
+    static_assert(sizeof(CircleCollider2D) == 48,
+        "CircleCollider2D: size mismatch - regenerate reflection data");
+    static_assert(offsetof(CircleCollider2D, m_radius) == 20,
+        "CircleCollider2D::m_radius: offset mismatch - regenerate reflection data");
+    static_assert(offsetof(CircleCollider2D, m_density) == 24,
+        "CircleCollider2D::m_density: offset mismatch - regenerate reflection data");
+    static_assert(offsetof(CircleCollider2D, m_friction) == 28,
+        "CircleCollider2D::m_friction: offset mismatch - regenerate reflection data");
+    static_assert(offsetof(CircleCollider2D, m_restitution) == 32,
+        "CircleCollider2D::m_restitution: offset mismatch - regenerate reflection data");
     return true;
 }
 

@@ -12,7 +12,8 @@ namespace Shit {
 	 * 采用 ColorTint 过渡：状态变化时改写同 GameObject 上 UIImage 的 color（若存在）。
 	 * UI 渲染交给同 GameObject 的 UIImage / 自定义控件，本控件不直接绘制。
 	 */
-	class SHIT_API UIButton : public UIRendererComponent {
+	class SHIT_API SHIT_REFLECT(BlackList) UIButton : public UIRendererComponent {
+		SHIT_REFLECT_BODY(UIButton)
 	public:
 		enum class State { Normal, Highlighted, Pressed, Disabled };
 
@@ -52,11 +53,17 @@ namespace Shit {
 		void setState(State newState);
 		void applyCurrentColor();
 
+		SHIT_META(Disable)
 		State                 m_state = State::Normal;
+		SHIT_META(({.displayName = "Interactable", .tooltip = "是否可交互"}))
 		bool                  m_interactable = true;
+		SHIT_META(Disable)
 		bool                  m_isPointerInside = false;
+		SHIT_META(Disable)
 		bool                  m_isPressed = false;
+		SHIT_META(Disable)
 		ColorBlock            m_colors;
+		SHIT_META(Disable)
 		std::function<void()> m_onClick;
 	};
 }

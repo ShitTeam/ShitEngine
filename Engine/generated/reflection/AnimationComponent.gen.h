@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <ShitEngine/Component/AnimationComponent.h>
 #include <ShitEngine/Reflection/TypeRegistry.h>
 

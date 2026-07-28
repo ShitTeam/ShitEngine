@@ -21,7 +21,8 @@ namespace Shit {
 	 *
 	 * 点击控件即聚焦，点其他地方自动失焦（由 UIRenderSystem 驱动）。
 	 */
-	class SHIT_API UITextBox : public UITextInput {
+	class SHIT_API SHIT_REFLECT(BlackList) UITextBox : public UITextInput {
+		SHIT_REFLECT_BODY(UITextBox)
 	public:
 		UITextBox();
 		~UITextBox() override = default;
@@ -35,6 +36,7 @@ namespace Shit {
 
 	private:
 		void insertNewline() override; // 单行：拒绝换行
+		SHIT_META(({.displayName = "Character Limit", .tooltip = "最大字符数（0=不限）"}))
 		size_t m_characterLimit = 0;  // 0 = 不限
 	};
 }

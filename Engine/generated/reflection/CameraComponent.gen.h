@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <ShitEngine/Component/CameraComponent.h>
 #include <ShitEngine/Reflection/TypeRegistry.h>
 

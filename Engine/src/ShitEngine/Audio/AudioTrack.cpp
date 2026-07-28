@@ -56,6 +56,7 @@ namespace Shit {
     }
 
     AudioTrack::~AudioTrack() {
+        if (m_group) m_group->unregisterTrack(this);
         if (m_handle) MIX_DestroyTrack(m_handle);
     }
 
@@ -77,6 +78,7 @@ namespace Shit {
 
     void AudioTrack::stop() {
         if (!m_handle) return;
+        if (m_group) m_group->unregisterTrack(this);
         MIX_DestroyTrack(m_handle);
         m_handle = nullptr;
         m_started = false;
