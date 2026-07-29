@@ -11,6 +11,11 @@ namespace Shit {
 		return instance;
 	}
 
+	void Time::SetTargetFPS(unsigned int fps) {
+		// targetFPS=0 表示不限帧率，内部已有 if (m_targetFPS > 0) 守卫
+		GetInstance().m_targetFPS = fps;
+	}
+
 	Time::Time() = default;
 
 	Time::~Time() = default;

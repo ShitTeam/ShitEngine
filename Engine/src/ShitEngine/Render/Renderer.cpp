@@ -111,6 +111,10 @@ namespace Shit {
     }
 
     SDL_Texture* Renderer::CreateTextureFromSurface(SDL_Surface* surface) {
-        return SDL_CreateTextureFromSurface(GetInstance().m_renderer.get(), surface);
+        SDL_Texture* tex = SDL_CreateTextureFromSurface(GetInstance().m_renderer.get(), surface);
+        if (!tex) {
+            ST_CORE_ERROR("Renderer::CreateTextureFromSurface 失败: {}", SDL_GetError());
+        }
+        return tex;
     }
 }

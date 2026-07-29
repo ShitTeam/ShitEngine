@@ -25,7 +25,7 @@ namespace Shit {
 		static float GetDeltaTime() { return GetInstance().m_deltaTime; }   ///< 上一帧耗时（秒）
 		static double GetTotalTime() { return GetInstance().m_totalTime; }  ///< 引擎启动至今的总时长（秒）
 		static unsigned int GetTargetFPS() { return GetInstance().m_targetFPS; }  ///< 目标帧率上限
-		static void SetTargetFPS(unsigned int fps) { GetInstance().m_targetFPS = fps; }  ///< 设帧率上限
+		static void SetTargetFPS(unsigned int fps);  ///< 设帧率上限（0=不限）
 
 	private:
 		Time();

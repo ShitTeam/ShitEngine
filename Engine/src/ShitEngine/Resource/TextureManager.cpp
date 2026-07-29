@@ -14,11 +14,17 @@ namespace Shit {
 		if (auto it = m_textures.find(filePath); it != m_textures.end()) {
 			return it->second.get();
 		}
-		
-		auto new_texture = std::unique_ptr<SDL_Texture, SDLTextureDeleter>(IMG_LoadTexture(Renderer::GetRenderer(), filePath.c_str()));
+
+		SDL_Renderer* renderer = Renderer::GetRenderer();
+		if (!renderer) {
+			ST_CORE_ERROR("无法加载纹理 {}：渲染器未初始化", filePath);
+			return nullptr;
+		}
+
+		auto new_texture = std::unique_ptr<SDL_Texture, SDLTextureDeleter>(IMG_LoadTexture(renderer, filePath.c_str()));
 
 		if (!new_texture) {
-			ST_CORE_ERROR("无法加载 {}", filePath);
+			ST_CORE_ERROR("无法加载纹理 {}: {}", filePath, SDL_GetError());
 			return nullptr;
 		}
 

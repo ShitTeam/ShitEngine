@@ -43,11 +43,16 @@ namespace Shit {
 				m_windowConfig.height = (h > 0) ? h : 600;
 			}
 			if (j["window"].contains("targetFPS")) {
-				m_windowConfig.targetFPS = j["window"]["targetFPS"].get<unsigned int>();
+				unsigned int fps = j["window"]["targetFPS"].get<unsigned int>();
+				m_windowConfig.targetFPS = (fps > 0) ? fps : 144;
 			}
 		}
 		if (j.contains("inputMappings")) {
 			const auto& im = j["inputMappings"];
+
+			// 热加载：先清空旧映射，避免残留
+			m_inputMappings.actions.clear();
+			m_inputMappings.axes.clear();
 
 			// 加载动作绑定
 			if (im.contains("actions")) {
