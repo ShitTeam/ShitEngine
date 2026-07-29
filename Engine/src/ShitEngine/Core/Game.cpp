@@ -56,7 +56,7 @@ namespace Shit {
 		if (!Window::Init()) { SDL_Quit(); return false; }
 
 		// 初始化渲染器
-		if (!Renderer::Init()) { SDL_Quit(); return false; }
+		if (!Renderer::Init()) { Window::Destroy(); SDL_Quit(); return false; }
 
 		// 初始化 Time
 		Time::Init();
@@ -125,6 +125,10 @@ namespace Shit {
 		EventBus::ClearAll();
 		SceneManager::Destroy(); // 在 SDL_Quit 之前销毁场景栈，确保组件清理时 SDL 仍然可用
 		AudioPlayer::Destroy();
+		// 资源管理器：在 SDL_Quit 之前释放所有纹理/Font/Audio缓存
+		ResourceManager::Destroy();
+		// 渲染器：在 SDL_Quit 之前释放 SDL_Renderer
+		Renderer::Destroy();
 		Window::Destroy(); // 销毁窗口
 		SDL_Quit();
 	}

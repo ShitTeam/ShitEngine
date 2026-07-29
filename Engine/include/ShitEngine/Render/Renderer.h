@@ -28,6 +28,7 @@ namespace Shit {
 		// --- 静态API ---
 		static Renderer& GetInstance();
 		static bool Init() { return GetInstance().init(); }                        ///< 初始化渲染器
+		static void Destroy() { GetInstance().m_renderer.reset(); }               ///< 析构渲染器（必须在 SDL_Quit 之前调用）
 		static void ClearScreen() { GetInstance().clearScreen(); }                 ///< 清屏（每帧开头调用）
 		static void Present() { GetInstance().present(); }                         ///< 交换缓冲区（每帧末尾调用）
 		static SDL_Renderer* GetRenderer() { return GetInstance().m_renderer.get(); } ///< 获取原生 SDL_Renderer
@@ -44,17 +45,17 @@ namespace Shit {
 		static void DrawSprite(const Sprite& sprite, const Vector2& position, const std::optional<Vector2>& size = std::nullopt);
 
 	// --- 绘制原语（封装 SDL3 绘制 API，供 UI / HUD 使用）---
-	static void SetDrawColor(const Color& color);   ///< 设置绘制颜色（SDL_SetRenderDrawColor）
-	static void FillRect(const SDL_FRect& rect);     ///< 实心矩形（SDL_RenderFillRect）
-	static void SetClipRect(const SDL_Rect* rect);  ///< 设置裁剪矩形（传 nullptr 清除）
-	static void ClearClipRect();                    ///< 清除裁剪矩形
-	static void SetViewport(const SDL_Rect* viewport); ///< 设置视口（传 nullptr 恢复全屏）
-	static void ClearViewport();                    ///< 恢复全屏视口
-	static void DrawTexture(SDL_Texture* texture, const SDL_FRect* src, const SDL_FRect& dst); ///< 绘制纹理（SDL_RenderTexture）
-	static void DrawTextureRotated(SDL_Texture* texture, const SDL_FRect* src, const SDL_FRect& dst,
-		double angle, const SDL_FPoint* center, SDL_FlipMode flip); ///< 旋转/翻转绘制（SDL_RenderTextureRotated）
-	static void RenderCoordinatesToWindow(float x, float y, float* winX, float* winY); ///< 逻辑坐标 → 窗口物理像素坐标
-	static SDL_Texture* CreateTextureFromSurface(SDL_Surface* surface); ///< surface → texture（SDL_CreateTextureFromSurface）
+		static void SetDrawColor(const Color& color);   ///< 设置绘制颜色（SDL_SetRenderDrawColor）
+		static void FillRect(const SDL_FRect& rect);     ///< 实心矩形（SDL_RenderFillRect）
+		static void SetClipRect(const SDL_Rect* rect);  ///< 设置裁剪矩形（传 nullptr 清除）
+		static void ClearClipRect();                    ///< 清除裁剪矩形
+		static void SetViewport(const SDL_Rect* viewport); ///< 设置视口（传 nullptr 恢复全屏）
+		static void ClearViewport();                    ///< 恢复全屏视口
+		static void DrawTexture(SDL_Texture* texture, const SDL_FRect* src, const SDL_FRect& dst); ///< 绘制纹理（SDL_RenderTexture）
+		static void DrawTextureRotated(SDL_Texture* texture, const SDL_FRect* src, const SDL_FRect& dst,
+			double angle, const SDL_FPoint* center, SDL_FlipMode flip); ///< 旋转/翻转绘制（SDL_RenderTextureRotated）
+		static void RenderCoordinatesToWindow(float x, float y, float* winX, float* winY); ///< 逻辑坐标 → 窗口物理像素坐标
+		static SDL_Texture* CreateTextureFromSurface(SDL_Surface* surface); ///< surface → texture（SDL_CreateTextureFromSurface）
 
 	private:
 		Renderer() = default;

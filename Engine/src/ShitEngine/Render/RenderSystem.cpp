@@ -42,7 +42,10 @@ namespace Shit {
 		float logicalW = static_cast<float>(Renderer::GetLogicalWidth());
 		float logicalH = static_cast<float>(Renderer::GetLogicalHeight());
 
-		for (auto* camera : m_cameras) {
+		// 快照副本：避免 onRender 回调中注销组件导致迭代器失效
+		auto cameras = m_cameras;
+		for (auto* camera : cameras) {
+			if (!camera) continue;
 			SDL_FRect vpRatio = camera->getViewportRatio();
 
 			SDL_Rect viewport;
@@ -68,8 +71,10 @@ namespace Shit {
 
 			SDL_SetRenderClipRect(m_renderer, &clipRect);
 
-			for (auto* renderer : m_renderers) {
-				if (!renderer->isVisible()) continue;
+			// 快照副本：避免 onRender 内注销导致迭代器失效
+			auto renderers = m_renderers;
+			for (auto* renderer : renderers) {
+				if (!renderer || !renderer->isVisible()) continue;
 				renderer->onRender(m_renderer, camera);
 			}
 		}
@@ -87,7 +92,9 @@ namespace Shit {
 
 	void RenderSystem::registerRenderer(RendererComponent* renderer) {
 		if (!renderer) {
-			ST_CORE_WARN("试图在场景 {} 中注册 RendererComponent 空指针！", getScene()->getName());
+			auto* scene = getScene();
+			ST_CORE_WARN("试图在场景 {} 中注册 RendererComponent 空指针！",
+				scene ? scene->getName() : "null");
 			return;
 		}
 		m_renderers.push_back(renderer);
@@ -96,7 +103,9 @@ namespace Shit {
 
 	void RenderSystem::unregisterRenderer(RendererComponent* renderer) {
 		if (!renderer) {
-			ST_CORE_WARN("试图在场景 {} 中移除 RendererComponent 空指针！", getScene()->getName());
+			auto* scene = getScene();
+			ST_CORE_WARN("试图在场景 {} 中移除 RendererComponent 空指针！",
+				scene ? scene->getName() : "null");
 			return;
 		}
 		m_renderers.erase(
@@ -107,7 +116,9 @@ namespace Shit {
 
 	void RenderSystem::registerCamera(CameraComponent* camera) {
 		if (!camera) {
-			ST_CORE_WARN("试图在场景 {} 中注册 CameraComponent 空指针！", getScene()->getName());
+			auto* scene = getScene();
+			ST_CORE_WARN("试图在场景 {} 中注册 CameraComponent 空指针！",
+				scene ? scene->getName() : "null");
 			return;
 		}
 		m_cameras.push_back(camera);
@@ -116,7 +127,9 @@ namespace Shit {
 
 	void RenderSystem::unregisterCamera(CameraComponent* camera) {
 		if (!camera) {
-			ST_CORE_WARN("试图在场景 {} 中移除 CameraComponent 空指针！", getScene()->getName());
+			auto* scene = getScene();
+			ST_CORE_WARN("试图在场景 {} 中移除 CameraComponent 空指针！",
+				scene ? scene->getName() : "null");
 			return;
 		}
 		m_cameras.erase(
