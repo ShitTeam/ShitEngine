@@ -22,7 +22,8 @@ namespace Shit {
 	}
 
 	void Config::loadFromJson(const Json& j) {
-		if (j.contains("project")) {
+		try {
+			if (j.contains("project")) {
 			// "project": { "name": "..." } 或 "project": "My Game"（向后兼容）
 			if (j["project"].is_object() && j["project"].contains("name")) {
 				m_projectConfig.name = j["project"]["name"].get<std::string>();
@@ -84,6 +85,9 @@ namespace Shit {
 					m_inputMappings.axes[axisName] = ab;
 				}
 			}
+		}
+		} catch (const std::exception& e) {
+			ST_CORE_WARN("配置文件字段解析失败（已保留已解析部分）: {}", e.what());
 		}
 	}
 

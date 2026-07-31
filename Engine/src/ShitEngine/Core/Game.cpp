@@ -34,6 +34,8 @@ namespace Shit {
 
 	bool Game::init()
 	{
+		if (m_isInited) return true;  // 幂等：防止失败重试/Destroy 后再次初始化重复创建子系统
+
 		// 初始化日志系统
 		if (!Log::Init()) return false;
 
@@ -91,8 +93,13 @@ namespace Shit {
 			while (SDL_PollEvent(&event))
 			{
 				Window::HandleEvent(event);
-				Input::HandleEvent(event);
-				TextInputGate::HandleEvent(event);
+
+				// 文本输入聚焦时优先转发：编辑/导航/失焦键被消费后不再进入全局 Input，
+				// 避免打字时误触发绑定到这些键的游戏动作（如菜单导航、角色移动）
+				bool consumed = TextInputGate::HandleEvent(event);
+				if (!consumed) {
+					Input::HandleEvent(event);
+				}
 			}
 
 			if (!Window::IsOpen()) break;

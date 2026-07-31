@@ -40,7 +40,12 @@ namespace Shit {
 
 	void SceneManager::processPendingActions()
 	{
-		for (auto& action : m_pendingActions) {
+		// 先 swap 出本地副本再处理：处理动作过程中若再次 PushScene/PopScene
+		//（如场景结束回调跳转），新动作进入原队列，下帧执行，避免遍历中修改 m_pendingActions
+		std::vector<PendingAction> local;
+		local.swap(m_pendingActions);
+
+		for (auto& action : local) {
 			switch (action.action)
 			{
 			case StackAction::Push:
@@ -59,7 +64,6 @@ namespace Shit {
 				break;
 			}
 		}
-		m_pendingActions.clear();
 	}
 
 	void SceneManager::processPushScene(std::unique_ptr<Scene>&& scene)

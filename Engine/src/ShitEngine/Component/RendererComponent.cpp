@@ -18,6 +18,8 @@ namespace Shit {
 			if (auto* system = scene->getSystem<RenderSystem>()) {
 				system->registerRenderer(this);
 				m_isRegistered = true;
+			} else {
+				m_isRegistered = false;  // 系统未注册，允许后续补挂
 			}
 		}
 	}

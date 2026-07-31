@@ -21,23 +21,29 @@ namespace Shit {
 		Component::onAttach();
 
 		auto* scene = m_owner ? m_owner->getScene() : nullptr;
-		if (!scene) return;
+		if (!scene) {
+			m_isRegistered = false;  // 无场景，允许后续补挂
+			return;
+		}
 
 		auto* physics = scene->getSystem<PhysicsSystem2D>();
 		if (!physics) {
 			ST_CORE_WARN("[RigidBody2D] 场景中未找到 PhysicsSystem2D，无法创建物理体");
+			m_isRegistered = false;  // 系统未注册，允许后续补挂
 			return;
 		}
 
 		auto* transform = m_owner->getComponent<TransformComponent>();
 		if (!transform) {
 			ST_CORE_WARN("[RigidBody2D] 缺少 TransformComponent，无法创建物理体");
+			m_isRegistered = false;
 			return;
 		}
 
 		b2WorldId worldId = Internal::MakeWorldId(physics->m_worldIndex, physics->m_worldGeneration);
 		if (!b2World_IsValid(worldId)) {
 			ST_CORE_ERROR("[RigidBody2D] 物理世界无效");
+			m_isRegistered = false;
 			return;
 		}
 
@@ -45,7 +51,8 @@ namespace Shit {
 		def.type = static_cast<b2BodyType>(static_cast<int>(m_type));
 		// 注：b2SetLengthUnitsPerMeter 已设置，所有位置/速度单位为像素
 		def.position = { transform->getPosition().x, transform->getPosition().y };
-		def.rotation = b2MakeRot(transform->getRotation());
+		// Transform 的旋转以「度」为单位，Box2D 需要弧度
+		def.rotation = b2MakeRot(glm::radians(transform->getRotation()));
 		def.gravityScale = m_gravityScale;
 		def.linearDamping = m_linearDamping;
 		def.fixedRotation = m_fixedRotation;
@@ -133,5 +140,13 @@ namespace Shit {
 		b2BodyId bodyId = Internal::MakeBodyId(m_bodyIndex, m_bodyWorld0, m_bodyGeneration);
 		b2Vec2 v = b2Body_GetLinearVelocity(bodyId);
 		return { v.x, v.y };
+	}
+
+	void RigidBody2D::setTransform(const Vector2& position, float rotationDegrees) {
+		if (!m_bodyValid) return;
+		b2BodyId bodyId = Internal::MakeBodyId(m_bodyIndex, m_bodyWorld0, m_bodyGeneration);
+		// 传送/设置刚体位置与旋转（度→弧度）；同时唤醒，使动态/运动学刚体立即响应
+		b2Body_SetTransform(bodyId, { position.x, position.y }, b2MakeRot(glm::radians(rotationDegrees)));
+		b2Body_SetAwake(bodyId, true);
 	}
 }

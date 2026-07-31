@@ -20,13 +20,23 @@ namespace Shit {
         }
         m_pendingBehaviors.clear();
 
-        // 更新
-        for (auto& b : m_behaviors) {
+        // 按下标遍历更新。用户代码（onStart/onUpdate）可能注销/销毁当前或后续 Behavior，
+        // unregisterBehavior 会把条目置为墓碑（nullptr），遍历结束后统一压缩。
+        for (size_t i = 0; i < m_behaviors.size(); ++i) {
+            Behavior* b = m_behaviors[i];
+            if (!b) continue;
             if (!b->isStarted()) {
-                b->onStart(); // 启动组件
+                b->onStart();
                 b->setStarted(true);
             }
             b->onUpdate();
+        }
+
+        // 压缩墓碑（遍历后统一清理，避免遍历期间 vector 元素移动导致跳过/悬垂）
+        if (std::find(m_behaviors.begin(), m_behaviors.end(), nullptr) != m_behaviors.end()) {
+            m_behaviors.erase(
+                std::remove(m_behaviors.begin(), m_behaviors.end(), nullptr),
+                m_behaviors.end());
         }
     }
 
@@ -37,7 +47,9 @@ namespace Shit {
 
     void BehaviorSystem::registerBehavior(Behavior *behavior) {
         if (!behavior) {
-            ST_CORE_WARN("试图在场景 {} 中注册 Behavior 空指针！", getScene()->getName());
+            auto* scene = getScene();
+            ST_CORE_WARN("试图在场景 {} 中注册 Behavior 空指针！",
+                scene ? scene->getName() : "null");
             return;
         }
 
@@ -46,20 +58,26 @@ namespace Shit {
 
     void BehaviorSystem::unregisterBehavior(Behavior *behavior) {
         if (!behavior) {
-            ST_CORE_WARN("试图在场景 {} 中移除 Behavior 空指针！", getScene()->getName());
+            auto* scene = getScene();
+            ST_CORE_WARN("试图在场景 {} 中移除 Behavior 空指针！",
+                scene ? scene->getName() : "null");
             return;
         }
 
-        // 如果在延迟添加列表内
+        // 如果在延迟添加列表内，直接移除
         m_pendingBehaviors.erase(
             std::remove(m_pendingBehaviors.begin(), m_pendingBehaviors.end(), behavior),
             m_pendingBehaviors.end()
         );
 
-        // 从列表内删除
-        m_behaviors.erase(
-            std::remove(m_behaviors.begin(), m_behaviors.end(), behavior),
-            m_behaviors.end()
-        );
+        // 置为墓碑（nullptr），update() 遍历结束后统一压缩。
+        // 注意：不能立即 erase——update 正在遍历 m_behaviors，
+        // 立即擦除会使当前迭代位置之后的元素前移，导致跳过或悬垂。
+        for (auto& b : m_behaviors) {
+            if (b == behavior) {
+                b = nullptr;
+                break;
+            }
+        }
     }
 }

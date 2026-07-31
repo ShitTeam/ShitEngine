@@ -1,5 +1,6 @@
 #pragma once
 #include "../Core/Core.h"
+#include "../Core/Log.h"
 #include "AudioTrack.h"
 #include <string>
 #include <unordered_map>
@@ -44,7 +45,11 @@ public:
     }
     static inline AudioTrack* Play(const std::string& filePath, const std::string& group = "default") {
         auto& inst = GetInstance();
-        return inst.play(filePath, inst.getTrackGroup(group));
+        AudioTrackGroup* g = inst.getTrackGroup(group);
+        if (!g) {
+            ST_CORE_WARN("AudioPlayer::Play 指定的音频组 \"{}\" 不存在，将按无分组播放（不受该组音量/暂停控制）", group);
+        }
+        return inst.play(filePath, g);
     }
     static inline void SetMasterVolume(float gain) { GetInstance().setMasterVolume(gain); }
     static inline float GetMasterVolume() { return GetInstance().m_masterGain; }

@@ -42,6 +42,12 @@ namespace Shit {
 		}
 	}
 
+	void UIButton::resetPressed() {
+		if (!m_isPressed) return;
+		m_isPressed = false;
+		setState(m_isPointerInside ? State::Highlighted : State::Normal);
+	}
+
 	void UIButton::setState(State newState) {
 		if (m_state == newState) return;
 		m_state = newState;

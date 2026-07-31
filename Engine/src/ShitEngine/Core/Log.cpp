@@ -6,6 +6,10 @@ namespace Shit {
 	std::shared_ptr<spdlog::logger> Log::s_ClientLogger;
 
 	bool Log::Init() {
+		// 幂等：spdlog 全局 registry 按名查重，同名 logger 重复创建会抛异常。
+		// Game::Init 失败重试或 Destroy 后重新初始化时必须能再次成功。
+		if (s_CoreLogger && s_ClientLogger) return true;
+
 		try {
 			// 设置日志格式：[时间] [日志名] [等级] 内容
 			spdlog::set_pattern("%^[%T] %n: %v%$");

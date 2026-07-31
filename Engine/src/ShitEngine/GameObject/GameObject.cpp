@@ -95,10 +95,13 @@ namespace Shit {
 		}
 		m_children.clear();
 
-		for (auto& [type, comp] : m_components) {
+		// 逐个取出组件再调生命周期回调，避免回调内 removeComponent 修改 map 造成迭代器失效
+		while (!m_components.empty()) {
+			auto it = m_components.begin();
+			auto comp = std::move(it->second);
+			m_components.erase(it);
 			comp->onDetach();
 			comp->onDestroy();
 		}
-		m_components.clear();
 	}
 }

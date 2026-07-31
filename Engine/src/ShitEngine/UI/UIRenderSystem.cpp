@@ -66,6 +66,11 @@ namespace Shit {
 
 		std::vector<UIButton*> processedButtons;
 		for (auto& entry : visible) {
+			// 前一个按钮的 onClick 可能已移除本条目对应的渲染器（立即释放组件），
+			// 用身份校验跳过已注销的渲染器，避免解引用悬空指针
+			if (std::find(m_uiRenderers.begin(), m_uiRenderers.end(), entry.renderer) == m_uiRenderers.end())
+				continue;
+
 			GameObject* owner = entry.owner;
 
 			UIButton* button = owner->getComponent<UIButton>();
@@ -73,6 +78,12 @@ namespace Shit {
 			if (std::find(processedButtons.begin(), processedButtons.end(), button) != processedButtons.end())
 				continue;
 			processedButtons.push_back(button);
+
+			// 复位残留按下：按钮在按下后离开 visible（如 setVisible(false)）导致从未收到 onPointerUp。
+			// 鼠标当前未按住且不是本帧释放时视为残留，清理而不触发 onClick。
+			if (!mouseUp && !Input::IsMouseButtonPressed(MouseButton::Left) && button->wasPointerDown()) {
+				button->resetPressed();
+			}
 
 			bool hit = (owner == hoveredGameObject);
 			bool isHovered = (button->getState() == UIButton::State::Highlighted
@@ -102,7 +113,9 @@ namespace Shit {
 		Renderer::ClearViewport();
 
 		for (auto& entry : visible) {
-			if (!entry.renderer->getOwner()) continue;
+			// onClick 回调可能已立即移除渲染器组件，身份校验后再访问，避免 use-after-free
+			if (std::find(m_uiRenderers.begin(), m_uiRenderers.end(), entry.renderer) == m_uiRenderers.end())
+				continue;
 			entry.renderer->onRender(entry.screenRect);
 		}
 	}

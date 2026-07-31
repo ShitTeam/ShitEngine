@@ -58,6 +58,12 @@ namespace Shit {
 		void setLinearVelocity(const Vector2& velocity);
 		Vector2 getLinearVelocity() const;
 
+		/// @brief 传送/设置刚体位置与旋转（角度制，度）。Dynamic/Kinematic 会同时唤醒。
+		/// @note 与 TransformComponent 互相同步：此接口直接驱动 Box2D 刚体，
+		///       下一帧物理步进后会回写 Transform。若仅移动 Transform 而不调本接口，
+		///       Kinematic/Dynamic 刚体会被每帧物理回写还原。
+		void setTransform(const Vector2& position, float rotationDegrees);
+
 		/// @brief 物理体是否已创建
 		bool hasValidBody() const { return m_bodyValid; }
 

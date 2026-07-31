@@ -85,15 +85,21 @@ namespace Shit {
 			auto new_component = std::make_unique<T>(std::forward<Args>(args)...);
 			T* new_component_ptr = new_component.get();
 			new_component->setOwner(this);
-			new_component->onCreate(); // onCreate：轻量初始化
 
-			// 若已挂载场景则立即执行 onAttach（注册到 System）
-			if (m_scene) {
-				new_component->onAttach();
-				new_component->m_isRegistered = true;
+			// 先插入容器，再触发生命周期回调。若 onAttach/onCreate 内销毁了 owner
+			//（如 removeGameObject 立即清理），对已释放对象写 map 会堆破坏；先入表则
+			// 回调内可以安全地把自己移除，clean() 也能遍历到它。
+			m_components[type_index] = std::unique_ptr<Component>(new_component.release());
+
+			new_component_ptr->onCreate(); // onCreate：轻量初始化
+
+			// 若已挂载场景则立即执行 onAttach（注册到 System）。
+			// 注册状态由组件自身的 onAttach 维护（基类默认置 true），此处不强制置位，
+			// 以便"组件先加、驱动系统后注册"时能被 System::init 补挂。
+			if (m_scene && !new_component_ptr->isRegistered()) {
+				new_component_ptr->onAttach();
 			}
 
-			m_components[type_index] = std::unique_ptr<Component>(new_component.release());
 			ST_CORE_TRACE("GameObject : {} 已添加 组件 {}", m_name, typeid(T).name());
 
 			return new_component_ptr;
@@ -139,9 +145,11 @@ namespace Shit {
 			auto type_index = std::type_index(typeid(T));
 
 			if (auto it = m_components.find(type_index); it != m_components.end()) {
-				it->second->onDetach();
-				it->second->onDestroy();
+				// 先从容器取出再调回调，避免回调内再次 removeComponent 造成迭代器失效/重复回调
+				auto comp = std::move(it->second);
 				m_components.erase(it);
+				comp->onDetach();
+				comp->onDestroy();
 			}
 		}
 

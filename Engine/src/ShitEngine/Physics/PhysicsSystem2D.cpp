@@ -73,7 +73,8 @@ namespace Shit {
 			float angle = b2Rot_GetAngle(rot);
 
 			transform->setPosition({ pos.x, pos.y });
-			transform->setRotation(angle);
+			// Transform 的旋转以「度」为单位（与编辑器/SDL 渲染约定一致）
+			transform->setRotation(glm::degrees(angle));
 		}
 	}
 

@@ -46,6 +46,9 @@ namespace Shit {
 
 		void setOnClick(std::function<void()> callback) { m_onClick = std::move(callback); }
 
+		/// @brief 复位残留的按下状态（按钮在按下后离开 visible 未收到 onPointerUp 时使用），不触发 onClick
+		void resetPressed();
+
 	protected:
 		void onRender(const SDL_FRect& /*screenRect*/) override;
 

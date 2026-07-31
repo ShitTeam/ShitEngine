@@ -98,11 +98,6 @@ bool TypeRegistry::unregisterType(std::string_view name) {
 
 	TypeInfo* info = it->second;
 
-	// 从 typeIndex 映射中移除
-	if (info->typeIndex != std::type_index(typeid(nullptr))) {
-		m_typeIndexMap.erase(info->typeIndex);
-	}
-
 	// 清除所有引用此类型的基类链接
 	for (auto& stored : m_typeStorage) {
 		if (stored.baseType == info) {
@@ -110,14 +105,21 @@ bool TypeRegistry::unregisterType(std::string_view name) {
 		}
 	}
 
-	// 从 name 映射中移除
-	m_nameMap.erase(it);
-
-	// 从 storage 中移除
+	// 从 storage 中移除（deque 中间 erase 会使后续元素地址失效，故擦除后重建索引）
 	for (auto si = m_typeStorage.begin(); si != m_typeStorage.end(); ++si) {
 		if (&(*si) == info) {
 			m_typeStorage.erase(si);
 			break;
+		}
+	}
+
+	// 重建 name/index 索引（被删元素之后所有 TypeInfo 的地址都已变化）
+	m_nameMap.clear();
+	m_typeIndexMap.clear();
+	for (auto& stored : m_typeStorage) {
+		m_nameMap[stored.name] = &stored;
+		if (stored.typeIndex != std::type_index(typeid(nullptr))) {
+			m_typeIndexMap[stored.typeIndex] = &stored;
 		}
 	}
 

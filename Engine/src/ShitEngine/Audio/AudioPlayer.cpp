@@ -152,7 +152,11 @@ AudioTrack* AudioPlayer::play(const std::string& filePath, AudioTrackGroup* grou
         return nullptr;
     }
 
-    MIX_SetTrackAudio(handle, audio);
+    if (!MIX_SetTrackAudio(handle, audio)) {
+        ST_CORE_ERROR("AudioPlayer 绑定音频输入失败: {}", SDL_GetError());
+        MIX_DestroyTrack(handle);
+        return nullptr;
+    }
 
     // 启动播放：当要求循环（loopCount != 0）时通过 properties 写入
     // MIX_PROP_PLAY_LOOPS_NUMBER，使循环随 PlayTrack 生效（而非仅在播放中改）。

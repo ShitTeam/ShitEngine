@@ -17,6 +17,8 @@ namespace Shit {
 			if (auto* system = scene->getSystem<BehaviorSystem>()) {
 				system->registerBehavior(this);
 				m_isRegistered = true;
+			} else {
+				m_isRegistered = false;  // 系统未注册，允许后续补挂
 			}
 		}
 	}

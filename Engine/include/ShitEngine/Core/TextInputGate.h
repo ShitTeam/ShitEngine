@@ -25,8 +25,9 @@ namespace Shit {
 
 		static TextInputGate& GetInstance();
 
-		/// @brief 获取原生事件转发入口（由 Input 系统在 PollEvent 后调用）
-		static void HandleEvent(const SDL_Event& event) { GetInstance().handleEvent(event); }
+		/// @brief 获取原生事件转发入口（由 Game 在 PollEvent 后调用）
+		/// @return true 表示事件已被聚焦控件消费（调用方应跳过 Input 处理）
+		static bool HandleEvent(const SDL_Event& event) { return GetInstance().handleEvent(event); }
 
 		/// @brief 当前是否有聚焦控件
 		static bool HasFocus();
@@ -47,7 +48,7 @@ namespace Shit {
 		TextInputGate() = default;
 		~TextInputGate() = default;
 
-		void handleEvent(const SDL_Event& event);
+		bool handleEvent(const SDL_Event& event);
 
 		UITextInput* m_focused = nullptr;
 	};

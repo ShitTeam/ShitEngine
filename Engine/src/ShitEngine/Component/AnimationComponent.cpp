@@ -25,7 +25,10 @@ namespace Shit {
     void AnimationComponent::onUpdate() {
         if (!m_isPlaying || m_isPaused || !m_currentAnimation) return;
 
+        m_currentTime += Time::GetDeltaTime();
+
         // 非循环动画播到末尾：停在最后一帧并结束播放
+        // 结束判断放在时间递增之后，保证播放时长严格等于 totalLen
         if (!m_currentAnimation->isLooping()) {
             float totalLen = static_cast<float>(m_currentAnimation->getFrameCount())
                              * m_currentAnimation->getDuration();
@@ -37,7 +40,6 @@ namespace Shit {
             }
         }
 
-        m_currentTime += Time::GetDeltaTime();
         applyCurrentFrame();
     }
 
@@ -56,6 +58,10 @@ namespace Shit {
             return;
         }
         m_animations[animationName] = std::move(animation);
+        // 覆盖当前正在播放的同名动画时，m_currentAnimation 需重新指向新对象，避免悬垂指针
+        if (animationName == m_currentAnimationName) {
+            m_currentAnimation = m_animations[animationName].get();
+        }
     }
 
     void AnimationComponent::play(const std::string& name) {
@@ -64,7 +70,8 @@ namespace Shit {
             ST_CORE_WARN("找不到名为 {} 的动画！", name);
             return;
         }
-        if (m_currentAnimationName != name) {
+        // 动画名不同，或上次播放已自然结束（非循环播完 m_isPlaying==false），从头播放
+        if (m_currentAnimationName != name || !m_isPlaying) {
             m_currentAnimation = it->second.get();
             m_currentAnimationName = name;
             m_currentTime = 0.0f;

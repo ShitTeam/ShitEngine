@@ -32,8 +32,13 @@ namespace Shit {
 			m_isSystemsNeedSort = false;
 		}
 
-		for (auto* system : m_systems) {
-			system->update();
+		for (size_t i = 0; i < m_systems.size(); ++i) {
+			// 用下标迭代并读取实时 size()：若某系统 update 中动态注册新系统，
+			// push_back 不会使下标失效；用实时 size() 保证遍历完所有已注册系统。
+			// 新注册的系统在下标范围内会被本轮执行（若不想本轮执行，可在入口捕获 size）。
+			if (m_systems[i]) {
+				m_systems[i]->update();
+			}
 		}
 
 		// 删除需要销毁的游戏对象

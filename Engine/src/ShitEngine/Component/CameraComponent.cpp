@@ -19,6 +19,8 @@ namespace Shit {
 			if (auto* system = scene->getSystem<RenderSystem>()) {
 				system->registerCamera(this);
 				m_isRegistered = true;
+			} else {
+				m_isRegistered = false;  // 系统未注册，允许后续补挂
 			}
 		}
 	}
@@ -58,6 +60,9 @@ namespace Shit {
 
 	Vector2 CameraComponent::worldToScreen(const Vector2& worldPosition) const
 	{
+		// 无效配置（世界尺寸/缩放非正）返回原点，避免除零/NaN 流入渲染
+		if (m_worldSize.x <= 0 || m_worldSize.y <= 0 || m_zoom <= 0.0f) return { 0.0f, 0.0f };
+
 		float logicalW = static_cast<float>(Renderer::GetLogicalWidth());
 		float logicalH = static_cast<float>(Renderer::GetLogicalHeight());
 
@@ -69,7 +74,7 @@ namespace Shit {
 		float scaledW = m_worldSize.x * basePpu;
 		float scaledH = m_worldSize.y * basePpu;
 
-		// 2. 相对于 Viewport 局部的偏移（修复：去掉 vpX/vpY）
+		// 2. 相对于 Viewport 局部的偏移（与 screenToWorld 同坐标系：视口局部坐标）
 		float localOffsetX = (vpW - scaledW) / 2.0f;
 		float localOffsetY = (vpH - scaledH) / 2.0f;
 
@@ -87,11 +92,12 @@ namespace Shit {
 
 	Vector2 CameraComponent::screenToWorld(const Vector2& screenPosition) const
 	{
+		// 无效配置返回相机中心，避免除零/NaN
+		if (m_worldSize.x <= 0 || m_worldSize.y <= 0 || m_zoom <= 0.0f) return getPosition();
+
 		float logicalW = static_cast<float>(Renderer::GetLogicalWidth());
 		float logicalH = static_cast<float>(Renderer::GetLogicalHeight());
 
-		float vpX = m_viewportRatio.x * logicalW;
-		float vpY = m_viewportRatio.y * logicalH;
 		float vpW = m_viewportRatio.w * logicalW;
 		float vpH = m_viewportRatio.h * logicalH;
 
@@ -99,8 +105,9 @@ namespace Shit {
 		float scaledW = m_worldSize.x * basePpu;
 		float scaledH = m_worldSize.y * basePpu;
 
-		float globalOffsetX = vpX + (vpW - scaledW) / 2.0f;
-		float globalOffsetY = vpY + (vpH - scaledH) / 2.0f;
+		// 视口局部坐标（与 worldToScreen 一致，互逆变换）
+		float globalOffsetX = (vpW - scaledW) / 2.0f;
+		float globalOffsetY = (vpH - scaledH) / 2.0f;
 
 		float finalPpu = basePpu * m_zoom;
 		Vector2 cameraCenter = getPosition();

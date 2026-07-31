@@ -25,7 +25,7 @@ namespace Shit {
 		virtual ~Component() = default;
 
 		virtual void onCreate() {}   // 组件创建时（有 owner，但可能尚未挂到场景）
-		virtual void onAttach() {}   // 组件挂载到活动场景时
+		virtual void onAttach() { m_isRegistered = true; }   // 组件挂载到活动场景时（基类默认标记已注册；依赖系统的组件在找不到系统时自行置回 false 以便补挂）
 		virtual void onDetach() {}   // 组件从场景卸下时
 		virtual void onDestroy() {}  // 组件销毁时
 
