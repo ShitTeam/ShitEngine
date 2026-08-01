@@ -1,4 +1,5 @@
 #include "ShitEngine/Core/pch.h"
+#include "ShitEngine/Core/EngineContext.h"
 
 #include "ShitEngine/Audio/AudioPlayer.h"
 #include "ShitEngine/Core/Log.h"
@@ -58,8 +59,7 @@ void AudioTrackGroup::setVolume(float gain) {
 // ═══════════════════════════════════════════
 
 AudioPlayer& AudioPlayer::GetInstance() {
-    static AudioPlayer instance;
-    return instance;
+    return EngineContext::current().audio;
 }
 
 bool AudioPlayer::init() {

@@ -1,10 +1,10 @@
+#include "ShitEngine/Core/EngineContext.h"
 #include "ShitEngine/Reflection/TypeRegistry.h"
 
 namespace Shit {
 
 TypeRegistry& TypeRegistry::GetInstance() {
-	static TypeRegistry instance;
-	return instance;
+	return EngineContext::current().typeRegistry;
 }
 
 void TypeRegistry::registerType(TypeInfo info) {

@@ -92,6 +92,7 @@ namespace Shit {
 		Config& operator=(Config&&) = delete;
 
 	private:
+		friend class EngineContext;
 		Config() = default;
 		~Config() = default;
 

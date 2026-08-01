@@ -61,6 +61,7 @@ public:
 	TypeRegistry& operator=(TypeRegistry&&) = delete;
 
 private:
+	friend class EngineContext;
 	TypeRegistry() = default;
 	~TypeRegistry() = default;
 

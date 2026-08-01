@@ -58,6 +58,7 @@ namespace Shit {
 		static SDL_Texture* CreateTextureFromSurface(SDL_Surface* surface); ///< surface → texture（SDL_CreateTextureFromSurface）
 
 	private:
+		friend class EngineContext;
 		Renderer() = default;
 		~Renderer() = default;
 

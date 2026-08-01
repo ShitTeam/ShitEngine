@@ -1,4 +1,5 @@
 #include "ShitEngine/Core/pch.h"
+#include "ShitEngine/Core/EngineContext.h"
 #include "ShitEngine/Core/Config.h"
 #include <fstream>
 
@@ -92,7 +93,6 @@ namespace Shit {
 	}
 
 	Config& Config::GetInstance() {
-		static Config instance;
-		return instance;
+		return EngineContext::current().config;
 	}
 } // namespace Shit

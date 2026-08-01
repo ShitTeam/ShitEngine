@@ -1,4 +1,5 @@
 #include "ShitEngine/Core/pch.h"
+#include "ShitEngine/Core/EngineContext.h"
 
 #include "ShitEngine/Render/Renderer.h"
 #include "ShitEngine/Core/Window.h"
@@ -10,8 +11,7 @@
 
 namespace Shit {
     Renderer& Renderer::GetInstance() {
-        static Renderer instance;
-        return instance;
+        return EngineContext::current().renderer;
     }
 
     bool Renderer::init() {

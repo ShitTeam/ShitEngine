@@ -9,6 +9,7 @@
 #endif
 
 #include "ShitEngine/Core/pch.h"
+#include "ShitEngine/Core/EngineContext.h"
 
 #include "ShitEngine/Core/Game.h"
 
@@ -141,7 +142,6 @@ namespace Shit {
 	}
 
 	Game& Game::GetInstance() {
-		static Game instance;
-		return instance;
+		return EngineContext::current().game;
 	}
 }

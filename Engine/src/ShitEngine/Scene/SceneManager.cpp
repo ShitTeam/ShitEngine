@@ -1,4 +1,5 @@
 ﻿#include "ShitEngine/Core/pch.h"
+#include "ShitEngine/Core/EngineContext.h"
 #include "ShitEngine/Scene/SceneManager.h"
 #include "ShitEngine/Core/Log.h"
 #include "ShitEngine/Scene/Scene.h"
@@ -14,8 +15,7 @@ namespace Shit {
 	}
 
 	SceneManager& SceneManager::GetInstance() {
-		static SceneManager instance;
-		return instance;
+		return EngineContext::current().sceneManager;
 	}
 
 	void SceneManager::update() {

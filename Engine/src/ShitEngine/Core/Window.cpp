@@ -1,4 +1,5 @@
 ﻿#include "ShitEngine/Core/pch.h"
+#include "ShitEngine/Core/EngineContext.h"
 
 #include "ShitEngine/Core/Window.h"
 
@@ -7,8 +8,7 @@
 namespace Shit {
 	Window& Window::GetInstance()
 	{
-		static Window instance;
-		return instance;
+		return EngineContext::current().window;
 	}
 
 	void Window::Destroy()

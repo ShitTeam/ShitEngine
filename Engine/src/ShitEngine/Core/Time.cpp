@@ -1,4 +1,5 @@
 ﻿#include "ShitEngine/Core/pch.h"
+#include "ShitEngine/Core/EngineContext.h"
 
 #include "ShitEngine/Core/Time.h"
 #include "ShitEngine/Core/Log.h"
@@ -7,8 +8,7 @@
 
 namespace Shit {
 	Time& Time::GetInstance() {
-		static Time instance;
-		return instance;
+		return EngineContext::current().time;
 	}
 
 	void Time::SetTargetFPS(unsigned int fps) {

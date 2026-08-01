@@ -28,6 +28,7 @@ namespace Shit {
 		static void SetTargetFPS(unsigned int fps);  ///< 设帧率上限（0=不限）
 
 	private:
+		friend class EngineContext;
 		Time();
 		~Time();
 

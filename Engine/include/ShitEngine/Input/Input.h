@@ -86,6 +86,7 @@ namespace Shit {
 		static void HandleEvent(const SDL_Event& event) { GetInstance().handleEvent(event); }
 
 	private:
+		friend class EngineContext;
 		enum class BindingType { Key, Mouse };
 
 		struct CompiledBinding {

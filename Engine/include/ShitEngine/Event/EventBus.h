@@ -68,6 +68,7 @@ public:
     EventBus& operator=(EventBus&&) = delete;
 
 private:
+    friend class EngineContext;
     EventBus() = default;
     ~EventBus() = default;
 

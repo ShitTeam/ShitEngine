@@ -45,6 +45,7 @@ namespace Shit {
 		void updateCursorRect(const SDL_Rect& rect, int cursor);
 
 	private:
+		friend class EngineContext;
 		TextInputGate() = default;
 		~TextInputGate() = default;
 

@@ -44,18 +44,18 @@ namespace Shit {
 	};
 }
 
-// Core 日志宏
-#define ST_CORE_TRACE(...)  ::Shit::Log::GetCoreLogger()->trace(__VA_ARGS__)
-#define ST_CORE_DEBUG(...)  ::Shit::Log::GetCoreLogger()->debug(__VA_ARGS__)
-#define ST_CORE_INFO(...)	::Shit::Log::GetCoreLogger()->info(__VA_ARGS__)
-#define ST_CORE_WARN(...)	::Shit::Log::GetCoreLogger()->warn(__VA_ARGS__)
-#define ST_CORE_ERROR(...)  ::Shit::Log::GetCoreLogger()->error(__VA_ARGS__)
-#define ST_CORE_CRITICAL(...)  ::Shit::Log::GetCoreLogger()->critical(__VA_ARGS__)
+// Core 日志宏（空指针安全：Log::Init 之前调用时静默跳过，避免引擎上下文构造期间崩溃）
+#define ST_CORE_TRACE(...)   do { if (auto lg = ::Shit::Log::GetCoreLogger()) lg->trace(__VA_ARGS__); } while (0)
+#define ST_CORE_DEBUG(...)   do { if (auto lg = ::Shit::Log::GetCoreLogger()) lg->debug(__VA_ARGS__); } while (0)
+#define ST_CORE_INFO(...)    do { if (auto lg = ::Shit::Log::GetCoreLogger()) lg->info(__VA_ARGS__); } while (0)
+#define ST_CORE_WARN(...)    do { if (auto lg = ::Shit::Log::GetCoreLogger()) lg->warn(__VA_ARGS__); } while (0)
+#define ST_CORE_ERROR(...)   do { if (auto lg = ::Shit::Log::GetCoreLogger()) lg->error(__VA_ARGS__); } while (0)
+#define ST_CORE_CRITICAL(...) do { if (auto lg = ::Shit::Log::GetCoreLogger()) lg->critical(__VA_ARGS__); } while (0)
 
-//Client 日志宏
-#define ST_TRACE(...)	::Shit::Log::GetClientLogger()->trace(__VA_ARGS__)
-#define ST_DEBUG(...)  ::Shit::Log::GetClientLogger()->debug(__VA_ARGS__)
-#define ST_INFO(...)	::Shit::Log::GetClientLogger()->info(__VA_ARGS__)
-#define ST_WARN(...)	::Shit::Log::GetClientLogger()->warn(__VA_ARGS__)
-#define ST_ERROR(...)	::Shit::Log::GetClientLogger()->error(__VA_ARGS__)
-#define ST_CRITICAL(...)  ::Shit::Log::GetClientLogger()->critical(__VA_ARGS__)
+//Client 日志宏（空指针安全）
+#define ST_TRACE(...)   do { if (auto lg = ::Shit::Log::GetClientLogger()) lg->trace(__VA_ARGS__); } while (0)
+#define ST_DEBUG(...)   do { if (auto lg = ::Shit::Log::GetClientLogger()) lg->debug(__VA_ARGS__); } while (0)
+#define ST_INFO(...)    do { if (auto lg = ::Shit::Log::GetClientLogger()) lg->info(__VA_ARGS__); } while (0)
+#define ST_WARN(...)    do { if (auto lg = ::Shit::Log::GetClientLogger()) lg->warn(__VA_ARGS__); } while (0)
+#define ST_ERROR(...)   do { if (auto lg = ::Shit::Log::GetClientLogger()) lg->error(__VA_ARGS__); } while (0)
+#define ST_CRITICAL(...) do { if (auto lg = ::Shit::Log::GetClientLogger()) lg->critical(__VA_ARGS__); } while (0)

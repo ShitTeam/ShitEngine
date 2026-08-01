@@ -1,4 +1,5 @@
 #include "ShitEngine/Core/pch.h"
+#include "ShitEngine/Core/EngineContext.h"
 #include "ShitEngine/Core/TextInputGate.h"
 
 #include "ShitEngine/UI/UITextInput.h"
@@ -12,8 +13,7 @@
 
 namespace Shit {
 	TextInputGate& TextInputGate::GetInstance() {
-		static TextInputGate instance;
-		return instance;
+		return EngineContext::current().textInputGate;
 	}
 
 	bool TextInputGate::HasFocus() {

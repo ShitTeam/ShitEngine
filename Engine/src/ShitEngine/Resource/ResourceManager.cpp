@@ -1,4 +1,5 @@
 ﻿#include "ShitEngine/Core/pch.h"
+#include "ShitEngine/Core/EngineContext.h"
 #include "ShitEngine/Resource/ResourceManager.h"
 #include "ShitEngine/Core/Log.h"
 
@@ -6,8 +7,7 @@
 
 namespace Shit {
 	ResourceManager& ResourceManager::GetInstance() {
-		static ResourceManager instance;
-		return instance;
+		return EngineContext::current().resources;
 	}
 
 	ResourceManager::ResourceManager() = default;

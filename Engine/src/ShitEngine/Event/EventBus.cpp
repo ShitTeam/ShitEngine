@@ -1,11 +1,11 @@
 #include "ShitEngine/Core/pch.h"
+#include "ShitEngine/Core/EngineContext.h"
 #include "ShitEngine/Event/EventBus.h"
 #include <algorithm>
 
 namespace Shit {
 	EventBus& EventBus::GetInstance() {
-		static EventBus instance;
-		return instance;
+		return EngineContext::current().eventBus;
 	}
 
 	void EventBus::clearAll() {

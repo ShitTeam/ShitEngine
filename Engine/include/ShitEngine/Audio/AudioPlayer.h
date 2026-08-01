@@ -68,6 +68,7 @@ public:
     AudioPlayer& operator=(AudioPlayer&&) = delete;
 
 private:
+    friend class EngineContext;
     AudioPlayer() = default;
     ~AudioPlayer() = default;
 

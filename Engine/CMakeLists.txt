@@ -22,6 +22,7 @@ add_library(ShitEngine SHARED
     "src/ShitEngine/Core/Window.cpp"
     "src/ShitEngine/Core/Config.cpp"
     "src/ShitEngine/Core/TextInputGate.cpp"
+    "src/ShitEngine/Core/EngineContext.cpp"
     "src/ShitEngine/Event/EventBus.cpp"
     # Audio
     "src/ShitEngine/Audio/AudioTrack.cpp"

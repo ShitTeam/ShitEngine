@@ -1,4 +1,5 @@
 #include "ShitEngine/Core/pch.h"
+#include "ShitEngine/Core/EngineContext.h"
 #include "ShitEngine/Input/Input.h"
 #include "ShitEngine/Core/Config.h"
 #include "ShitEngine/Core/Log.h"
@@ -17,8 +18,7 @@ namespace Shit {
 	Input::~Input() = default;
 
 	Input& Input::GetInstance() {
-		static Input instance;
-		return instance;
+		return EngineContext::current().input;
 	}
 
 	// =========================================================================

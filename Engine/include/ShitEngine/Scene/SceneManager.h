@@ -35,6 +35,7 @@ namespace Shit {
 		inline static void ReplaceScene(std::unique_ptr<Scene>&& scene) { GetInstance().replaceScene(std::move(scene)); } ///< 替换栈顶场景
 
 	private:
+		friend class EngineContext;
 		explicit SceneManager();
 		~SceneManager();
 
