@@ -143,9 +143,12 @@ void PluginManager::RegisterAllTypes() {
     for (auto& plugin : m_plugins) {
         if (plugin.registerTypes) {
             ST_CORE_INFO("[PluginManager] Registering types from plugin '{}'", plugin.name);
+            // 标记注册来源，便于卸载时按插件清理（factory 位于 DLL 内）
+            Shit::TypeRegistry::SetRegistrationSource(plugin.name);
             plugin.registerTypes();
         }
     }
+    Shit::TypeRegistry::SetRegistrationSource("");  // 恢复默认（引擎来源）
 }
 
 // ── 创建所有场景 ────────────────────────────────────────
@@ -179,6 +182,15 @@ std::vector<Shit::Scene*> PluginManager::CreateAllScenes() {
 
 void PluginManager::UnloadAll() {
     for (auto& plugin : m_plugins) {
+        // 先清理插件注册的反射类型：其 factory 分配在 DLL 堆上，
+        // 必须在 FreeLibrary 之前销毁，否则 TypeRegistry 持有悬垂 std::function
+        if (!plugin.name.empty()) {
+            size_t removed = Shit::TypeRegistry::UnregisterTypesBySource(plugin.name);
+            if (removed > 0) {
+                ST_CORE_INFO("[PluginManager] Unregistered {} reflected type(s) from plugin '{}'",
+                    removed, plugin.name);
+            }
+        }
         if (plugin.handle) {
             ST_CORE_INFO("[PluginManager] Unloading plugin '{}'", plugin.name);
             freeLibrary(plugin.handle);

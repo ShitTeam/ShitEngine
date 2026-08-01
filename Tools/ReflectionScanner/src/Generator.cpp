@@ -90,7 +90,8 @@ std::string Generator::generateTypeFile(const ReflectedType& type, const std::st
                 if (init.size() >= 2 && init.front() == '(' && init.back() == ')') {
                     init = init.substr(1, init.size() - 2);
                 }
-                out << "        .Meta(FieldMeta" << init << ")\n";
+                // 用全限定名：类型可能在全局作用域（插件类型），裸 FieldMeta 无法解析
+                out << "        .Meta(Shit::FieldMeta" << init << ")\n";
             }
         }
     }

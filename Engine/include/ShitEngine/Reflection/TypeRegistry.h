@@ -27,6 +27,10 @@ public:
 	void initBuiltinTypes();
 	void resolveBases();                ///< 解析所有未解析的基类引用（消除 SIOF）
 	bool unregisterType(std::string_view name);  ///< 按名称卸载类型
+	/// @brief 设置后续注册类型的来源标记（空 = 引擎内置，插件注册前设为插件名）
+	void setRegistrationSource(std::string_view source);
+	/// @brief 卸载指定来源注册的全部类型（插件卸载前调用，防止 factory 悬垂）
+	size_t unregisterTypesBySource(std::string_view source);
 
 	[[nodiscard]] const TypeInfo* getType(std::string_view name) const;
 
@@ -50,6 +54,8 @@ public:
 	static void InitBuiltinTypes() { GetInstance().initBuiltinTypes(); }
 	static void ResolveBases() { GetInstance().resolveBases(); }
 	static bool UnregisterType(std::string_view name) { return GetInstance().unregisterType(name); }
+	static void SetRegistrationSource(std::string_view source) { GetInstance().setRegistrationSource(source); }
+	static size_t UnregisterTypesBySource(std::string_view source) { return GetInstance().unregisterTypesBySource(source); }
 	static const TypeInfo* Get(std::string_view name) { return GetInstance().getType(name); }
 	static const TypeInfo* Get(std::type_index ti) { return GetInstance().getType(ti); }
 
@@ -75,6 +81,7 @@ private:
 	std::deque<TypeInfo>                                  m_typeStorage;
 	std::unordered_map<std::string, TypeInfo*>           m_nameMap;
 	std::unordered_map<std::type_index, const TypeInfo*> m_typeIndexMap;
+	std::string                                           m_currentSource;  ///< 当前注册来源标记
 };
 
 // ── P1-3: 类型名 demangle ────────────────────────────

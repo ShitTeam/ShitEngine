@@ -10,7 +10,7 @@ inline bool Register_UICanvas() {
         .Base("Component")
         .Field("m_sortOrder",
             &Shit::UICanvas::m_sortOrder, "int")
-        .Meta(FieldMeta{.displayName = "Sort Order", .tooltip = "Canvas 渲染排序"})
+        .Meta(Shit::FieldMeta{.displayName = "Sort Order", .tooltip = "Canvas 渲染排序"})
         .Factory<UICanvas>()
         .Register<UICanvas>();
 

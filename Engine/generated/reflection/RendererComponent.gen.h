@@ -10,10 +10,10 @@ inline bool Register_RendererComponent() {
         .Base("Component")
         .Field("m_zIndex",
             &Shit::RendererComponent::m_zIndex, "int")
-        .Meta(FieldMeta{.displayName = "Z-Index", .tooltip = "渲染层级（值越大越靠上）"})
+        .Meta(Shit::FieldMeta{.displayName = "Z-Index", .tooltip = "渲染层级（值越大越靠上）"})
         .Field("m_isVisible",
             &Shit::RendererComponent::m_isVisible, "bool")
-        .Meta(FieldMeta{.displayName = "Visible"})
+        .Meta(Shit::FieldMeta{.displayName = "Visible"})
         .Factory<RendererComponent>()
         .Register<RendererComponent>();
 

@@ -10,10 +10,10 @@ inline bool Register_UIRendererComponent() {
         .Base("Component")
         .Field("m_zIndex",
             &Shit::UIRendererComponent::m_zIndex, "int")
-        .Meta(FieldMeta{.displayName = "Z-Index", .tooltip = "渲染层级（值越大越靠上）"})
+        .Meta(Shit::FieldMeta{.displayName = "Z-Index", .tooltip = "渲染层级（值越大越靠上）"})
         .Field("m_isVisible",
             &Shit::UIRendererComponent::m_isVisible, "bool")
-        .Meta(FieldMeta{.displayName = "Visible", .tooltip = "是否参与渲染与命中"})
+        .Meta(Shit::FieldMeta{.displayName = "Visible", .tooltip = "是否参与渲染与命中"})
         .Factory<UIRendererComponent>()
         .Register<UIRendererComponent>();
 

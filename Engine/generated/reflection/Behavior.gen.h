@@ -10,7 +10,7 @@ inline bool Register_Behavior() {
         .Base("Component")
         .Field("m_isStarted",
             &Shit::Behavior::m_isStarted, "bool")
-        .Meta(FieldMeta{.displayName = "Started", .tooltip = "onStart 是否已执行过", .readOnly = true})
+        .Meta(Shit::FieldMeta{.displayName = "Started", .tooltip = "onStart 是否已执行过", .readOnly = true})
         .Factory<Behavior>()
         .Register<Behavior>();
 

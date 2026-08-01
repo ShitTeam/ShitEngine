@@ -6,6 +6,9 @@
 
 #include <ShitEngine.h>
 
+// 插件反射类型注册（由 ReflectionScanner 生成）
+#include "reflection/ReflectionRegisterAll.h"
+
 // 跨平台导出宏：Windows 用 __declspec(dllexport)，Linux/macOS 用 visibility 属性
 #if defined(_WIN32)
     #define SHIT_PLUGIN_EXPORT __declspec(dllexport)
@@ -34,7 +37,8 @@ const char* GetPluginVersion() {
 // 必须在 Game::Init() 之后调用（引擎内置类型已注册）
 extern "C" SHIT_PLUGIN_EXPORT
 void RegisterPluginTypes() {
-    // Physics 组件暂未加入反射
+    // 调用 ReflectionScanner 为插件生成的类型注册（TestPlayer/TestEnemy/TestDirection 等）
+    RegisterAllReflectedTypes();
 }
 
 // ── 创建插件的主场景 ────────────────────────────────────

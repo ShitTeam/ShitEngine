@@ -10,7 +10,7 @@ inline bool Register_UITextBox() {
         .Base("UITextInput")
         .Field("m_characterLimit",
             &Shit::UITextBox::m_characterLimit, "size_t")
-        .Meta(FieldMeta{.displayName = "Character Limit", .tooltip = "最大字符数（0=不限）"})
+        .Meta(Shit::FieldMeta{.displayName = "Character Limit", .tooltip = "最大字符数（0=不限）"})
         .Factory<UITextBox>()
         .Register<UITextBox>();
 

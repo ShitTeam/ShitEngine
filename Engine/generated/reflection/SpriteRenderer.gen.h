@@ -10,7 +10,7 @@ inline bool Register_SpriteRenderer() {
         .Base("RendererComponent")
         .Field("m_sprite",
             &Shit::SpriteRenderer::m_sprite, "Sprite")
-        .Meta(FieldMeta{.displayName = "Sprite Data", .readOnly = true})
+        .Meta(Shit::FieldMeta{.displayName = "Sprite Data", .readOnly = true})
         .Factory<SpriteRenderer>()
         .Register<SpriteRenderer>();
     return true;

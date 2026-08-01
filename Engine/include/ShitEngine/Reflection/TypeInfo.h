@@ -82,6 +82,9 @@ struct TypeInfo {
         if (!factory) return nullptr;
         return factory(memory);
     }
+
+    /// 注册来源（空 = 引擎内置，否则为插件名，用于卸载时批量清理）
+    std::string source;
 };
 
 } // namespace Shit

@@ -1,6 +1,8 @@
 #include "ShitEngine/Core/EngineContext.h"
 #include "ShitEngine/Reflection/TypeRegistry.h"
 
+#include <vector>
+
 namespace Shit {
 
 TypeRegistry& TypeRegistry::GetInstance() {
@@ -9,6 +11,7 @@ TypeRegistry& TypeRegistry::GetInstance() {
 
 void TypeRegistry::registerType(TypeInfo info) {
 	const std::string name = info.name;
+	info.source = m_currentSource;  // 标记注册来源（空=引擎，否则=插件名）
 
 	if (auto nameIt = m_nameMap.find(name); nameIt != m_nameMap.end()) {
 		TypeInfo* existing = nameIt->second;
@@ -95,6 +98,24 @@ void TypeRegistry::resolveBases() {
 			info.baseType = resolved;
 		}
 	}
+}
+
+void TypeRegistry::setRegistrationSource(std::string_view source) {
+	m_currentSource = std::string(source);
+}
+
+size_t TypeRegistry::unregisterTypesBySource(std::string_view source) {
+	// 先收集匹配来源的类型名（unregisterType 会重建索引，逐个卸载）
+	std::vector<std::string> names;
+	for (const auto& info : m_typeStorage) {
+		if (info.source == source) {
+			names.push_back(info.name);
+		}
+	}
+	for (const auto& name : names) {
+		unregisterType(name);
+	}
+	return names.size();
 }
 
 bool TypeRegistry::unregisterType(std::string_view name) {

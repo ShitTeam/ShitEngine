@@ -10,7 +10,7 @@ inline bool Register_UIButton() {
         .Base("UIRendererComponent")
         .Field("m_interactable",
             &Shit::UIButton::m_interactable, "bool")
-        .Meta(FieldMeta{.displayName = "Interactable", .tooltip = "是否可交互"})
+        .Meta(Shit::FieldMeta{.displayName = "Interactable", .tooltip = "是否可交互"})
         .Factory<UIButton>()
         .Register<UIButton>();
     return true;

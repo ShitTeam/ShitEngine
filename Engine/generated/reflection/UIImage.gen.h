@@ -10,10 +10,10 @@ inline bool Register_UIImage() {
         .Base("UIRendererComponent")
         .Field("m_sprite",
             &Shit::UIImage::m_sprite, "Sprite")
-        .Meta(FieldMeta{.displayName = "Sprite", .readOnly = true})
+        .Meta(Shit::FieldMeta{.displayName = "Sprite", .readOnly = true})
         .Field("m_color",
             &Shit::UIImage::m_color, "Color")
-        .Meta(FieldMeta{.displayName = "Color", .tooltip = "颜色叠加（用于按钮状态切换着色）"})
+        .Meta(Shit::FieldMeta{.displayName = "Color", .tooltip = "颜色叠加（用于按钮状态切换着色）"})
         .Factory<UIImage>()
         .Register<UIImage>();
     return true;
