@@ -66,6 +66,9 @@ namespace Shit {
 		void clearScreen();
 		void present();
 
+		/// @brief 原生渲染器裸指针（未初始化/已销毁则为 nullptr，供绘制接口判空保护）
+		SDL_Renderer* raw() const { return m_renderer ? m_renderer.get() : nullptr; }
+
 		struct SDLRendererDeleter {
 			void operator()(SDL_Renderer* renderer) const {
 				if (renderer) SDL_DestroyRenderer(renderer);

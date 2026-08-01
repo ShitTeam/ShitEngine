@@ -32,17 +32,22 @@ namespace Shit {
     }
 
     void Renderer::clearScreen() {
-        SDL_SetRenderDrawColor(m_renderer.get(), 0, 0, 0, 255);
-        SDL_RenderClear(m_renderer.get());
+        if (SDL_Renderer* r = GetInstance().raw()) {
+            SDL_SetRenderDrawColor(r, 0, 0, 0, 255);
+            SDL_RenderClear(r);
+        }
     }
 
     void Renderer::present() {
-        SDL_RenderPresent(m_renderer.get());
+        if (SDL_Renderer* r = GetInstance().raw()) {
+            SDL_RenderPresent(r);
+        }
     }
 
     void Renderer::DrawSprite(const Sprite& sprite, const Vector2& position, const std::optional<Vector2>& size) {
         auto& instance = GetInstance();
-
+        SDL_Renderer* renderer = instance.raw();
+        if (!renderer) return;  // 渲染器未初始化/已销毁
         SDL_Texture* texture = ResourceManager::GetTexture(sprite.getTexturePath());
         if (!texture) {
             ST_CORE_ERROR("DrawSprite: 无法获取纹理 {}", sprite.getTexturePath());
@@ -68,50 +73,70 @@ namespace Shit {
         }
 
         SDL_FlipMode flip = sprite.isFlipped() ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-        SDL_RenderTextureRotated(instance.m_renderer.get(), texture,
+        SDL_RenderTextureRotated(renderer, texture,
             useSrcRect ? &srcRect : nullptr, &destRect, 0.0, nullptr, flip);
     }
 
     void Renderer::SetDrawColor(const Color& color) {
-        SDL_SetRenderDrawColor(GetInstance().m_renderer.get(),
-            color.red, color.green, color.blue, color.alpha);
+        if (SDL_Renderer* r = GetInstance().raw()) {
+            SDL_SetRenderDrawColor(r, color.red, color.green, color.blue, color.alpha);
+        }
     }
 
     void Renderer::FillRect(const SDL_FRect& rect) {
-        SDL_RenderFillRect(GetInstance().m_renderer.get(), &rect);
+        if (SDL_Renderer* r = GetInstance().raw()) {
+            SDL_RenderFillRect(r, &rect);
+        }
     }
 
     void Renderer::SetClipRect(const SDL_Rect* rect) {
-        SDL_SetRenderClipRect(GetInstance().m_renderer.get(), rect);
+        if (SDL_Renderer* r = GetInstance().raw()) {
+            SDL_SetRenderClipRect(r, rect);
+        }
     }
 
     void Renderer::ClearClipRect() {
-        SDL_SetRenderClipRect(GetInstance().m_renderer.get(), nullptr);
+        if (SDL_Renderer* r = GetInstance().raw()) {
+            SDL_SetRenderClipRect(r, nullptr);
+        }
     }
 
     void Renderer::SetViewport(const SDL_Rect* viewport) {
-        SDL_SetRenderViewport(GetInstance().m_renderer.get(), viewport);
+        if (SDL_Renderer* r = GetInstance().raw()) {
+            SDL_SetRenderViewport(r, viewport);
+        }
     }
 
     void Renderer::ClearViewport() {
-        SDL_SetRenderViewport(GetInstance().m_renderer.get(), nullptr);
+        if (SDL_Renderer* r = GetInstance().raw()) {
+            SDL_SetRenderViewport(r, nullptr);
+        }
     }
 
     void Renderer::DrawTexture(SDL_Texture* texture, const SDL_FRect* src, const SDL_FRect& dst) {
-        SDL_RenderTexture(GetInstance().m_renderer.get(), texture, src, &dst);
+        if (SDL_Renderer* r = GetInstance().raw()) {
+            SDL_RenderTexture(r, texture, src, &dst);
+        }
     }
 
     void Renderer::DrawTextureRotated(SDL_Texture* texture, const SDL_FRect* src, const SDL_FRect& dst,
         double angle, const SDL_FPoint* center, SDL_FlipMode flip) {
-        SDL_RenderTextureRotated(GetInstance().m_renderer.get(), texture, src, &dst, angle, center, flip);
+        if (SDL_Renderer* r = GetInstance().raw()) {
+            SDL_RenderTextureRotated(r, texture, src, &dst, angle, center, flip);
+        }
     }
 
     void Renderer::RenderCoordinatesToWindow(float x, float y, float* winX, float* winY) {
-        SDL_RenderCoordinatesToWindow(GetInstance().m_renderer.get(), x, y, winX, winY);
+        if (SDL_Renderer* r = GetInstance().raw()) {
+            SDL_RenderCoordinatesToWindow(r, x, y, winX, winY);
+        }
     }
 
     SDL_Texture* Renderer::CreateTextureFromSurface(SDL_Surface* surface) {
-        SDL_Texture* tex = SDL_CreateTextureFromSurface(GetInstance().m_renderer.get(), surface);
+        SDL_Renderer* renderer = GetInstance().raw();
+        if (!renderer) return nullptr;  // 渲染器未初始化/已销毁
+
+        SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surface);
         if (!tex) {
             ST_CORE_ERROR("Renderer::CreateTextureFromSurface 失败: {}", SDL_GetError());
         }

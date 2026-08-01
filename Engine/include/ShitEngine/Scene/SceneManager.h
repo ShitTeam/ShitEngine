@@ -26,7 +26,7 @@ namespace Shit {
 
 		// --- 静态API ---
 		static SceneManager& GetInstance();
-		inline static void LoadScene(std::unique_ptr<Scene>&& scene) { GetInstance().loadScene(std::move(scene)); }  ///< 切换场景（销毁当前，加载新场景，同帧生效）
+		inline static void LoadScene(std::unique_ptr<Scene>&& scene) { GetInstance().loadScene(std::move(scene)); }  ///< 切换场景（销毁当前，加载新场景；update 期间调用时延迟到 update 结束后生效）
 		inline static void Update() { GetInstance().update(); }
 		inline static void Destroy() { GetInstance().destroy(); }
 		inline static Scene* GetCurrentScene() { return GetInstance().getCurrentScene(); }
@@ -37,10 +37,13 @@ namespace Shit {
 		~SceneManager();
 
 		void loadScene(std::unique_ptr<Scene>&& scene);
+		void applyLoadScene(std::unique_ptr<Scene>&& scene);  ///< 实际执行切换（销毁旧场景 + 自动 init + 装载）
 		void update();
 		void destroy();
 		Scene* getCurrentScene() const;
 
 		std::unique_ptr<Scene> m_currentScene;  ///< 当前活跃场景（唯一）
+		std::unique_ptr<Scene> m_pendingScene;  ///< 场景 update 期间请求的延迟切换（帧末生效，避免 UAF）
+		bool m_isUpdating = false;              ///< 当前是否正在 update 当前场景
 	};
 }

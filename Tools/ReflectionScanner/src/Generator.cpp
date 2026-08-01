@@ -31,11 +31,23 @@ static std::string namespacePrefix(const std::vector<std::string>& ns) {
     return p;
 }
 
+// ── 辅助：生成 .gen.h 文件名 ──────────────────────
+// 用命名空间限定名拼文件，避免不同命名空间下的同名类型互相覆盖生成文件
+// （如 Shit::AudioManager 与 Editor::AudioManager 都应生成独立的 .gen.h）。
+static std::string typeFileName(const ReflectedType& type) {
+    std::string qualified = namespacePrefix(type.namespacePath) + type.name;  // "Shit::Foo"
+    std::string sanitized;
+    for (char c : qualified) {
+        sanitized += (c == ':' ? '_' : c);  // "::" → "__"
+    }
+    return sanitized + ".gen.h";
+}
+
 // ── 生成单个类型 ────────────────────────────────────
 std::string Generator::generateTypeFile(const ReflectedType& type, const std::string& outputDir) {
     fs::create_directories(outputDir);
 
-    std::string filename = type.name + ".gen.h";
+    std::string filename = typeFileName(type);
     fs::path outPath = fs::path(outputDir) / filename;
 
     std::ofstream out(outPath);
@@ -84,9 +96,9 @@ std::string Generator::generateTypeFile(const ReflectedType& type, const std::st
                     << field.size << ", \"" << field.typeName << "\")\n";
             }
 
-            // SHIT_META 结构化元数据
-            if (!field.metaInit.empty()) {
-                std::string init = field.metaInit;
+            // SHIT_META 结构化元数据（一个字段可叠加多条，全部输出）
+            for (const auto& metaInit : field.metaInits) {
+                std::string init = metaInit;
                 if (init.size() >= 2 && init.front() == '(' && init.back() == ')') {
                     init = init.substr(1, init.size() - 2);
                 }
@@ -149,7 +161,7 @@ std::string Generator::generateRegisterAll(const ScanResult& result, const std::
     out << "// DO NOT EDIT\n\n";
 
     for (const auto& type : result.types) {
-        out << "#include \"" << type.name << ".gen.h\"\n";
+        out << "#include \"" << typeFileName(type) << "\"\n";
     }
 
     out << "\ninline void RegisterAllReflectedTypes() {\n";

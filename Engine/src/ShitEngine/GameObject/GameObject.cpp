@@ -35,12 +35,21 @@ namespace Shit {
 
 		component->setOwner(this);
 		m_components[type_index] = std::unique_ptr<Component>(component);
+
+		// 捕获回调可能用到的数据：回调内可能销毁 owner（this），之后不能再触碰 this
+		Scene* scene = m_scene;
+		std::weak_ptr<void> lifetime = m_lifetime;
+		const std::string goName = m_name;
+
 		component->onCreate();
+		if (lifetime.expired()) return nullptr;   // 回调销毁了 owner → 组件已随 clean() 释放
 
 		// 若已挂载场景则立即执行 onAttach（注册到 System）
-		if (m_scene && !component->isRegistered()) {
+		if (scene && !component->isRegistered()) {
 			component->onAttach();
 		}
+		if (lifetime.expired()) return nullptr;   // onAttach 销毁了 owner
+
 		return component;
 	}
 

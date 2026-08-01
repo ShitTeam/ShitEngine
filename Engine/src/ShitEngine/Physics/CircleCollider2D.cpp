@@ -16,14 +16,18 @@ namespace Shit {
 
 	void CircleCollider2D::onAttach() {
 		Component::onAttach();
+		ensureShape();
+	}
 
+	void CircleCollider2D::ensureShape() {
+		// 幂等：已有有效 shape 或刚体尚未就绪时跳过。
+		// 刚体先挂、本组件后挂：直接创建；本组件先挂、刚体后挂：由
+		// PhysicsSystem2D::createRigidBody 补调本方法。
+		if (m_shapeValid) return;
 		if (!m_owner) return;
 
 		auto* rigidBody = m_owner->getComponent<RigidBody2D>();
-		if (!rigidBody || !rigidBody->hasValidBody()) {
-			ST_CORE_WARN("[CircleCollider2D] 未找到有效的 RigidBody2D，无法创建碰撞体");
-			return;
-		}
+		if (!rigidBody || !rigidBody->hasValidBody()) return;
 
 		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.material.friction = m_friction;

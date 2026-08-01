@@ -1,6 +1,8 @@
 #include "ShitEngine/Core/pch.h"
 #include "ShitEngine/Physics/PhysicsSystem2D.h"
 #include "ShitEngine/Physics/RigidBody2D.h"
+#include "ShitEngine/Physics/BoxCollider2D.h"
+#include "ShitEngine/Physics/CircleCollider2D.h"
 #include "ShitEngine/Component/TransformComponent.h"
 #include "ShitEngine/GameObject/GameObject.h"
 #include "ShitEngine/Core/Game.h"
@@ -34,6 +36,10 @@ namespace Shit {
 
 		ST_CORE_INFO("[PhysicsSystem2D] 物理世界已创建，重力 ({}, {})，每米 {} 像素",
 			m_gravity.x, m_gravity.y, m_pixelsPerMeter);
+
+		// 世界创建后补扫：若 RigidBody2D 先挂、本系统后注册，其 onAttach 曾因找不到
+		// 系统而标记 m_isRegistered=false；这里重扫让它们补建物理体（世界必须已存在）。
+		System::init();
 	}
 
 	void PhysicsSystem2D::update() {
@@ -83,6 +89,15 @@ namespace Shit {
 			b2WorldId worldId = Internal::MakeWorldId(m_worldIndex, m_worldGeneration);
 			b2DestroyWorld(worldId);
 			m_initialized = false;
+
+			// World 销毁使所有刚体/形状失效：重置组件标志，避免悬垂 b2BodyId /
+			// 已注册状态残留（同系统重新注册时 System::init 补扫会重建刚体）
+			for (auto* body : m_bodies) {
+				if (body) {
+					body->m_bodyValid = false;
+					resetComponent(body);
+				}
+			}
 			m_bodies.clear();
 			ST_CORE_INFO("[PhysicsSystem2D] 物理世界已销毁");
 		}
@@ -169,6 +184,15 @@ namespace Shit {
 		body->m_bodyValid = true;
 
 		registerRigidBody(body);
+
+		// 补建碰撞形状：同物体上的碰撞体可能先于刚体挂载（Prefab 反序列化顺序不定、
+		// 用户先 addComponent<Collider> 后 addComponent<RigidBody>），刚体创建后需重试。
+		if (auto* owner = body->getOwner()) {
+			owner->forEachComponent([](Component* comp) {
+				if (auto* box = dynamic_cast<BoxCollider2D*>(comp)) box->ensureShape();
+				else if (auto* circle = dynamic_cast<CircleCollider2D*>(comp)) circle->ensureShape();
+			});
+		}
 	}
 
 	void PhysicsSystem2D::destroyRigidBody(RigidBody2D* body) {

@@ -2,12 +2,17 @@
 #include "ShitEngine/System/System.h"
 
 #include "ShitEngine/Core/Log.h"
+#include "ShitEngine/Component/Component.h"
 #include "ShitEngine/GameObject/GameObject.h"
 #include "ShitEngine/Scene/Scene.h"
 
 namespace Shit {
     System::System(int priority) : m_priority(priority) {}
     System::~System() = default;
+
+    void System::resetComponent(Component* comp) {
+        if (comp) comp->setRegistered(false);
+    }
 
     void System::init() {
         // 逻辑不变量：System 必须经 registerSystem 注册（内部已 setScene）后才 init

@@ -128,10 +128,12 @@ namespace Shit {
 		ST_CORE_INFO("游戏已退出");
 	}
 
-	void Game::Destroy() {
-		// 按依赖逆序清理子系统，避免静态单例在 SDL_Quit 后析构导致 UB
+	void Game::destroy() {
+		// 按依赖逆序清理子系统，避免静态单例在 SDL_Quit 后析构导致 UB。
+		// init() 中途失败（SDL/Window/Renderer 等）时，各子系统内部已做空指针保护，
+		// 这里依然能安全清理"已创建的部分"，不崩溃。
 		EventBus::ClearAll();
-		SceneManager::Destroy(); // 在 SDL_Quit 之前销毁场景栈，确保组件清理时 SDL 仍然可用
+		SceneManager::Destroy(); // 在 SDL_Quit 之前销毁场景，确保组件清理时 SDL 仍然可用
 		AudioPlayer::Destroy();
 		// 资源管理器：在 SDL_Quit 之前释放所有纹理/Font/Audio缓存
 		ResourceManager::Destroy();
@@ -139,6 +141,10 @@ namespace Shit {
 		Renderer::Destroy();
 		Window::Destroy(); // 销毁窗口
 		SDL_Quit();
+
+		// 重置初始化标志：Destroy 后允许在同一上下文上重新 Init()（引擎状态回到未初始化）
+		m_isInited = false;
+		m_isRunning = false;
 	}
 
 	Game& Game::GetInstance() {

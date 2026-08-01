@@ -19,7 +19,8 @@ namespace Shit {
 	 *   input->setFontPath("fonts/main.ttf");
 	 *   input->setPlaceholder("请输入...");
 	 *
-	 * 点击控件即聚焦，点其他地方自动失焦（由 UIRenderSystem 驱动）。
+	 * 聚焦管理（由 UIRenderSystem 驱动）：点击输入框即聚焦；点击空白区域自动失焦；
+	 * 点击其他 UI 控件（按钮/图片）不夺走输入框焦点，可同时保持输入状态。
 	 */
 	class SHIT_API SHIT_REFLECT(BlackList) UITextBox : public UITextInput {
 		SHIT_REFLECT_BODY(UITextBox)

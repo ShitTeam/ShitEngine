@@ -31,10 +31,15 @@ namespace Shit {
             if (!b) continue;
             if (!b->isStarted()) {
                 b->onStart();
+                // onStart 可能注销/销毁当前 Behavior（removeComponent/removeGameObject）：
+                // 条目可能已被置为墓碑（nullptr），重新读取，避免对已释放内存 setStarted/onUpdate。
+                b = m_behaviors[i];
+                if (!b) continue;
                 b->setStarted(true);
             }
             if (!paused) {
                 b->onUpdate();
+                // onUpdate 后不再触碰 b：其可能已注销/销毁，循环尾部统一压缩墓碑
             }
         }
 
@@ -47,6 +52,14 @@ namespace Shit {
     }
 
     void BehaviorSystem::destroy() {
+        // 重置认领组件的注册状态：系统注销后，这些 Behavior 在同系统重新注册时
+        // 需能被 System::init 补扫重新认领（否则 m_isRegistered 残留 true 会永久失去驱动）
+        for (auto* b : m_behaviors) {
+            if (b) resetComponent(b);
+        }
+        for (auto* b : m_pendingBehaviors) {
+            if (b) resetComponent(b);
+        }
         m_behaviors.clear();
         m_pendingBehaviors.clear();
     }

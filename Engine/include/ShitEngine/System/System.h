@@ -37,5 +37,10 @@ namespace Shit {
     protected:
         int m_priority;          ///< 优先级（小值先执行）
         Scene* m_scene = nullptr; ///< 所属场景
+
+        /// @brief 内部：把认领过的组件标记为未注册（系统销毁/注销时调用）。
+        /// 否则组件 m_isRegistered 残留 true，同类系统重新注册时 System::init 补扫会跳过它们，
+        /// 导致组件永久失去驱动系统。
+        void resetComponent(Component* comp);
     };
 }

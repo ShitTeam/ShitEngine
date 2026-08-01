@@ -124,6 +124,11 @@ namespace Shit {
 		// 清除输入框焦点，防止悬空指针
 		TextInputGate::GetInstance().clearFocus();
 
+		// 重置认领组件的注册状态：系统注销后，已存在组件在同类系统重新注册时
+		// 需能被 System::init 补扫重新认领（否则 m_isRegistered 残留 true 会永久失去驱动）
+		for (auto* renderer : m_uiRenderers) {
+			if (renderer) resetComponent(renderer);
+		}
 		m_uiRenderers.clear();
 	}
 

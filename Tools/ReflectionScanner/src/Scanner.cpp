@@ -204,8 +204,9 @@ CXChildVisitResult Scanner::collectFields(CXCursor cursor, CXCursor,
     field.enabled  = true;
 
     // ── 捕获 SHIT_META 原文 ──
-    // 仅结构体语法 SHIT_META(({...})) → shit-meta:({...}) 存入 metaInit
-    // 简单标记（如 SHIT_META(Enable)）只影响 WhiteList 模式，不写入 metaInit
+    // 仅结构体语法 SHIT_META(({...})) → shit-meta:({...}) 存入 metaInits
+    // 简单标记（如 SHIT_META(Enable)）只影响 WhiteList 模式，不写入 metaInits。
+    // 一个字段可叠多条 SHIT_META（Macros.h 文档约定"可叠加"），全部收集。
     const std::string kMetaPrefix = "shit-meta:";
     for (const auto& ann : actx.annotations) {
         if (ann.rfind(kMetaPrefix, 0) != 0) continue;
@@ -219,7 +220,7 @@ CXChildVisitResult Scanner::collectFields(CXCursor cursor, CXCursor,
         raw = trim(raw);
         // 仅以 ({ 开头的视为结构化元数据
         if (raw.size() >= 2 && raw.front() == '(' && raw[1] == '{') {
-            field.metaInit = std::move(raw);
+            field.metaInits.push_back(std::move(raw));
         }
     }
 

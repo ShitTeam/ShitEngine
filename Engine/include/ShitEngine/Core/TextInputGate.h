@@ -1,5 +1,8 @@
 #pragma once
 #include "../Core/Core.h"
+#include "../Input/KeyCode.h"
+
+#include <unordered_set>
 
 union SDL_Event;
 struct SDL_Rect;
@@ -52,5 +55,9 @@ namespace Shit {
 		bool handleEvent(const SDL_Event& event);
 
 		UITextInput* m_focused = nullptr;
+
+		/// @brief 聚焦期间已消费 KEY_DOWN 的按键集合。其 KEY_UP 需配对消费，
+		/// 避免事件泄漏给全局 Input 造成卡键；聚焦前按下的键不在集合中，其 KEY_UP 放行。
+		std::unordered_set<KeyCode> m_focusConsumedKeys;
 	};
 }

@@ -28,6 +28,9 @@ namespace Shit {
 			m_focused->setFocused(false);
 		}
 
+		// 新聚焦会话开始：清空已消费按键记录（上一会话遗留的 UP 已随焦点释放消费完毕）
+		m_focusConsumedKeys.clear();
+
 		SDL_Window* window = Window::GetWindow();
 		if (window) {
 			SDL_ClearComposition(window);
@@ -61,6 +64,13 @@ namespace Shit {
 	}
 
 	bool TextInputGate::handleEvent(const SDL_Event& event) {
+		// 聚焦期间消费过的按键抬起：即使焦点已在 KEY_DOWN 时被释放（如 Escape），其 KEY_UP
+		// 仍须消费，避免只把 UP 转发给全局 Input 造成按下/抬起失衡（误触发 IsKeyReleased）。
+		if (event.type == SDL_EVENT_KEY_UP) {
+			KeyCode upKey = static_cast<KeyCode>(event.key.scancode);
+			if (m_focusConsumedKeys.erase(upKey)) return true;
+		}
+
 		if (!m_focused) return false;
 
 		switch (event.type) {
@@ -81,16 +91,19 @@ namespace Shit {
 					key == KeyCode::Backspace || key == KeyCode::Delete ||
 					key == KeyCode::Up || key == KeyCode::Down ||
 					key == KeyCode::Return);
-				// 导航键允许 repeat（长按退格/方向键连续操作），非导航键跳过
-				if (!navKeys && event.key.repeat) return false;
 				if (navKeys) {
 					m_focused->onKeyDown(key, shift, ctrl);
+					m_focusConsumedKeys.insert(key);
 					return true;  // 已消费，避免编辑键同时进入全局 Input
 				} else if (key == KeyCode::Escape) {
 					releaseFocus(m_focused);
+					m_focusConsumedKeys.insert(key);  // Escape 的 UP 也需消费
 					return true;  // 失焦键已消费，避免当帧触发绑定 Escape 的游戏动作
 				}
-				return false;
+				// 聚焦期间其余按键一律消费：避免打字时误触发绑定到这些键的游戏动作
+				//（如 WASD 移动、空格跳跃）。按键 UP 由上方 KEY_UP 分支配对消费。
+				m_focusConsumedKeys.insert(key);
+				return true;
 			}
 			default:
 				return false;

@@ -110,6 +110,14 @@ namespace Shit {
 	}
 
 	void RenderSystem::destroy() {
+		// 重置认领组件的注册状态：系统注销后，已存在组件在同类系统重新注册时
+		// 需能被 System::init 补扫重新认领（否则 m_isRegistered 残留 true 会永久失去驱动）
+		for (auto* r : m_renderers) {
+			if (r) resetComponent(r);
+		}
+		for (auto* c : m_cameras) {
+			if (c) resetComponent(c);
+		}
 		m_cameras.clear();
 		m_renderers.clear();
 		m_renderer = nullptr;

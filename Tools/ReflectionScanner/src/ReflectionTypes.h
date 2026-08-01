@@ -20,7 +20,7 @@ struct ReflectedField {
     size_t      size    = 0;
     bool        enabled = true;
     bool        offsetValid = false;  ///< clang 成功计算出 field offset（非 -1）
-    std::string metaInit;  ///< SHIT_META 原文（含 {…}，直接嵌入 .gen.h 的 FieldMeta 初始化器）
+    std::vector<std::string> metaInits;  ///< 字段上所有 SHIT_META(({...})) 原文（含 {…}，每个直接嵌入 .gen.h 的 FieldMeta 初始化器）
 };
 
 /// 枚举常量（Scanner 从 CXCursor_EnumConstantDecl 提取）

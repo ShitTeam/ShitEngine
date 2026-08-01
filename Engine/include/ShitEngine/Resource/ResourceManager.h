@@ -64,5 +64,6 @@ namespace Shit {
 		std::unique_ptr<TextureManager> m_textureManager;
 		std::unique_ptr<AudioManager>   m_audioManager;
 		std::unique_ptr<FontManager>    m_fontManager;
+		bool m_ttfInitialized = false;  ///< 本上下文是否调用了 TTF_Init（析构时决定是否 TTF_Quit，防止多上下文互相关闭）
 	};
 }

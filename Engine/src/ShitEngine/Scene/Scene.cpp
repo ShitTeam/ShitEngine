@@ -82,6 +82,10 @@ namespace Shit {
 		m_systems.clear();
 		m_pendingRemoveSystems.clear();
 
+		// 重置幂等守卫：场景被销毁后若复用（重新 loadScene 时 hasSystems()==false 会自动 init），
+		// 不能因 m_isInited 残留 true 而跳过系统注册。
+		m_isInited = false;
+
 		ST_CORE_TRACE("场景 {} 已清除", m_name);
 	}
 
@@ -231,7 +235,11 @@ namespace Shit {
 	void Scene::processPendingRemoveSystems() {
 		if (m_pendingRemoveSystems.empty()) return;
 
-		for (const auto& type : m_pendingRemoveSystems) {
+		// 按下标处理前 N 条；system->destroy() 内可能 unregisterSystem 追加新条目，
+		// 追加的在 N 之后，留在容器中下帧处理，避免迭代期间 vector 重分配/失效。
+		const size_t count = m_pendingRemoveSystems.size();
+		for (size_t i = 0; i < count; ++i) {
+			const auto& type = m_pendingRemoveSystems[i];
 			auto it = m_systemsMap.find(type);
 			if (it != m_systemsMap.end()) {
 				auto system_ptr = it->second.get();
@@ -245,6 +253,6 @@ namespace Shit {
 				m_systemsMap.erase(it);
 			}
 		}
-		m_pendingRemoveSystems.clear();
+		m_pendingRemoveSystems.erase(m_pendingRemoveSystems.begin(), m_pendingRemoveSystems.begin() + count);
 	}
 }

@@ -4,6 +4,7 @@
 
 namespace Shit {
 	class GameObject; // 前向声明
+	class System;     // 前向声明（friend：系统销毁时重置认领组件的注册状态）
 
 	/**
 	 * @brief 组件基类
@@ -18,6 +19,7 @@ namespace Shit {
 	 */
 	class SHIT_API SHIT_REFLECT(BlackList) Component {
 		friend class GameObject; // 只能通过GameObject初始化组件
+		friend class System;     // 系统销毁时通过 System::resetComponent 重置组件注册状态
 		SHIT_REFLECT_BODY(Component)
 
 	public:
@@ -41,6 +43,11 @@ namespace Shit {
 	private:
 		// 只允许 GameObject 设置
 		inline void setOwner(GameObject* owner) { m_owner = owner; }
+
+	protected:
+		// 内部：仅 System 通过 resetComponent 调用，用于系统注销后重置注册状态，
+		// 使已存在组件在同类系统重新注册时能被 System::init 补扫认领。
+		inline void setRegistered(bool registered) { m_isRegistered = registered; }
 
 	protected:
 		SHIT_META(({.displayName = "Owner", .readOnly = true}))

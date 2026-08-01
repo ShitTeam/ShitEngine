@@ -75,7 +75,7 @@ namespace Shit {
 		/// @brief 创建指向本对象上 T 组件的弱引用（组件被移除/对象销毁后自动失效）
 		template <typename T>
 		WeakComponentRef<T> getWeakRef() {
-			return WeakComponentRef<T>(this);
+			return WeakComponentRef<T>(this, m_lifetime);
 		}
 
 		/**
@@ -113,16 +113,23 @@ namespace Shit {
 			// 回调内可以安全地把自己移除，clean() 也能遍历到它。
 			m_components[type_index] = std::unique_ptr<Component>(new_component.release());
 
+			// 捕获回调可能用到的数据：回调内可能销毁 owner（this），之后不能再触碰 this
+			Scene* scene = m_scene;
+			std::weak_ptr<void> lifetime = m_lifetime;
+			const std::string goName = m_name;
+
 			new_component_ptr->onCreate(); // onCreate：轻量初始化
+			if (lifetime.expired()) return nullptr;   // 回调销毁了 owner → 组件已随 clean() 释放
 
 			// 若已挂载场景则立即执行 onAttach（注册到 System）。
 			// 注册状态由组件自身的 onAttach 维护（基类默认置 true），此处不强制置位，
 			// 以便"组件先加、驱动系统后注册"时能被 System::init 补挂。
-			if (m_scene && !new_component_ptr->isRegistered()) {
+			if (scene && !new_component_ptr->isRegistered()) {
 				new_component_ptr->onAttach();
 			}
+			if (lifetime.expired()) return nullptr;   // onAttach 销毁了 owner
 
-			ST_CORE_TRACE("GameObject : {} 已添加 组件 {}", m_name, typeid(T).name());
+			ST_CORE_TRACE("GameObject : {} 已添加 组件 {}", goName, typeid(T).name());
 
 			return new_component_ptr;
 		}
@@ -187,14 +194,18 @@ namespace Shit {
 
 		GameObject* m_parent = nullptr; // 父物体（裸指针，所有权归 Scene）
 		std::vector<GameObject*> m_children; // 子物体列表（裸指针，仅表达层级）
+
+		// 生命周期令牌：本对象随 unique_ptr 销毁时，所有持 weak_ptr 的 WeakComponentRef 自动失效，
+		// 避免 WeakComponentRef 在 owner 已被销毁后解引用悬垂的 GameObject 指针。
+		std::shared_ptr<void> m_lifetime = std::make_shared<int>(0);
 	};
 
 	/**
 	 * @brief 组件弱引用
 	 *
-	 * 安全持有组件引用而不导致悬垂：不存组件指针，只存 owner + 模板类型，
-	 * 访问时通过 owner->getComponent<T>() 现查。组件被 removeComponent 移除后，
-	 * get() 返回 nullptr（逻辑已死可检测），不会 use-after-free。
+	 * 安全持有组件引用而不导致悬垂：不存组件指针，只存 owner + 生命周期令牌 + 模板类型，
+	 * 访问时通过 owner->getComponent<T>() 现查。组件被 removeComponent 移除、或所属
+	 * GameObject 被销毁后，get() 返回 nullptr（逻辑已死可检测），不会 use-after-free。
 	 *
 	 * 用法：
 	 *   auto ref = go->getWeakRef<Shit::UIText>();
@@ -209,23 +220,27 @@ namespace Shit {
 	class WeakComponentRef {
 	public:
 		WeakComponentRef() = default;
-		explicit WeakComponentRef(GameObject* owner) : m_owner(owner) {}
+		explicit WeakComponentRef(GameObject* owner, const std::weak_ptr<void>& lifetime)
+			: m_owner(owner), m_lifetime(lifetime) {}
 
-		/// @brief 获取组件（已被移除/对象已销毁则返回 nullptr）
+		/// @brief 获取组件（组件已移除或对象已销毁则返回 nullptr）
 		T* get() const {
-			return m_owner ? m_owner->template getComponent<T>() : nullptr;
+			if (!m_owner || m_lifetime.expired()) return nullptr;
+			return m_owner->template getComponent<T>();
 		}
 
-		/// @brief 组件当前是否有效（onAttach 后、removeComponent 前）
+		/// @brief 组件当前是否有效（onAttach 后、removeComponent 前，且 owner 未被销毁）
 		bool valid() const { return get() != nullptr; }
 
 		/// @brief 便捷解引用（调用前建议先 valid() 检查或直接解引用判空）
 		T* operator->() const { return get(); }
 		explicit operator bool() const { return valid(); }
 
+		/// @brief 获取所属 GameObject（可能已被销毁，调用方需自行保证安全）
 		GameObject* getOwner() const { return m_owner; }
 
 	private:
 		GameObject* m_owner = nullptr;
+		std::weak_ptr<void> m_lifetime;
 	};
 }

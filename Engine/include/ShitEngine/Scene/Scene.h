@@ -74,13 +74,17 @@ namespace Shit {
 			T* new_system_ptr = new_system.get(); // 返回的指针
 
 			new_system_ptr->setScene(this);
-			new_system_ptr->init();
 
+			// 先入表再 init()：System::init() 会补扫场景中未注册的组件并广播 registerComponent。
+			// 若尚未加入 m_systems，新系统将收不到已存在组件的 onComponentAttached，
+			// "组件先加、驱动系统后注册"的补挂机制会失效。
 			m_systemsMap[type_index] = std::unique_ptr<System>(new_system.release());
 			m_systems.push_back(new_system_ptr);
-			ST_CORE_TRACE("Scene : {} 已添加系统 {}", m_name, typeid(T).name());
-
 			m_isSystemsNeedSort = true;
+
+			new_system_ptr->init();
+
+			ST_CORE_TRACE("Scene : {} 已添加系统 {}", m_name, typeid(T).name());
 
 			return new_system_ptr;
 		}

@@ -86,6 +86,8 @@ bool AudioPlayer::init() {
 }
 
 void AudioPlayer::destroy() {
+    if (!m_isInited) return;  // 从未初始化 / init 中途失败：m_audioManager 可能未创建，跳过资源清理
+
     stopAll();
     m_tracks.clear();
     m_groups.clear();

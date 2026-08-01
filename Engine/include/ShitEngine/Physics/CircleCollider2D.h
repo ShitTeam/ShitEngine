@@ -9,7 +9,8 @@ namespace Shit {
 	 * @brief 圆形碰撞体组件
 	 *
 	 * 在同 GameObject 上添加一个圆形碰撞形状，附着于其 RigidBody2D。
-	 * RigidBody2D 必须在 CircleCollider2D 之前添加。
+	 * 挂载顺序不敏感：若碰撞体先于 RigidBody2D 挂载，刚体创建后会补建碰撞形状
+	 *（由 PhysicsSystem2D 在 createRigidBody 时调用 ensureShape）。
 	 *
 	 * 使用方式：
 	 *   auto* ball = scene->createGameObject("Ball");
@@ -28,6 +29,9 @@ namespace Shit {
 		void onAttach() override;
 		void onDetach() override;
 		void onDestroy() override;
+
+		/// @brief 内部：若同物体存在有效刚体则创建碰撞形状（幂等）。刚体后置挂载时由物理系统补调。
+		void ensureShape();
 
 		// --- 配置（可在 onAttach 前后调用） ---
 		void setRadius(float radius);           ///< 像素半径，默认 16.0f
