@@ -110,6 +110,13 @@ macro(find_or_fetch_dependency DEP_NAME PACKAGE_NAME GIT_REPO GIT_TAG LOCAL_PATH
             set(SDLTTF_VENDORED ON CACHE BOOL "" FORCE)
         endif()
 
+        # nlohmann-json：强制安装头文件
+        #   默认 JSON_Install=OFF，否则 SDK 的 include/ 缺 nlohmann/ 头，
+        #   消费者编译 #include <nlohmann/json.hpp>（Config.h 需要）会失败。
+        if("${DEP_NAME}" STREQUAL "json")
+            set(JSON_Install ON CACHE BOOL "" FORCE)
+        endif()
+
         # 智能选择：优先本地源码（Engine/external/ 下），否则在线获取
         set(LOCAL_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/${LOCAL_PATH})
         if(EXISTS ${LOCAL_SOURCE_DIR})

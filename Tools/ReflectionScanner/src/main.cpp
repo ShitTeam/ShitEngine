@@ -89,7 +89,7 @@ int main(int argc, char* argv[]) {
     for (auto& ch : rootNorm) if (ch == '\\') ch = '/';
     if (!rootNorm.empty() && rootNorm.back() != '/') rootNorm.push_back('/');
 
-    std::cout << "ReflectionScanner v1.0.0\n";
+    std::cout << "ReflectionScanner v1.3.0\n";
     std::cout << "  Input:    " << args.inputDir << "\n";
     std::cout << "  Output:   " << args.outputDir << "\n";
     std::cout << "  Includes: " << args.includePaths.size() << " path(s)\n";

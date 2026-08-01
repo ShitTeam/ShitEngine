@@ -7,7 +7,7 @@
 # 以便 Engine/Examples 在第三方依赖配置后调用并传入 glm/SDL3 等 include 路径。
 
 cmake_minimum_required(VERSION 3.20)
-project(ReflectionScanner VERSION 1.0.0 LANGUAGES C CXX)
+project(ReflectionScanner VERSION 1.3.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

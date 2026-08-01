@@ -125,6 +125,7 @@ jobs:
             find build/release/bin -name "*.dll" -exec cp -n {} install/bin/ \;
             find build/release/bin -name "*.lib" -exec cp -n {} install/lib/ \;
             find build/release/lib -name "*.lib" -exec cp -n {} install/lib/ \;
+            find build/release/lib -name "*.dll.a" -exec cp -n {} install/lib/ \;
             find build/release/_deps -name "*.dll" -exec cp -n {} install/bin/ \;
             find build/release/_deps -name "*.dll.a" -exec cp -n {} install/lib/ \;
           elif [ "$RUNNER_OS" = "Linux" ]; then
@@ -132,9 +133,6 @@ jobs:
             find build/release/_deps -name "*.so*" ! -name "*.so.t*" -exec cp -n {} install/lib/ \;
           elif [ "$RUNNER_OS" = "macOS" ]; then
             find build/release/bin -name "*.dylib" -exec cp -n {} install/lib/ \;
-            find build/release/_deps -name "*.dylib" -exec cp -n {} install/lib/ \;
-          fi
-          elif [ "$RUNNER_OS" = "macOS" ]; then
             find build/release/_deps -name "*.dylib" -exec cp -n {} install/lib/ \;
           fi
 

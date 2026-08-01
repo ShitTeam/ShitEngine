@@ -1,0 +1,70 @@
+# Changelog
+
+本项目的所有重要变更都会记录在此文件中。
+
+格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
+版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
+
+## [1.3.0] - 2026-08-01
+
+> 🎉 **首个正式 Release**。v1.1 / v1.2 为开发阶段里程碑，本次随 v1.3.0 一起发布。
+
+### 新增
+
+- **编译期反射系统** — libClang 解析 AST + 代码生成：
+  - `SHIT_REFLECT` / `SHIT_META` / `SHIT_ENUM` 标记宏，`SHIT_REFLECT_BODY` 内嵌 friend 声明
+  - `TypeRegistry` 运行时查询：类型名、字段偏移/大小、编辑器显示名、数值范围
+  - WhiteList / BlackList 两种反射模式，支持多 `SHIT_META` 元数据
+  - 成员指针路径（`memberOffset(&T::field)`）在运行时计算偏移，跨 ABI 自校验
+- **UI 组件反射** — UITransform / UICanvas / UIImage / UIText / UIButton / UITextInput 全部接入反射元数据，为编辑器属性面板铺路
+- **Prefab 数据驱动** — 反射克隆 + JSON 序列化，`Prefab::Build` 统一数据驱动接口
+- **WeakComponentRef** — 组件弱引用，`GameObject` 销毁后引用自动悬空，杜绝 UAF
+- **ST_CORE_ASSERT** — 错误处理契约第三层（assert 宏）
+- **SDK 优先的消费模型** — 预编译 SDK + `find_package(ShitEngine)` 一行接入，移除 FetchContent 方式（README / 文档站同步更新）
+
+### 重构
+
+- **EngineContext 容器** — 抽离全部 12 个单例进 `EngineContext`，支持多实例（编辑器进程内预览 / 单元测试）
+- **组件-系统解耦** — Scene 统一广播 `registerComponent` / `unregisterComponent`，System 通过动态识别接管组件
+- **移除场景栈** — 改为 `LoadScene` 单一当前场景 + 全局暂停（对齐 Unity/Godot），`LoadScene` 延迟到更新结束后应用，避免 UAF
+- **RenderSystem 收敛** — 渲染层统一走 `Renderer` 抽象 + 墓碑化遍历
+- **Input 合并** — 键盘/鼠标三态 + 动作/轴映射统一为类 Unity/Godot API
+- **物理像素比例** — `LengthUnitsPerMeter` 改为实例字段，`RigidBody2D::onAttach` 幂等创建碰撞形状
+
+### 修复
+
+- 全面代码审查确认的 **43 个 Bug**（两轮审查，Workflow 验证）
+- MSVC CI 构建失败 — 移除生成代码中的 ABI 相关 `static_assert`
+- `SDL_Quit` 顺序、`TTF_Init` 布尔返回值判断、`Renderer` 静态方法空指针守卫
+- `Game::Destroy` 空指针、`addComponent` 生命周期悬挂、场景切换悬垂
+- 音频、事件、动画、UI 输入法、物理引擎等子系统残留问题
+- 反射生成文件名命名空间化（`Shit__X.gen.h`），防跨命名空间冲突
+
+## [1.2.0] - 开发里程碑
+
+### 新增
+
+- **UI 系统** — UITransform（锚点/枢轴布局）、UIImage、UIText、UIButton、UITextInput / UITextBox / UITextArea（含 IME 中文输入），UIRenderSystem 独立渲染管线
+- **物理系统** — Box2D 3.1.1 封装：RigidBody2D / BoxCollider2D / CircleCollider2D，System priority=50，默认 32 像素/米
+- **DLL 插件架构** — Runtime 动态加载插件 DLL，插件自带反射扫描与类型注册
+- **FontManager** — 字体统一缓存管理
+
+### 重构
+
+- UI 子系统改用 ShitEngine 封装层（Renderer / KeyCode / Time / Color）
+- pch.h 统一预编译头
+
+## [1.1.0] - 开发里程碑
+
+### 新增
+
+- **核心架构** — Game / Scene / Component / System / GameObject 组件化架构，Behavior 脚本生命周期（onStart/onUpdate）
+- **SDL3 渲染管线** — 逻辑分辨率 letterbox、最近邻缩放、像素对齐、多相机分屏、zIndex 排序
+- **输入系统** — 键盘/鼠标 Down / Pressed / Released 三态检测
+- **音频系统** — AudioPlayer 分层增益（master × group × track）、自动回收
+- **配置系统** — `settings.json` JSON 配置，缺失时安全默认回退
+- **资源管理** — 纹理/音频/字体懒加载与 RAII 回收，SpriteSheet 网格切割 + AnimationComponent 逐帧动画
+- **事件总线** — 缓冲队列 EventBus，回调内可安全订阅/派发
+- **结构化日志** — spdlog 多级日志，引擎/用户日志分离
+- **Time** — DeltaTime / TotalTime / 帧率限制（SDL_AddTimer）
+- **CI/CD** — GitHub Actions 四平台矩阵构建（Windows MinGW/MSVC、Linux、macOS）+ SDK 产物自动打包

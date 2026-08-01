@@ -30,7 +30,7 @@ const char* GetPluginName() {
 
 extern "C" SHIT_PLUGIN_EXPORT
 const char* GetPluginVersion() {
-    return "1.0.0";
+    return "1.3.0";
 }
 
 // ── 注册插件中的反射类型到共享 TypeRegistry ──────────────
