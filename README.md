@@ -21,7 +21,7 @@ ShitEngine 是一个从零构建、面向对象 + 组件化的轻量级 2D 游�
 - **逐帧动画** — `SpriteSheet` 按“行 × 列”网格切割精灵图集，`AnimationComponent` 以帧索引数组定义并播放动画，每帧自动回写源矩形
 - **分层音频系统** — `AudioPlayer` 单例驱动 `AudioTrack` / `AudioTrackGroup`，增益层级为 `master × group × track`，支持暂停/恢复/停止与自动回收
 - **类型安全事件总线** — `EventBus` 采用缓冲队列模式，回调内可安全订阅/派发，避免递归派发与迭代器失效
-- **场景栈管理** — 场景推入/弹出/替换支持延迟执行，保证切换期间不破坏正在迭代的集合
+- **场景管理** — `LoadScene` 单一当前场景模型（对齐 Unity/Godot），切换安全、支持全局暂停冻结逻辑而 UI 照常响应
 - **资源自动缓存** — 纹理、音频、字体经 `ResourceManager` 统一懒加载与 RAII 回收
 - **三态输入** — 键盘与鼠标的 `Down / Pressed / Released` 状态检测
 - **结构化日志** — 基于 spdlog 的多级日志、引擎日志与用户日志分离
@@ -39,7 +39,7 @@ Game            引擎主循环（Init / Run / Destroy）
 ├── ResourceManager 纹理 / 音频 / 字体资源缓存
 ├── AudioPlayer      分层音频（master × group × track）
 ├── EventBus        缓冲队列事件总线
-└── SceneManager    场景栈
+└── SceneManager    单一当前场景（LoadScene 切换）
     └── Scene
         ├── BehaviorSystem   驱动 Behavior 生命周期
         ├── RenderSystem     多相机渲染管线
@@ -59,39 +59,13 @@ Game            引擎主循环（Init / Run / Destroy）
 - C++20 编译器（GCC 10+、Clang 11+、MSVC 2019+）
 - CMake 3.20+
 
-> 第三方依赖（SDL3 / SDL3_image / SDL3_mixer / SDL3_ttf、spdlog、glm、nlohmann_json）由 CMake 自动拉取或随预编译包自带。
+> 第三方依赖（SDL3 / SDL3_image / SDL3_mixer / SDL3_ttf、spdlog、glm、nlohmann_json）随预编译 SDK 自带或由 CMake 自动拉取。
 
-### 方式一：CMake FetchContent（推荐）
+> 🚧 **ShitEngine 编辑器（开发中）**：未来的开发方式是通过 ShitEngine SDK 附带的编辑器创建与管理项目，无需手写 CMake。编辑器仍在开发中，当前请使用下方的 SDK 方式。
 
-```cmake
-cmake_minimum_required(VERSION 3.20)
-project(MyGame)
+### 方式一：ShitEngine SDK（推荐）
 
-include(FetchContent)
-FetchContent_Declare(
-    ShitEngine
-    GIT_REPOSITORY https://github.com/ShitTeam/ShitEngine.git
-    GIT_TAG main
-    GIT_SHALLOW TRUE
-)
-FetchContent_MakeAvailable(ShitEngine)
-
-add_executable(MyGame main.cpp)
-target_link_libraries(MyGame PRIVATE ShitEngine::ShitEngine)
-```
-
-所有依赖由 CMake 自动拉取，无需手动安装。
-
-### 方式二：add_subdirectory（本地源码）
-
-```cmake
-add_subdirectory("path/to/ShitEngine" "${CMAKE_BINARY_DIR}/ShitEngine_Build")
-target_link_libraries(MyGame PRIVATE ShitEngine::ShitEngine)
-```
-
-### 方式三：find_package（预编译库）
-
-从 GitHub Release 下载解压后，artifact 结构如下：
+从 GitHub Release 下载预编译包解压即得 **ShitEngine SDK**，artifact 结构如下：
 
 ```
 ShitEngine/
@@ -100,7 +74,7 @@ ShitEngine/
 └── include/      # 头文件
 ```
 
-在你的 CMakeLists.txt 中：
+在你的 CMakeLists.txt 中使用 SDK：
 
 ```cmake
 find_package(ShitEngine REQUIRED
@@ -116,6 +90,15 @@ target_link_libraries(MyGame PRIVATE ShitEngine::ShitEngine)
 > ```bash
 > export LD_LIBRARY_PATH=/path/to/ShitEngine/lib:$LD_LIBRARY_PATH
 > ```
+
+### 方式二：add_subdirectory（从源码构建）
+
+适合直接克隆源码的开发者与贡献者：
+
+```cmake
+add_subdirectory("path/to/ShitEngine" "${CMAKE_BINARY_DIR}/ShitEngine_Build")
+target_link_libraries(MyGame PRIVATE ShitEngine::ShitEngine)
+```
 
 ## 使用示例
 
@@ -147,18 +130,16 @@ int main() {
         auto scene = std::make_unique<Shit::Scene>("example");
         scene->init();
 
-        auto go = std::make_unique<Shit::GameObject>("player");
+        auto* go = scene->createGameObject("player");
         go->addComponent<Shit::TransformComponent>();
         go->addComponent<Shit::SpriteRenderer>()->setTexturePath("textures/player.png");
         go->addComponent<Player>();
-        scene->addGameObject(std::move(go));
 
-        auto camera = std::make_unique<Shit::GameObject>("camera");
+        auto* camera = scene->createGameObject("camera");
         camera->addComponent<Shit::TransformComponent>();
         camera->addComponent<Shit::CameraComponent>()->setZoom(5.0f);
-        scene->addGameObject(std::move(camera));
 
-        Shit::SceneManager::PushScene(std::move(scene));
+        Shit::SceneManager::LoadScene(std::move(scene));
         Shit::Game::Run();
     }
     Shit::Game::Destroy();
