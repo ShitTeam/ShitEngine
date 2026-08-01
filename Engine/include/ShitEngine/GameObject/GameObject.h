@@ -13,6 +13,7 @@
 
 namespace Shit {
 	class Scene; // 前向声明
+	template <typename T> class WeakComponentRef;  // 前向声明（组件弱引用，见文件末尾定义）
 
 	/**
 	 * @brief 游戏物体类
@@ -69,6 +70,12 @@ namespace Shit {
 			for (auto& [type, comp] : m_components) {
 				if (comp) fn(comp.get());
 			}
+		}
+
+		/// @brief 创建指向本对象上 T 组件的弱引用（组件被移除/对象销毁后自动失效）
+		template <typename T>
+		WeakComponentRef<T> getWeakRef() {
+			return WeakComponentRef<T>(this);
 		}
 
 		/**
@@ -180,5 +187,45 @@ namespace Shit {
 
 		GameObject* m_parent = nullptr; // 父物体（裸指针，所有权归 Scene）
 		std::vector<GameObject*> m_children; // 子物体列表（裸指针，仅表达层级）
+	};
+
+	/**
+	 * @brief 组件弱引用
+	 *
+	 * 安全持有组件引用而不导致悬垂：不存组件指针，只存 owner + 模板类型，
+	 * 访问时通过 owner->getComponent<T>() 现查。组件被 removeComponent 移除后，
+	 * get() 返回 nullptr（逻辑已死可检测），不会 use-after-free。
+	 *
+	 * 用法：
+	 *   auto ref = go->getWeakRef<Shit::UIText>();
+	 *   button->setOnClick([ref]() {
+	 *       if (Shit::UIText* t = ref.get()) t->setText("...");  // 已移除则安全跳过
+	 *   });
+	 *
+	 * 注意：这是"弱引用"不是"强引用"——不能阻止组件销毁，也不延长其生命周期。
+	 * 若组件必须长期存活，属于生命周期设计问题而非引用问题。
+	 */
+	template <typename T>
+	class WeakComponentRef {
+	public:
+		WeakComponentRef() = default;
+		explicit WeakComponentRef(GameObject* owner) : m_owner(owner) {}
+
+		/// @brief 获取组件（已被移除/对象已销毁则返回 nullptr）
+		T* get() const {
+			return m_owner ? m_owner->template getComponent<T>() : nullptr;
+		}
+
+		/// @brief 组件当前是否有效（onAttach 后、removeComponent 前）
+		bool valid() const { return get() != nullptr; }
+
+		/// @brief 便捷解引用（调用前建议先 valid() 检查或直接解引用判空）
+		T* operator->() const { return get(); }
+		explicit operator bool() const { return valid(); }
+
+		GameObject* getOwner() const { return m_owner; }
+
+	private:
+		GameObject* m_owner = nullptr;
 	};
 }

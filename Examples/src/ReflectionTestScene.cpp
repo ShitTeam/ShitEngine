@@ -168,6 +168,28 @@ private:
             }
         }
 
+        // ── Test 11: WeakComponentRef 检测组件移除 ──
+        {
+            Shit::Scene* scene = getOwner() ? getOwner()->getScene() : nullptr;
+            if (scene) {
+                auto* weakGO = scene->createGameObject("WeakRefSource");
+                weakGO->addComponent<Shit::TransformComponent>();
+                auto ref = weakGO->getWeakRef<Shit::TransformComponent>();
+                bool before = ref.valid();
+
+                weakGO->removeComponent<Shit::TransformComponent>();
+                bool after = ref.valid();
+
+                if (before && !after) {
+                    ST_CORE_INFO("[WeakRef] 移除组件后弱引用失效 — OK");
+                    m_results.push_back("WeakRef invalidation: OK");
+                } else {
+                    ST_CORE_ERROR("[WeakRef] 弱引用失效检测失败 (before={}, after={})", before, after);
+                    m_results.push_back("WeakRef invalidation: FAILED");
+                }
+            }
+        }
+
         ST_CORE_INFO("=============================================");
     }
 
