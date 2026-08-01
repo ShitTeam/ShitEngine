@@ -14,23 +14,19 @@ namespace Shit {
 	{
 		Component::onAttach();
 
-		if (auto* scene = m_owner->getScene()) {
-			if (auto* system = scene->getSystem<RenderSystem>()) {
-				system->registerRenderer(this);
-				m_isRegistered = true;
-			} else {
-				m_isRegistered = false;  // 系统未注册，允许后续补挂
-			}
+		// 广播给 Scene，由 RenderSystem 认领（解耦：不再查询具体系统类型）
+		if (auto* scene = m_owner ? m_owner->getScene() : nullptr) {
+			m_isRegistered = scene->registerComponent(this);
+		} else {
+			m_isRegistered = false;
 		}
 	}
 
 	void RendererComponent::onDetach() {
 		Component::onDetach();
 
-		if (auto* scene = m_owner->getScene()) {
-			if (auto* system = scene->getSystem<RenderSystem>()) {
-				system->unregisterRenderer(this);
-			}
+		if (auto* scene = m_owner ? m_owner->getScene() : nullptr) {
+			scene->unregisterComponent(this);
 		}
 
 		m_isRegistered = false;

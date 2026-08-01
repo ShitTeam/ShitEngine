@@ -23,6 +23,10 @@ namespace Shit {
 		void update() override;
 		void destroy() override;
 
+		// 组件认领：RendererComponent + CameraComponent
+		bool onComponentAttached(Component* component) override;
+		void onComponentDetached(Component* component) override;
+
 		void registerRenderer(RendererComponent *renderer);   ///< 注册渲染组件
 		void unregisterRenderer(RendererComponent *renderer); ///< 注销渲染组件
 		void registerCamera(CameraComponent *camera);         ///< 注册相机

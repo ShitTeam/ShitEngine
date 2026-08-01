@@ -29,6 +29,10 @@ namespace Shit {
 		void update() override;
 		void destroy() override;
 
+		// 组件认领：RigidBody2D（创建/销毁物理体）
+		bool onComponentAttached(Component* component) override;
+		void onComponentDetached(Component* component) override;
+
 		// --- 配置（必须在 init() 之前调用） ---
 		void setGravity(const Vector2& gravity);       ///< 重力（像素/秒²），默认 {0, 320}
 		const Vector2& getGravity() const { return m_gravity; }
@@ -40,6 +44,10 @@ namespace Shit {
 		// --- 供 RigidBody2D 内部调用 ---
 		void registerRigidBody(RigidBody2D* body);
 		void unregisterRigidBody(RigidBody2D* body);
+		/// @brief 为 RigidBody2D 创建物理体（组件认领时调用，从 Transform 读初始位姿）
+		void createRigidBody(RigidBody2D* body);
+		/// @brief 销毁 RigidBody2D 的物理体并注销（组件卸下时调用）
+		void destroyRigidBody(RigidBody2D* body);
 
 	private:
 		friend class RigidBody2D;

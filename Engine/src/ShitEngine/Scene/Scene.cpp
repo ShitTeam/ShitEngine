@@ -120,6 +120,28 @@ namespace Shit {
 		return go;
 	}
 
+	bool Scene::registerComponent(Component* component) {
+		if (!component) return false;
+		// 快照遍历：组件 onAttach 期间可能注册/移除系统，避免迭代器失效。
+		// 组件不再关心"哪个系统驱动我"——由各系统通过 dynamic_cast 自行认领（支持继承）。
+		auto systems = m_systems;
+		bool handled = false;
+		for (auto* system : systems) {
+			if (system && system->onComponentAttached(component)) {
+				handled = true;
+			}
+		}
+		return handled;
+	}
+
+	void Scene::unregisterComponent(Component* component) {
+		if (!component) return;
+		auto systems = m_systems;
+		for (auto* system : systems) {
+			if (system) system->onComponentDetached(component);
+		}
+	}
+
 	void Scene::removeGameObject(GameObject* gameObject) {
 		if (!gameObject) {
 			ST_CORE_WARN("试图从场景 {} 中移除一个空的游戏对象指针！", m_name);

@@ -26,6 +26,10 @@ namespace Shit {
 		void update() override;
 		void destroy() override;
 
+		// 组件认领：UIRendererComponent
+		bool onComponentAttached(Component* component) override;
+		void onComponentDetached(Component* component) override;
+
 		void registerUIRenderer(UIRendererComponent* renderer);   ///< 注册 UI 渲染控件
 		void unregisterUIRenderer(UIRendererComponent* renderer); ///< 注销 UI 渲染控件
 

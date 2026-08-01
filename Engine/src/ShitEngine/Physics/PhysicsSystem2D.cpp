@@ -121,4 +121,65 @@ namespace Shit {
 			m_bodies.end()
 		);
 	}
+
+	bool PhysicsSystem2D::onComponentAttached(Component* component) {
+		if (auto* body = dynamic_cast<RigidBody2D*>(component)) {
+			createRigidBody(body);
+			return true;
+		}
+		return false;
+	}
+
+	void PhysicsSystem2D::onComponentDetached(Component* component) {
+		if (auto* body = dynamic_cast<RigidBody2D*>(component)) {
+			destroyRigidBody(body);
+		}
+	}
+
+	void PhysicsSystem2D::createRigidBody(RigidBody2D* body) {
+		if (!body || body->m_bodyValid) return;
+
+		auto* owner = body->getOwner();
+		auto* transform = owner ? owner->getComponent<TransformComponent>() : nullptr;
+		if (!transform) {
+			ST_CORE_WARN("[PhysicsSystem2D] RigidBody2D 缺少 TransformComponent，无法创建物理体");
+			return;
+		}
+
+		b2WorldId worldId = Internal::MakeWorldId(m_worldIndex, m_worldGeneration);
+		if (!b2World_IsValid(worldId)) {
+			ST_CORE_ERROR("[PhysicsSystem2D] 物理世界无效");
+			return;
+		}
+
+		b2BodyDef def = b2DefaultBodyDef();
+		def.type = static_cast<b2BodyType>(static_cast<int>(body->m_type));
+		// 注：b2SetLengthUnitsPerMeter 已设置，所有位置/速度单位为像素
+		def.position = { transform->getPosition().x, transform->getPosition().y };
+		// Transform 的旋转以「度」为单位，Box2D 需要弧度
+		def.rotation = b2MakeRot(glm::radians(transform->getRotation()));
+		def.gravityScale = body->m_gravityScale;
+		def.linearDamping = body->m_linearDamping;
+		def.fixedRotation = body->m_fixedRotation;
+
+		b2BodyId id = b2CreateBody(worldId, &def);
+		body->m_bodyIndex = id.index1;
+		body->m_bodyWorld0 = id.world0;
+		body->m_bodyGeneration = id.generation;
+		body->m_bodyValid = true;
+
+		registerRigidBody(body);
+	}
+
+	void PhysicsSystem2D::destroyRigidBody(RigidBody2D* body) {
+		if (!body) return;
+		unregisterRigidBody(body);
+		if (body->m_bodyValid) {
+			b2BodyId bodyId = Internal::MakeBodyId(body->m_bodyIndex, body->m_bodyWorld0, body->m_bodyGeneration);
+			if (b2Body_IsValid(bodyId)) {
+				b2DestroyBody(bodyId);
+			}
+			body->m_bodyValid = false;
+		}
+	}
 }

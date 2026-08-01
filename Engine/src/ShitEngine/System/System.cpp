@@ -11,13 +11,14 @@ namespace Shit {
     void System::init() {
         auto& gameObjects = m_scene->getGameObjects();
 
+        // 补扫：系统注册时，对尚未注册的组件重新执行 onAttach
+        //（组件先加、驱动系统后注册时生效）。用只读遍历，不暴露内部 map。
         for (auto& go : gameObjects) {
-            auto& components = go->getComponents();
-            for (auto& component : components) {
-                if (!component.second->isRegistered()) {
-                    component.second->onAttach();
+            go->forEachComponent([this](Component* comp) {
+                if (!comp->isRegistered()) {
+                    comp->onAttach();
                 }
-            }
+            });
         }
     }
 }

@@ -20,64 +20,25 @@ namespace Shit {
 	void RigidBody2D::onAttach() {
 		Component::onAttach();
 
-		auto* scene = m_owner ? m_owner->getScene() : nullptr;
-		if (!scene) {
-			m_isRegistered = false;  // 无场景，允许后续补挂
-			return;
-		}
-
-		auto* physics = scene->getSystem<PhysicsSystem2D>();
-		if (!physics) {
-			ST_CORE_WARN("[RigidBody2D] 场景中未找到 PhysicsSystem2D，无法创建物理体");
-			m_isRegistered = false;  // 系统未注册，允许后续补挂
-			return;
-		}
-
-		auto* transform = m_owner->getComponent<TransformComponent>();
-		if (!transform) {
-			ST_CORE_WARN("[RigidBody2D] 缺少 TransformComponent，无法创建物理体");
+		// 广播给 Scene，由 PhysicsSystem2D 认领并创建物理体（解耦：不再查询具体系统类型）。
+		// 系统未注册时 registerComponent 返回 false → m_isRegistered=false，后续可补挂。
+		if (auto* scene = m_owner ? m_owner->getScene() : nullptr) {
+			m_isRegistered = scene->registerComponent(this);
+		} else {
 			m_isRegistered = false;
-			return;
 		}
-
-		b2WorldId worldId = Internal::MakeWorldId(physics->m_worldIndex, physics->m_worldGeneration);
-		if (!b2World_IsValid(worldId)) {
-			ST_CORE_ERROR("[RigidBody2D] 物理世界无效");
-			m_isRegistered = false;
-			return;
-		}
-
-		b2BodyDef def = b2DefaultBodyDef();
-		def.type = static_cast<b2BodyType>(static_cast<int>(m_type));
-		// 注：b2SetLengthUnitsPerMeter 已设置，所有位置/速度单位为像素
-		def.position = { transform->getPosition().x, transform->getPosition().y };
-		// Transform 的旋转以「度」为单位，Box2D 需要弧度
-		def.rotation = b2MakeRot(glm::radians(transform->getRotation()));
-		def.gravityScale = m_gravityScale;
-		def.linearDamping = m_linearDamping;
-		def.fixedRotation = m_fixedRotation;
-
-		b2BodyId id = b2CreateBody(worldId, &def);
-		m_bodyIndex = id.index1;
-		m_bodyWorld0 = id.world0;
-		m_bodyGeneration = id.generation;
-		m_bodyValid = true;
-
-		physics->registerRigidBody(this);
 	}
 
 	void RigidBody2D::onDetach() {
 		Component::onDetach();
 
-		if (m_bodyValid) {
-			auto* scene = m_owner ? m_owner->getScene() : nullptr;
-			if (scene) {
-				auto* physics = scene->getSystem<PhysicsSystem2D>();
-				if (physics) {
-					physics->unregisterRigidBody(this);
-				}
-			}
+		// 广播卸下，由 PhysicsSystem2D 销毁物理体并注销
+		if (auto* scene = m_owner ? m_owner->getScene() : nullptr) {
+			scene->unregisterComponent(this);
+		}
 
+		// 兜底：若物理体仍有效（系统未处理，如场景销毁时系统已先销毁），直接销毁
+		if (m_bodyValid) {
 			b2BodyId bodyId = Internal::MakeBodyId(m_bodyIndex, m_bodyWorld0, m_bodyGeneration);
 			if (b2Body_IsValid(bodyId)) {
 				b2DestroyBody(bodyId);

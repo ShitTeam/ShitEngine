@@ -45,6 +45,20 @@ namespace Shit {
         m_pendingBehaviors.clear();
     }
 
+    bool BehaviorSystem::onComponentAttached(Component* component) {
+        if (auto* behavior = dynamic_cast<Behavior*>(component)) {
+            registerBehavior(behavior);
+            return true;
+        }
+        return false;
+    }
+
+    void BehaviorSystem::onComponentDetached(Component* component) {
+        if (auto* behavior = dynamic_cast<Behavior*>(component)) {
+            unregisterBehavior(behavior);
+        }
+    }
+
     void BehaviorSystem::registerBehavior(Behavior *behavior) {
         if (!behavior) {
             auto* scene = getScene();

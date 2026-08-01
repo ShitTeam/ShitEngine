@@ -90,6 +90,26 @@ namespace Shit {
 		m_renderer = nullptr;
 	}
 
+	bool RenderSystem::onComponentAttached(Component* component) {
+		if (auto* renderer = dynamic_cast<RendererComponent*>(component)) {
+			registerRenderer(renderer);
+			return true;
+		}
+		if (auto* camera = dynamic_cast<CameraComponent*>(component)) {
+			registerCamera(camera);
+			return true;
+		}
+		return false;
+	}
+
+	void RenderSystem::onComponentDetached(Component* component) {
+		if (auto* renderer = dynamic_cast<RendererComponent*>(component)) {
+			unregisterRenderer(renderer);
+		} else if (auto* camera = dynamic_cast<CameraComponent*>(component)) {
+			unregisterCamera(camera);
+		}
+	}
+
 	void RenderSystem::registerRenderer(RendererComponent* renderer) {
 		if (!renderer) {
 			auto* scene = getScene();

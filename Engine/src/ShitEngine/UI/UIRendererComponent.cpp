@@ -14,13 +14,11 @@ namespace Shit {
 	void UIRendererComponent::onAttach() {
 		Component::onAttach();
 
+		// 广播给 Scene，由 UIRenderSystem 认领（解耦：不再查询具体系统类型）
 		if (auto* scene = m_owner ? m_owner->getScene() : nullptr) {
-			if (auto* system = scene->getSystem<UIRenderSystem>()) {
-				system->registerUIRenderer(this);
-				m_isRegistered = true;
-			} else {
-				m_isRegistered = false;  // 系统未注册，允许后续补挂
-			}
+			m_isRegistered = scene->registerComponent(this);
+		} else {
+			m_isRegistered = false;
 		}
 	}
 
@@ -28,9 +26,7 @@ namespace Shit {
 		Component::onDetach();
 
 		if (auto* scene = m_owner ? m_owner->getScene() : nullptr) {
-			if (auto* system = scene->getSystem<UIRenderSystem>()) {
-				system->unregisterUIRenderer(this);
-			}
+			scene->unregisterComponent(this);
 		}
 		m_isRegistered = false;
 	}

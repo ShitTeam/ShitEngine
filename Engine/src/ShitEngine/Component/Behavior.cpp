@@ -13,13 +13,12 @@ namespace Shit {
 	void Behavior::onAttach() {
 		Component::onAttach();
 
-		if (auto* scene = m_owner->getScene()) {
-			if (auto* system = scene->getSystem<BehaviorSystem>()) {
-				system->registerBehavior(this);
-				m_isRegistered = true;
-			} else {
-				m_isRegistered = false;  // 系统未注册，允许后续补挂
-			}
+		// 广播给 Scene，由 BehaviorSystem 认领（解耦：不再查询具体系统类型）。
+		// 系统未注册时 registerComponent 返回 false → m_isRegistered=false，后续可补挂。
+		if (auto* scene = m_owner ? m_owner->getScene() : nullptr) {
+			m_isRegistered = scene->registerComponent(this);
+		} else {
+			m_isRegistered = false;
 		}
 	}
 
@@ -29,10 +28,8 @@ namespace Shit {
 	void Behavior::onDetach() {
 		Component::onDetach();
 
-		if (auto* scene = m_owner->getScene()) {
-			if (auto* system = scene->getSystem<BehaviorSystem>()) {
-				system->unregisterBehavior(this);
-			}
+		if (auto* scene = m_owner ? m_owner->getScene() : nullptr) {
+			scene->unregisterComponent(this);
 		}
 
 		m_isStarted = false;

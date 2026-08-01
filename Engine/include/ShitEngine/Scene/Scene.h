@@ -55,6 +55,11 @@ namespace Shit {
 		void removeGameObject(GameObject* gameObject);                  ///< 按指针标记销毁
 		void removeGameObjectByName(const std::string& name);           ///< 按名称标记销毁
 
+		/// @brief 组件挂载广播（组件 onAttach 调用）。分发给可处理的系统，返回是否有系统认领。
+		bool registerComponent(Component* component);
+		/// @brief 组件卸下广播（组件 onDetach 调用）。
+		void unregisterComponent(Component* component);
+
 		template <typename T>
 		T* registerSystem() {
 			static_assert(std::is_base_of_v<System, T>, "必须继承自 System 基类");

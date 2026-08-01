@@ -21,6 +21,12 @@ namespace Shit {
         virtual void update() = 0;    ///< 每帧更新（纯虚）
         virtual void destroy() = 0;   ///< 销毁（纯虚）
 
+        // --- 组件生命周期回调（解耦：组件不再查具体系统类型，由 Scene 广播给所有系统） ---
+        /// @brief 组件挂载时调用。返回 true 表示本系统认领并处理了该组件（组件据此确定已注册）。
+        virtual bool onComponentAttached(Component* component) { (void)component; return false; }
+        /// @brief 组件卸下时调用。
+        virtual void onComponentDetached(Component* component) { (void)component; }
+
         // --- getter & setter ---
         Scene* getScene() const { return m_scene; }
         void setScene(Scene* scene) { m_scene = scene; }

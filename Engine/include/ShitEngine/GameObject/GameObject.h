@@ -63,6 +63,14 @@ namespace Shit {
 		void setNeedDestroy(bool needDestroy) { m_needDestroy = needDestroy; }
 		std::unordered_map<std::type_index, std::unique_ptr<Component>>& getComponents() { return m_components; } ///< 获取全部组件（按 type_index 索引）
 
+		/// @brief 只读遍历全部组件（供系统补扫等使用，避免暴露内部可变 map）
+		template <typename Fn>
+		void forEachComponent(Fn&& fn) {
+			for (auto& [type, comp] : m_components) {
+				if (comp) fn(comp.get());
+			}
+		}
+
 		/**
 		 * @brief 添加组件
 		 * @tparam T 组件类型（须继承 Component）

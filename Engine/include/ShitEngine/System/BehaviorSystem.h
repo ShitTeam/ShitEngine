@@ -18,6 +18,10 @@ namespace Shit {
         void update() override;
         void destroy() override;
 
+        // 组件认领：Behavior 及其子类（如 AnimationComponent）
+        bool onComponentAttached(Component* component) override;
+        void onComponentDetached(Component* component) override;
+
         void registerBehavior(Behavior *behavior);   ///< 注册 Behavior（onAttach 时自动调用）
         void unregisterBehavior(Behavior *behavior); ///< 注销 Behavior（onDetach 时自动调用）
 

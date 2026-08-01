@@ -127,6 +127,20 @@ namespace Shit {
 		m_uiRenderers.clear();
 	}
 
+	bool UIRenderSystem::onComponentAttached(Component* component) {
+		if (auto* renderer = dynamic_cast<UIRendererComponent*>(component)) {
+			registerUIRenderer(renderer);
+			return true;
+		}
+		return false;
+	}
+
+	void UIRenderSystem::onComponentDetached(Component* component) {
+		if (auto* renderer = dynamic_cast<UIRendererComponent*>(component)) {
+			unregisterUIRenderer(renderer);
+		}
+	}
+
 	void UIRenderSystem::registerUIRenderer(UIRendererComponent* renderer) {
 		if (!renderer) {
 			ST_CORE_WARN("试图注册空 UIRendererComponent！");
