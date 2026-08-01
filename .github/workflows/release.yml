@@ -116,6 +116,10 @@ jobs:
             -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
             -DCMAKE_BUILD_TYPE=Debug \
             $LINUX_FLAGS
+      - name: Build Debug
+        run: cmake --build build/debug --parallel
+      - name: Install Debug
+        run: cmake --install build/debug --prefix install
 
       # 复制第三方动态库（主输出在 bin/，第三方在 _deps/）
       - name: Copy shared libs
@@ -136,15 +140,15 @@ jobs:
             find build/release/_deps -name "*.dylib" -exec cp -n {} install/lib/ \;
           fi
 
-      # 打包
+      # 打包（matrix.artifact 已含 ShitEngine- 前缀，勿重复拼）
       - name: Pack
         shell: bash
         run: |
           cd install
           if [ "${{ matrix.archive }}" = "zip" ]; then
-            7z a -r ../ShitEngine-${{ matrix.artifact }}.zip *
+            7z a -r ../${{ matrix.artifact }}.zip *
           else
-            tar czf ../ShitEngine-${{ matrix.artifact }}.tar.gz *
+            tar czf ../${{ matrix.artifact }}.tar.gz *
           fi
 
       - name: Upload to Release
