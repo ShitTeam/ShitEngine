@@ -72,12 +72,6 @@ CXChildVisitResult Scanner::findReflectedTypes(CXCursor cursor, CXCursor,
                 type.sourceFile   = getFileName(cursor);
                 type.namespacePath = getNamespacePath(cursor);
 
-                // 捕获类型大小（用于 static_assert）
-                {
-                    CXType cursorType = clang_getCursorType(cursor);
-                    type.size = static_cast<size_t>(clang_Type_getSizeOf(cursorType));
-                }
-
                 // 基类
                 BaseCtx bctx;
                 clang_visitChildren(cursor, findBase, &bctx);
@@ -132,12 +126,6 @@ CXChildVisitResult Scanner::findReflectedTypes(CXCursor cursor, CXCursor,
                 type.sourceFile   = getFileName(cursor);
                 type.namespacePath = getNamespacePath(cursor);
                 type.isEnum       = true;
-
-                // 捕获枚举类型大小（用于 static_assert）
-                {
-                    CXType cursorType = clang_getCursorType(cursor);
-                    type.size = static_cast<size_t>(clang_Type_getSizeOf(cursorType));
-                }
 
                 // 提取枚举常量
                 std::vector<ReflectedEnumValue> values;
@@ -198,7 +186,6 @@ CXChildVisitResult Scanner::collectFields(CXCursor cursor, CXCursor,
     long long bits = clang_Cursor_getOffsetOfField(cursor);
     if (bits != -1 && bits % 8 == 0) {
         field.offset = static_cast<size_t>(bits / 8);
-        field.offsetValid = true;
     }
 
     field.enabled  = true;

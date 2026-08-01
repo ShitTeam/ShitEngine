@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstddef>
 #include <ShitEngine/UI/UIText.h>
 #include <ShitEngine/Reflection/TypeRegistry.h>
 

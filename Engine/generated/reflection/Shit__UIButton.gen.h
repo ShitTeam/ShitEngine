@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstddef>
 #include <ShitEngine/UI/UIButton.h>
 #include <ShitEngine/Reflection/TypeRegistry.h>
 

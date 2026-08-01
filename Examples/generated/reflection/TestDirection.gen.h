@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstddef>
 #include <ReflectionTestTypes.h>
 #include <ShitEngine/Reflection/TypeRegistry.h>
 

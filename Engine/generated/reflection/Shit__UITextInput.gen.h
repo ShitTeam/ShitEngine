@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstddef>
 #include <ShitEngine/UI/UITextInput.h>
 #include <ShitEngine/Reflection/TypeRegistry.h>
 
@@ -34,26 +33,6 @@ inline bool Register_UITextInput() {
         .Meta(Shit::FieldMeta{.displayName = "Selection Color", .tooltip = "选区颜色"})
         .Factory<UITextInput>()
         .Register<UITextInput>();
-
-    // Static assertions: regenerate if struct layout changes
-    static_assert(sizeof(UITextInput) == 216,
-        "UITextInput: size mismatch - regenerate reflection data");
-    static_assert(offsetof(UITextInput, m_text) == 32,
-        "UITextInput::m_text: offset mismatch - regenerate reflection data");
-    static_assert(offsetof(UITextInput, m_placeholder) == 64,
-        "UITextInput::m_placeholder: offset mismatch - regenerate reflection data");
-    static_assert(offsetof(UITextInput, m_fontPath) == 96,
-        "UITextInput::m_fontPath: offset mismatch - regenerate reflection data");
-    static_assert(offsetof(UITextInput, m_fontSize) == 128,
-        "UITextInput::m_fontSize: offset mismatch - regenerate reflection data");
-    static_assert(offsetof(UITextInput, m_textColor) == 136,
-        "UITextInput::m_textColor: offset mismatch - regenerate reflection data");
-    static_assert(offsetof(UITextInput, m_placeholderColor) == 140,
-        "UITextInput::m_placeholderColor: offset mismatch - regenerate reflection data");
-    static_assert(offsetof(UITextInput, m_cursorColor) == 144,
-        "UITextInput::m_cursorColor: offset mismatch - regenerate reflection data");
-    static_assert(offsetof(UITextInput, m_selectionColor) == 148,
-        "UITextInput::m_selectionColor: offset mismatch - regenerate reflection data");
     return true;
 }
 

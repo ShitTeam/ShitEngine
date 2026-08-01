@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstddef>
 #include <ShitEngine/Component/SpriteRenderer.h>
 #include <ShitEngine/Reflection/TypeRegistry.h>
 

@@ -57,8 +57,6 @@ std::string Generator::generateTypeFile(const ReflectedType& type, const std::st
     std::string qualifiedType = namespacePrefix(type.namespacePath) + type.name;
 
     out << "#pragma once\n\n";
-    // <cstddef> 提供 offsetof 宏（用于 static_assert 编译期校验）
-    out << "#include <cstddef>\n";
     // 用尖括号 include 源文件路径（已由 main.cpp 修正为相对于 includeRoot 的路径）。
     // 约束：编译此 .gen.h 时，includeRoot 必须在 -I 路径中（Engine/include 或 Examples/src），
     // 否则 #include <相对路径> 找不到源文件。CMake 的 target_include_directories 已保证。
@@ -114,28 +112,13 @@ std::string Generator::generateTypeFile(const ReflectedType& type, const std::st
     out << "        .Register<" << type.name << ">();\n";
 
     if (!type.isEnum) {
-        // 仅当 Scanner 成功获取到语义正确的 type.size 时才生成静态断言
-        // （libClang 对包含外部库类型如 glm::vec2 的类型可能返回 0 或 1）
-        bool sizeValid = type.size > 0 && type.size != 1;
-        if (sizeValid) {
-            out << "\n";
-            out << "    // Static assertions: regenerate if struct layout changes\n";
-            out << "    static_assert(sizeof(" << type.name << ") == "
-                << type.size << ",\n";
-            out << "        \"" << type.name << ": size mismatch - regenerate reflection data\");\n";
-        }
-        for (const auto& field : type.fields) {
-            if (!field.offsetValid) continue;
-            if (!sizeValid) {
-                // 首次输出有效断言时加上空行/标头
-                out << "\n";
-                sizeValid = true;
-            }
-            out << "    static_assert(offsetof(" << type.name << ", "
-                << field.name << ") == " << field.offset << ",\n";
-            out << "        \"" << type.name << "::" << field.name
-                << ": offset mismatch - regenerate reflection data\");\n";
-        }
+        // 不再生成 static_assert（offsetof/sizeof 是 ABI 相关的）：
+        //   - .gen.h 随源码分发、需在 MinGW/MSVC/Clang 等多工具链下编译，
+        //     libClang 按生成时目标（MinGW）算出的 offset/size 在 MSVC ABI 下必然对不上；
+        //   - 大多数组件类含虚函数（非标准布局），offsetof 是"条件支持"，各编译器结果不同；
+        //   - SHIT_REFLECT_BODY 成员指针路径的 offset 在运行时由 memberOffset(&T::field) 现算，
+        //     本身不依赖这里的静态值，无需编译期校验。
+        // 字段增删改名会使成员指针编译失败，天然兜住了"反射数据过期"。
     }
 
     out << "    return true;\n";
