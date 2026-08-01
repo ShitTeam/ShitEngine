@@ -149,34 +149,29 @@ json Prefab::toJson() const {
 void Prefab::apply(GameObject* go) const {
     if (!go) return;
 
-    if (!m_components.empty()) {
-        // 数据驱动：反射工厂创建 + 字段拷贝
-        for (const auto& data : m_components) {
-            const TypeInfo* ti = TypeRegistry::Get(data.typeName);
-            if (!ti) {
-                ST_CORE_WARN("[Prefab] 实例化时找不到反射类型 {}", data.typeName);
-                continue;
-            }
-            Component* comp = static_cast<Component*>(ti->Create());
-            if (!comp) {
-                ST_CORE_WARN("[Prefab] 类型 {} 无工厂（抽象类？），跳过", data.typeName);
-                continue;
-            }
-            for (const auto& [fieldName, value] : data.fields.items()) {
-                for (const auto& field : ti->fields) {
-                    if (field.name == fieldName) {
-                        if (!fieldFromJson(field, comp, value)) {
-                            ST_CORE_WARN("[Prefab] 字段 {}.{} 无法从 JSON 恢复", data.typeName, fieldName);
-                        }
-                        break;
+    // 反射工厂创建 + 字段拷贝
+    for (const auto& data : m_components) {
+        const TypeInfo* ti = TypeRegistry::Get(data.typeName);
+        if (!ti) {
+            ST_CORE_WARN("[Prefab] 实例化时找不到反射类型 {}", data.typeName);
+            continue;
+        }
+        Component* comp = static_cast<Component*>(ti->Create());
+        if (!comp) {
+            ST_CORE_WARN("[Prefab] 类型 {} 无工厂（抽象类？），跳过", data.typeName);
+            continue;
+        }
+        for (const auto& [fieldName, value] : data.fields.items()) {
+            for (const auto& field : ti->fields) {
+                if (field.name == fieldName) {
+                    if (!fieldFromJson(field, comp, value)) {
+                        ST_CORE_WARN("[Prefab] 字段 {}.{} 无法从 JSON 恢复", data.typeName, fieldName);
                     }
+                    break;
                 }
             }
-            go->addComponentInstance(comp);
         }
-    } else if (m_builder) {
-        // 兼容旧用法
-        m_builder(go);
+        go->addComponentInstance(comp);
     }
 }
 
