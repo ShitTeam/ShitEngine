@@ -5,6 +5,7 @@ cmake-build-*/
 out/
 
 # IDE
+.codebuddy/
 .vs/
 .vscode/
 .idea/
