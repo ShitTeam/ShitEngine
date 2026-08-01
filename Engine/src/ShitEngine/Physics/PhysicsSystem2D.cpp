@@ -10,8 +10,6 @@
 
 namespace Shit {
 
-	float PhysicsSystem2D::s_pixelsPerMeter = 32.0f;
-
 	PhysicsSystem2D::PhysicsSystem2D(int priority) : System(priority) {
 		m_worldIndex = 0;
 		m_worldGeneration = 0;
@@ -23,7 +21,7 @@ namespace Shit {
 		if (m_initialized) return;
 
 		// 告诉 Box2D 使用像素作为长度单位（必须在创建任何 Box2D 对象之前调用）
-		b2SetLengthUnitsPerMeter(s_pixelsPerMeter);
+		b2SetLengthUnitsPerMeter(m_pixelsPerMeter);
 
 		b2WorldDef def = b2DefaultWorldDef();
 		def.gravity = { m_gravity.x, m_gravity.y };
@@ -34,7 +32,7 @@ namespace Shit {
 		m_initialized = true;
 
 		ST_CORE_INFO("[PhysicsSystem2D] 物理世界已创建，重力 ({}, {})，每米 {} 像素",
-			m_gravity.x, m_gravity.y, s_pixelsPerMeter);
+			m_gravity.x, m_gravity.y, m_pixelsPerMeter);
 	}
 
 	void PhysicsSystem2D::update() {
@@ -104,7 +102,7 @@ namespace Shit {
 		if (m_initialized) {
 			ST_CORE_WARN("[PhysicsSystem2D] pixelsPerMeter 修改将在下次 init() 后生效");
 		}
-		s_pixelsPerMeter = ppm;
+		m_pixelsPerMeter = ppm;
 	}
 
 	void PhysicsSystem2D::registerRigidBody(RigidBody2D* body) {

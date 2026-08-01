@@ -39,7 +39,8 @@ namespace Shit {
 
 		/// @brief 设置像素↔米比例（必须在 init() 之前调用），默认 32
 		void setPixelsPerMeter(float ppm);
-		static float GetPixelsPerMeter() { return s_pixelsPerMeter; }
+		/// @brief 当前像素↔米比例（实例字段，各物理系统独立）
+		float getPixelsPerMeter() const { return m_pixelsPerMeter; }
 
 		// --- 供 RigidBody2D 内部调用 ---
 		void registerRigidBody(RigidBody2D* body);
@@ -61,6 +62,8 @@ namespace Shit {
 		uint16_t m_worldGeneration = 0;
 		bool m_initialized = false;
 
-		static float s_pixelsPerMeter;
+		// 像素↔米比例（实例字段；init() 时应用 b2SetLengthUnitsPerMeter——
+		// 该 API 是 Box2D 进程级全局，多实例不同比例时后者生效，属 Box2D 限制）
+		float m_pixelsPerMeter = 32.0f;
 	};
 }
