@@ -30,10 +30,14 @@ int main() {
     // 3. 注册插件中的反射类型（引擎类型已在 Game::Init() 中注册）
     pluginManager.RegisterAllTypes();
 
-    // 4. 创建插件场景并推入 SceneManager
+    // 4. 创建插件场景并加载（单一场景模型：同一时刻一个活跃场景）
     auto scenes = pluginManager.CreateAllScenes();
-    for (auto* scene : scenes) {
-        Shit::SceneManager::PushScene(std::unique_ptr<Shit::Scene>(scene));
+    for (size_t i = 0; i < scenes.size(); ++i) {
+        if (i == 0) {
+            Shit::SceneManager::LoadScene(std::unique_ptr<Shit::Scene>(scenes[i]));
+        } else {
+            delete scenes[i];  // 额外场景直接清理
+        }
     }
 
     // 5. 主循环

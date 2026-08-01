@@ -27,9 +27,9 @@ namespace Shit {
 	 *
 	 * 使用方式：
 	 *   auto scene = std::make_unique<Scene>("level1");
-	 *   scene->init();                    // 注册默认 BehaviorSystem + RenderSystem
+	 *   scene->init();                    // 注册默认 BehaviorSystem + RenderSystem + UIRenderSystem
 	 *   auto* player = scene->createGameObject("player");
-	 *   SceneManager::PushScene(std::move(scene));
+	 *   SceneManager::LoadScene(std::move(scene));
 	 */
 	class SHIT_API Scene {
 	public:

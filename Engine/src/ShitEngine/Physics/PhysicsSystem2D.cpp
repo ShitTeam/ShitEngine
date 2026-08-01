@@ -3,6 +3,7 @@
 #include "ShitEngine/Physics/RigidBody2D.h"
 #include "ShitEngine/Component/TransformComponent.h"
 #include "ShitEngine/GameObject/GameObject.h"
+#include "ShitEngine/Core/Game.h"
 #include "ShitEngine/Core/Time.h"
 #include "ShitEngine/Core/Log.h"
 
@@ -37,6 +38,7 @@ namespace Shit {
 
 	void PhysicsSystem2D::update() {
 		if (!m_initialized) return;
+		if (Shit::Game::IsPaused()) return;  // 全局暂停：冻结物理模拟
 
 		b2WorldId worldId = Internal::MakeWorldId(m_worldIndex, m_worldGeneration);
 		// 使用固定时间步长保证物理稳定性，避免低帧率导致穿透

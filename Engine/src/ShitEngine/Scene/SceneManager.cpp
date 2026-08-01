@@ -1,4 +1,4 @@
-﻿#include "ShitEngine/Core/pch.h"
+#include "ShitEngine/Core/pch.h"
 #include "ShitEngine/Core/EngineContext.h"
 #include "ShitEngine/Scene/SceneManager.h"
 #include "ShitEngine/Core/Log.h"
@@ -19,148 +19,42 @@ namespace Shit {
 	}
 
 	void SceneManager::update() {
-		Scene* scene = getCurrentScene(); // 获取当前场景
-		if (scene) {
-			scene->update();
+		if (m_currentScene) {
+			m_currentScene->update();
 		}
-		
-		processPendingActions();
 	}
 
 	void SceneManager::destroy() {
 		ST_CORE_TRACE("正在销毁场景管理器。");
-		while (!m_sceneStack.empty()) {
-			if (m_sceneStack.back()) {
-				ST_CORE_DEBUG("正在清理场景 {} 。", m_sceneStack.back()->getName());
-				m_sceneStack.back()->destroy();
-			}
-			m_sceneStack.pop_back();
+		if (m_currentScene) {
+			ST_CORE_DEBUG("正在清理场景 {} 。", m_currentScene->getName());
+			m_currentScene->destroy();
+			m_currentScene.reset();
 		}
 	}
 
-	void SceneManager::processPendingActions()
-	{
-		// 先 swap 出本地副本再处理：处理动作过程中若再次 PushScene/PopScene
-		//（如场景结束回调跳转），新动作进入原队列，下帧执行，避免遍历中修改 m_pendingActions
-		std::vector<PendingAction> local;
-		local.swap(m_pendingActions);
-
-		for (auto& action : local) {
-			switch (action.action)
-			{
-			case StackAction::Push:
-				processPushScene(std::move(action.scene));
-				break;
-			case StackAction::Pop:
-				processPopScene();
-				break;
-			case StackAction::Clear:
-				processClearScene();
-				break;
-			case StackAction::Replace:
-				processReplaceScene(std::move(action.scene));
-				break;
-			default:
-				break;
-			}
-		}
-	}
-
-	void SceneManager::processPushScene(std::unique_ptr<Scene>&& scene)
-	{
+	void SceneManager::loadScene(std::unique_ptr<Scene>&& scene) {
 		if (!scene) {
-			ST_CORE_WARN("试图将空场景压入场景栈！");
+			ST_CORE_WARN("试图加载空场景！");
 			return;
 		}
 
-		// 自动初始化：防止插件忘记调用 scene->init() 导致场景没有任何 System（全静默）
+		// 销毁当前场景（单一场景模型：切换即替换）
+		if (m_currentScene) {
+			ST_CORE_DEBUG("正在销毁当前场景 {} 。", m_currentScene->getName());
+			m_currentScene->destroy();
+		}
+
+		// 自动初始化：防止漏调 scene->init() 导致场景没有任何 System
 		if (!scene->hasSystems()) {
 			scene->init();
 		}
 
-		ST_CORE_DEBUG("正在将场景 {} 压入场景栈。", scene->getName());
-
-		m_sceneStack.push_back(std::move(scene));
+		ST_CORE_DEBUG("正在加载场景 {} 。", scene->getName());
+		m_currentScene = std::move(scene);
 	}
 
-	void SceneManager::processPopScene()
-	{
-		if (m_sceneStack.empty()) {
-			ST_CORE_WARN("场景栈为空，无法弹出场景！");
-			return;
-		}
-
-		ST_CORE_DEBUG("正在从场景栈中弹出场景 {} 。", m_sceneStack.back()->getName());
-
-		if (m_sceneStack.back()) {
-			m_sceneStack.back()->destroy();
-		}
-		m_sceneStack.pop_back();
-	}
-
-	void SceneManager::processClearScene()
-	{
-		if (m_sceneStack.empty()) {
-			ST_CORE_WARN("场景栈已经是空的了！");
-			return;
-		}
-
-		ST_CORE_DEBUG("正在清空场景栈。");
-
-		while (!m_sceneStack.empty()) {
-			if (m_sceneStack.back()) {
-				m_sceneStack.back()->destroy();
-			}
-			m_sceneStack.pop_back();
-		}
-	}
-
-	void SceneManager::processReplaceScene(std::unique_ptr<Scene>&& scene)
-	{
-		if (!scene) {
-			ST_CORE_WARN("试图用空场景替换！");
-			return;
-		}
-
-		ST_CORE_DEBUG("正在用场景 {} 替换掉所有场景。", scene->getName());
-
-		processClearScene();
-
-		// 与 processPushScene 一致：替换时若场景未初始化则自动补 init
-		if (!scene->hasSystems()) {
-			scene->init();
-		}
-
-		m_sceneStack.push_back(std::move(scene));
-	}
-
-	Scene* SceneManager::getCurrentScene() const
-	{
-		if (m_sceneStack.empty()) {
-			ST_CORE_DEBUG("场景栈为空，无法获取当前场景！");
-			return nullptr;
-		}
-
-		return m_sceneStack.back().get();
-	}
-
-	void SceneManager::pushScene(std::unique_ptr<Scene>&& scene)
-	{
-		m_pendingActions.push_back({ StackAction::Push, std::move(scene) });
-	}
-
-	void SceneManager::popScene()
-	{
-		m_pendingActions.push_back({ StackAction::Pop, nullptr });
-	}
-
-	void SceneManager::clearScene()
-	{
-		m_pendingActions.push_back({ StackAction::Clear, nullptr });
-	}
-
-	void SceneManager::replaceScene(std::unique_ptr<Scene>&& scene)
-	{
-		m_pendingActions.push_back({ StackAction::Replace, std::move(scene) });
+	Scene* SceneManager::getCurrentScene() const {
+		return m_currentScene ? m_currentScene.get() : nullptr;
 	}
 }

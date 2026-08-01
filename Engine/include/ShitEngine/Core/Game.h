@@ -27,6 +27,8 @@ namespace Shit {
 		inline static void Run() { GetInstance().run(); }
 		static void Destroy();                      ///< 反初始化，按依赖逆序清理子系统
 		static bool IsRunning() { return GetInstance().m_isRunning; } ///< 主循环是否仍在运行
+		inline static void SetPaused(bool paused) { GetInstance().m_isPaused = paused; }  ///< 全局暂停（冻结 Behavior/物理，UI 叠层照常）
+		inline static bool IsPaused() { return GetInstance().m_isPaused; }                ///< 是否处于暂停状态
 
 		Game(const Game&) = delete;
 		Game& operator=(const Game&) = delete;
@@ -36,5 +38,6 @@ namespace Shit {
 	private:
 		bool m_isRunning = false;
 		bool m_isInited = false;
+		bool m_isPaused = false;  ///< 全局暂停状态
 	};
 }

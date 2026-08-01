@@ -2,6 +2,7 @@
 #include "ShitEngine/System/BehaviorSystem.h"
 
 #include "ShitEngine/Component/Behavior.h"
+#include "ShitEngine/Core/Game.h"
 #include "ShitEngine/Core/Log.h"
 #include "ShitEngine/GameObject/GameObject.h"
 #include "ShitEngine/Scene/Scene.h"
@@ -20,6 +21,9 @@ namespace Shit {
         }
         m_pendingBehaviors.clear();
 
+        // 全局暂停：冻结 onUpdate（onStart 仍执行，避免新组件卡在未启动状态）
+        const bool paused = Shit::Game::IsPaused();
+
         // 按下标遍历更新。用户代码（onStart/onUpdate）可能注销/销毁当前或后续 Behavior，
         // unregisterBehavior 会把条目置为墓碑（nullptr），遍历结束后统一压缩。
         for (size_t i = 0; i < m_behaviors.size(); ++i) {
@@ -29,7 +33,9 @@ namespace Shit {
                 b->onStart();
                 b->setStarted(true);
             }
-            b->onUpdate();
+            if (!paused) {
+                b->onUpdate();
+            }
         }
 
         // 压缩墓碑（遍历后统一清理，避免遍历期间 vector 元素移动导致跳过/悬垂）
