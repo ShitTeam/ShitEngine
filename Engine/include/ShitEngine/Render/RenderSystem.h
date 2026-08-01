@@ -33,6 +33,9 @@ namespace Shit {
 		void unregisterCamera(CameraComponent *camera);       ///< 注销相机
 
 	private:
+		void compactRenderers(); ///< 压缩 m_renderers 中的墓碑（nullptr）
+		void compactCameras();   ///< 压缩 m_cameras 中的墓碑（nullptr）
+
 		SDL_Renderer* m_renderer = nullptr;
 
 		std::vector<RendererComponent*> m_renderers;

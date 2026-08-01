@@ -20,11 +20,31 @@ namespace Shit {
 
 	RenderSystem::~RenderSystem() = default;
 
+	void RenderSystem::compactRenderers() {
+		if (std::find(m_renderers.begin(), m_renderers.end(), nullptr) != m_renderers.end()) {
+			m_renderers.erase(
+				std::remove(m_renderers.begin(), m_renderers.end(), nullptr),
+				m_renderers.end());
+		}
+	}
+
+	void RenderSystem::compactCameras() {
+		if (std::find(m_cameras.begin(), m_cameras.end(), nullptr) != m_cameras.end()) {
+			m_cameras.erase(
+				std::remove(m_cameras.begin(), m_cameras.end(), nullptr),
+				m_cameras.end());
+		}
+	}
+
 	void RenderSystem::update() {
+		// 每帧刷新原生渲染器指针（渲染器重建后不悬垂）
+		m_renderer = Renderer::GetRenderer();
 		if (!m_renderer) return;
 
 		Renderer::ClearScreen();
 
+		// 排序前压缩墓碑，避免排序比较器解引用空指针
+		compactCameras();
 		if (m_isCamerasNeedSort) {
 			std::sort(m_cameras.begin(), m_cameras.end(), [](CameraComponent* a, CameraComponent* b) {
 				return a->getPriority() < b->getPriority();
@@ -32,6 +52,7 @@ namespace Shit {
 			m_isCamerasNeedSort = false;
 		}
 
+		compactRenderers();
 		if (m_isRenderersNeedSort) {
 			std::sort(m_renderers.begin(), m_renderers.end(), [](RendererComponent* a, RendererComponent* b) {
 				return a->getZIndex() < b->getZIndex();
@@ -42,12 +63,13 @@ namespace Shit {
 		float logicalW = static_cast<float>(Renderer::GetLogicalWidth());
 		float logicalH = static_cast<float>(Renderer::GetLogicalHeight());
 
-		// 快照副本：避免 onRender 回调中注销组件导致迭代器失效
-		auto cameras = m_cameras;
-		for (auto* camera : cameras) {
+		// 按下标遍历（不再每帧全量拷贝）：unregister 只墓碑化（置 null）不 erase，
+		// 遍历期间 vector 元素不移动，onRender 中注销组件不会悬垂或跳过。
+		for (size_t i = 0; i < m_cameras.size(); ++i) {
+			CameraComponent* camera = m_cameras[i];
 			if (!camera) continue;
-			SDL_FRect vpRatio = camera->getViewportRatio();
 
+			SDL_FRect vpRatio = camera->getViewportRatio();
 			SDL_Rect viewport;
 			viewport.x = static_cast<int>(vpRatio.x * logicalW);
 			viewport.y = static_cast<int>(vpRatio.y * logicalH);
@@ -56,8 +78,8 @@ namespace Shit {
 
 			if (viewport.w <= 0 || viewport.h <= 0) continue;
 
-			// 设置视口（控制渲染原点）
-			SDL_SetRenderViewport(m_renderer, &viewport);
+			// 走 Renderer 抽象（封装视口语义），不再直接操作裸 SDL_Renderer
+			Renderer::SetViewport(&viewport);
 
 			// 精准裁剪：Letterbox 纯画面区域（相对于视口原点）
 			Vector2 worldSize = camera->getSize();
@@ -69,19 +91,22 @@ namespace Shit {
 			clipRect.x = static_cast<int>((static_cast<float>(viewport.w) - static_cast<float>(clipRect.w)) / 2.0f);
 			clipRect.y = static_cast<int>((static_cast<float>(viewport.h) - static_cast<float>(clipRect.h)) / 2.0f);
 
-			SDL_SetRenderClipRect(m_renderer, &clipRect);
+			Renderer::SetClipRect(&clipRect);
 
-			// 快照副本：避免 onRender 内注销导致迭代器失效
-			auto renderers = m_renderers;
-			for (auto* renderer : renderers) {
+			for (size_t j = 0; j < m_renderers.size(); ++j) {
+				RendererComponent* renderer = m_renderers[j];
 				if (!renderer || !renderer->isVisible()) continue;
 				renderer->onRender(m_renderer, camera);
 			}
 		}
 
 		// 清除裁剪和视口，恢复全屏（UI 渲染在 UIRenderSystem 中叠加，Present 移至 Game::run 末尾）
-		SDL_SetRenderClipRect(m_renderer, nullptr);
-		SDL_SetRenderViewport(m_renderer, nullptr);
+		Renderer::ClearClipRect();
+		Renderer::ClearViewport();
+
+		// onRender 期间可能新增墓碑，遍历后统一压缩
+		compactCameras();
+		compactRenderers();
 	}
 
 	void RenderSystem::destroy() {
@@ -128,10 +153,13 @@ namespace Shit {
 				scene ? scene->getName() : "null");
 			return;
 		}
-		m_renderers.erase(
-			std::remove(m_renderers.begin(), m_renderers.end(), renderer),
-			m_renderers.end()
-		);
+		// 墓碑化：update() 遍历结束后统一压缩，避免遍历期间 erase 导致元素前移/悬垂
+		for (auto& r : m_renderers) {
+			if (r == renderer) {
+				r = nullptr;
+				break;
+			}
+		}
 	}
 
 	void RenderSystem::registerCamera(CameraComponent* camera) {
@@ -152,9 +180,12 @@ namespace Shit {
 				scene ? scene->getName() : "null");
 			return;
 		}
-		m_cameras.erase(
-			std::remove(m_cameras.begin(), m_cameras.end(), camera),
-			m_cameras.end()
-		);
+		// 墓碑化
+		for (auto& c : m_cameras) {
+			if (c == camera) {
+				c = nullptr;
+				break;
+			}
+		}
 	}
 }
