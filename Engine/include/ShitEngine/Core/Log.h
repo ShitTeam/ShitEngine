@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <utility>
+#include <cstdlib>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -59,3 +60,34 @@ namespace Shit {
 #define ST_WARN(...)    do { if (auto lg = ::Shit::Log::GetClientLogger()) lg->warn(__VA_ARGS__); } while (0)
 #define ST_ERROR(...)   do { if (auto lg = ::Shit::Log::GetClientLogger()) lg->error(__VA_ARGS__); } while (0)
 #define ST_CRITICAL(...) do { if (auto lg = ::Shit::Log::GetClientLogger()) lg->critical(__VA_ARGS__); } while (0)
+
+// ════════════════════════════════════════════════════════════
+// 断言（错误处理契约的"逻辑不变量"层）
+//
+// 契约约定：
+//   - 致命初始化失败     → return false + ST_CORE_ERROR
+//   - 非致命降级         → return nullptr + ST_CORE_WARN
+//   - 逻辑不变量（不应发生）→ ST_CORE_ASSERT（Debug 拦截，Release 编译为 no-op）
+//
+// 用于"若此处为假则代码逻辑一定有 bug"的检查，如"System 必须有 scene"。
+// 不要用于用户输入/可恢复错误（那应该走 WARN + fallback）。
+// ════════════════════════════════════════════════════════════
+#ifdef NDEBUG
+	// Release：断言编译为 no-op
+	#define ST_CORE_ASSERT(cond, msg) ((void)0)
+	#define ST_ASSERT(cond, msg)      ((void)0)
+#else
+	// Debug：cond 为假 → 记录 CRITICAL 并 abort
+	#define ST_CORE_ASSERT(cond, msg) \
+		do { if (!(cond)) { \
+			if (auto lg = ::Shit::Log::GetCoreLogger()) \
+				lg->critical("ASSERT FAILED: {} -- {}", std::string(#cond), std::string(msg)); \
+			std::abort(); \
+		} } while (0)
+	#define ST_ASSERT(cond, msg) \
+		do { if (!(cond)) { \
+			if (auto lg = ::Shit::Log::GetClientLogger()) \
+				lg->critical("ASSERT FAILED: {} -- {}", std::string(#cond), std::string(msg)); \
+			std::abort(); \
+		} } while (0)
+#endif
