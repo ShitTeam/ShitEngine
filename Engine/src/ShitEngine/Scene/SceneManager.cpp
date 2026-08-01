@@ -73,6 +73,11 @@ namespace Shit {
 			return;
 		}
 
+		// 自动初始化：防止插件忘记调用 scene->init() 导致场景没有任何 System（全静默）
+		if (!scene->hasSystems()) {
+			scene->init();
+		}
+
 		ST_CORE_DEBUG("正在将场景 {} 压入场景栈。", scene->getName());
 
 		m_sceneStack.push_back(std::move(scene));
@@ -120,6 +125,11 @@ namespace Shit {
 		ST_CORE_DEBUG("正在用场景 {} 替换掉所有场景。", scene->getName());
 
 		processClearScene();
+
+		// 与 processPushScene 一致：替换时若场景未初始化则自动补 init
+		if (!scene->hasSystems()) {
+			scene->init();
+		}
 
 		m_sceneStack.push_back(std::move(scene));
 	}

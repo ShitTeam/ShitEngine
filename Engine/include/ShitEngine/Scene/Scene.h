@@ -42,9 +42,12 @@ namespace Shit {
 		Scene(Scene&&) = delete;
 		Scene& operator=(Scene&&) = delete;
 
-		virtual void init();    ///< 注册默认系统（BehaviorSystem + RenderSystem）
+		virtual void init();    ///< 注册默认系统（BehaviorSystem + RenderSystem + UIRenderSystem），幂等
 		void update();           ///< 更新所有 System + 处理延迟操作
 		virtual void destroy(); ///< 销毁所有对象与系统
+
+		/// @brief 是否已注册任何 System（SceneManager 用于自动初始化，防止漏调 init() 导致空场景）
+		bool hasSystems() const { return !m_systems.empty(); }
 
 		void addGameObject(std::unique_ptr<GameObject>&& gameObject);  ///< 延迟添加 GameObject（帧末生效）
 		GameObject* createGameObject(const std::string& name);          ///< 创建并添加 GameObject
@@ -119,5 +122,6 @@ namespace Shit {
 		std::vector<System*> m_systems; // 缓存的系统
 		std::vector<std::type_index> m_pendingRemoveSystems;
 		bool m_isSystemsNeedSort = false;
+		bool m_isInited = false;  ///< init() 是否已执行（幂等守卫）
 	};
 }

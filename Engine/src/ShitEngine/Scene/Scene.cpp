@@ -19,6 +19,9 @@ namespace Shit {
 	Scene::~Scene() = default;
 
 	void Scene::init() { // 场景初始化
+		if (m_isInited) return;  // 幂等：防止 SceneManager 自动 init 与手动 init 重复注册
+		m_isInited = true;
+
 		registerSystem<BehaviorSystem>();
 		registerSystem<RenderSystem>();
 		registerSystem<UIRenderSystem>();
