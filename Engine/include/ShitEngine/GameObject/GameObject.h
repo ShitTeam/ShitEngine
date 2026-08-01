@@ -79,6 +79,13 @@ namespace Shit {
 		 * @return 组件指针（若已存在则返回已有的）
 		 */
 
+		/**
+		 * @brief 动态添加组件实例（Prefab 实例化等反射场景用，所有权转移给 GameObject）
+		 * @param component 已通过反射工厂创建的组件实例
+		 * @return 添加后的组件指针（若已存在同类型，则丢弃传入实例并返回已有的）
+		 */
+		Component* addComponentInstance(Component* component);
+
 		template <typename T, typename... Args>
 		T* addComponent(Args&&... args) {
 			static_assert(std::is_base_of_v<Component, T>, "添加的组件必须继承自 Component！");

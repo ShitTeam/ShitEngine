@@ -22,6 +22,28 @@ namespace Shit {
 		}
 	}
 
+	Component* GameObject::addComponentInstance(Component* component) {
+		if (!component) return nullptr;
+		auto type_index = std::type_index(typeid(*component));
+
+		// 已存在同类型：丢弃传入实例，返回已有的
+		if (auto it = m_components.find(type_index); it != m_components.end()) {
+			ST_CORE_WARN("GameObject : {} 已存在组件 {}，丢弃传入实例", m_name, typeid(*component).name());
+			delete component;
+			return it->second.get();
+		}
+
+		component->setOwner(this);
+		m_components[type_index] = std::unique_ptr<Component>(component);
+		component->onCreate();
+
+		// 若已挂载场景则立即执行 onAttach（注册到 System）
+		if (m_scene && !component->isRegistered()) {
+			component->onAttach();
+		}
+		return component;
+	}
+
 	void GameObject::setParent(GameObject* parent) {
 		// 跨 Scene 父子关系拒绝（避免 Scene 销毁后悬空）
 		if (parent) {

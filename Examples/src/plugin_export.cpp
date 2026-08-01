@@ -2,6 +2,7 @@
 // Runtime 通过 LoadLibrary/GetProcAddress 调用这些函数来加载插件
 
 #include "PhysicsTestScene.h"
+#include "ReflectionTestScene.h"
 
 #include <ShitEngine.h>
 

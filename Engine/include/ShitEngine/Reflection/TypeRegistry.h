@@ -30,6 +30,9 @@ public:
 
 	[[nodiscard]] const TypeInfo* getType(std::string_view name) const;
 
+	/// @brief 按 type_index 查询（Prefab 动态克隆等场景用）
+	[[nodiscard]] const TypeInfo* getType(std::type_index ti) const;
+
 	template<typename T>
 	[[nodiscard]] const TypeInfo* getType() const {
 		auto it = m_typeIndexMap.find(std::type_index(typeid(T)));
@@ -48,6 +51,7 @@ public:
 	static void ResolveBases() { GetInstance().resolveBases(); }
 	static bool UnregisterType(std::string_view name) { return GetInstance().unregisterType(name); }
 	static const TypeInfo* Get(std::string_view name) { return GetInstance().getType(name); }
+	static const TypeInfo* Get(std::type_index ti) { return GetInstance().getType(ti); }
 
 	template<typename T>
 	static const TypeInfo* Get() { return GetInstance().getType<T>(); }

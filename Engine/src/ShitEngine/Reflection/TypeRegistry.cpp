@@ -41,6 +41,11 @@ const TypeInfo* TypeRegistry::getType(std::string_view name) const {
 	return it != m_nameMap.end() ? it->second : nullptr;
 }
 
+const TypeInfo* TypeRegistry::getType(std::type_index ti) const {
+	auto it = m_typeIndexMap.find(ti);
+	return it != m_typeIndexMap.end() ? it->second : nullptr;
+}
+
 void TypeRegistry::forEach(std::function<void(const TypeInfo&)> callback) const {
 	for (const auto& info : m_typeStorage) {
 		callback(info);

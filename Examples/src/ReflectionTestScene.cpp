@@ -2,6 +2,9 @@
 
 #include <ShitEngine/Core/Log.h>
 #include <ShitEngine/Reflection/TypeRegistry.h>
+#include <ShitEngine/GameObject/Prefab.h>
+#include <ShitEngine/Component/TransformComponent.h>
+#include <ShitEngine/Component/CameraComponent.h>
 
 #include <string>
 #include <sstream>
@@ -120,6 +123,50 @@ private:
         });
         m_results.push_back(std::string("ForEach: ") +
             std::to_string(Shit::TypeRegistry::Count()) + " types listed");
+
+        // ── Test 10: Prefab Capture → JSON round-trip → instantiate ──
+        {
+            Shit::Scene* scene = getOwner() ? getOwner()->getScene() : nullptr;
+            if (scene) {
+                // 源对象：Transform（position/scale 可序列化）+ Camera（worldSize/zoom/priority 可序列化）
+                auto* srcGO = scene->createGameObject("PrefabSource");
+                auto* srcTf = srcGO->addComponent<Shit::TransformComponent>();
+                srcTf->setPosition({ 123.0f, 456.0f });
+                srcTf->setScale({ 2.0f, 3.0f });
+                auto* srcCam = srcGO->addComponent<Shit::CameraComponent>();
+                srcCam->setSize({ 320.0f, 240.0f });
+                srcCam->setZoom(1.5f);
+
+                auto prefab = Shit::Prefab::Capture(srcGO);
+                ST_CORE_INFO("[Prefab] Captured {} components", prefab.getComponents().size());
+                m_results.push_back(std::string("Prefab Capture: ") +
+                    std::to_string(prefab.getComponents().size()) + " comps");
+
+                // JSON 序列化 → 反序列化
+                auto json = prefab.toJson();
+                ST_CORE_INFO("[Prefab] JSON: {}", json.dump());
+                auto prefab2 = Shit::Prefab::FromJson(json);
+                m_results.push_back(std::string("Prefab JSON round-trip: ") +
+                    std::to_string(prefab2.getComponents().size()) + " comps");
+
+                // 实例化并校验字段
+                auto* clone = prefab.instantiate(scene, "PrefabClone");
+                auto* cloneTf = clone->getComponent<Shit::TransformComponent>();
+                auto* cloneCam = clone->getComponent<Shit::CameraComponent>();
+                if (cloneTf && cloneTf->getPosition().x == 123.0f && cloneTf->getPosition().y == 456.0f
+                    && cloneTf->getScale().x == 2.0f && cloneTf->getScale().y == 3.0f
+                    && cloneCam && cloneCam->getSize().x == 320.0f && cloneCam->getSize().y == 240.0f
+                    && cloneCam->getZoom() == 1.5f) {
+                    ST_CORE_INFO("[Prefab] Clone 字段全部匹配 — OK");
+                    m_results.push_back("Prefab Clone fields: OK");
+                } else {
+                    ST_CORE_ERROR("[Prefab] Clone 字段不匹配");
+                    m_results.push_back("Prefab Clone fields: FAILED");
+                }
+            } else {
+                m_results.push_back("Prefab test: no scene");
+            }
+        }
 
         ST_CORE_INFO("=============================================");
     }
