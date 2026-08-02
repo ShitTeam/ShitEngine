@@ -137,9 +137,11 @@ jobs:
             find build/release/_deps -name "*.dll.a" -exec cp -n {} install/lib/ \;
           elif [ "$RUNNER_OS" = "Linux" ]; then
             find build/release/bin -name "*.so*" -exec cp -n {} install/lib/ \;
-            find build/release/_deps -name "*.so*" ! -name "*.so.t*" -exec cp -n {} install/lib/ \;
+            find build/release/lib -name "*.so*" ! -name "*akefile*" ! -name "*.so.t*" -exec cp -n {} install/lib/ \;
+            find build/release/_deps -name "*.so*" ! -name "*akefile*" ! -name "*.so.t*" -exec cp -n {} install/lib/ \;
           elif [ "$RUNNER_OS" = "macOS" ]; then
             find build/release/bin -name "*.dylib" -exec cp -n {} install/lib/ \;
+            find build/release/lib -name "*.dylib" -exec cp -n {} install/lib/ \;
             find build/release/_deps -name "*.dylib" -exec cp -n {} install/lib/ \;
           fi
 
