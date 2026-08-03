@@ -95,8 +95,8 @@ macro(find_or_fetch_dependency DEP_NAME PACKAGE_NAME GIT_REPO GIT_TAG LOCAL_PATH
             set(SDLIMAGE_AVIF_VENDORED OFF CACHE BOOL "" FORCE)
             set(SDLIMAGE_DAV1D OFF CACHE BOOL "" FORCE)
             set(SDLIMAGE_AOM OFF CACHE BOOL "" FORCE)
-            # 可选：禁用其他可能有构建问题的格式
-            # set(SDLIMAGE_JXL OFF CACHE BOOL "" FORCE)  # JPEG XL
+            # 禁用 JPEG XL（libjxl 依赖跨平台、克隆慢，像素引擎罕见该格式）
+            set(SDLIMAGE_JXL OFF CACHE BOOL "" FORCE)
         endif()
 
         # SDL3_mixer

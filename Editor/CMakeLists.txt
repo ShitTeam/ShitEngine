@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 
-project(ShitEngine-Editor VERSION 0.1 LANGUAGES CXX)
+project(Editor VERSION 0.1 LANGUAGES CXX)
 
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
@@ -20,37 +20,41 @@ set(PROJECT_SOURCES
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
-    qt_add_executable(ShitEngine-Editor
+    qt_add_executable(Editor
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
     )
 # Define target properties for Android with Qt 6 as:
-#    set_property(TARGET ShitEngine-Editor APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
+#    set_property(TARGET Editor APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
 #                 ${CMAKE_CURRENT_SOURCE_DIR}/android)
 # For more information, see https://doc.qt.io/qt-6/qt-add-executable.html#target-creation
 else()
     if(ANDROID)
-        add_library(ShitEngine-Editor SHARED
+        add_library(Editor SHARED
             ${PROJECT_SOURCES}
         )
 # Define properties for Android with Qt 5 after find_package() calls as:
 #    set(ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/android")
     else()
-        add_executable(ShitEngine-Editor
+        add_executable(Editor
             ${PROJECT_SOURCES}
         )
     endif()
 endif()
 
-target_link_libraries(ShitEngine-Editor PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+target_link_libraries(Editor PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+# 由根工程 add_subdirectory 引入时链接引擎目标；独立构建编辑器（无 ShitEngine 目标）则跳过
+if(TARGET ShitEngine)
+    target_link_libraries(Editor PRIVATE ShitEngine)
+endif()
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
 # If you are developing for iOS or macOS you should consider setting an
 # explicit, fixed bundle identifier manually though.
 if(${QT_VERSION} VERSION_LESS 6.1.0)
-  set(BUNDLE_ID_OPTION MACOSX_BUNDLE_GUI_IDENTIFIER com.example.ShitEngine-Editor)
+  set(BUNDLE_ID_OPTION MACOSX_BUNDLE_GUI_IDENTIFIER com.example.Editor)
 endif()
-set_target_properties(ShitEngine-Editor PROPERTIES
+set_target_properties(Editor PROPERTIES
     ${BUNDLE_ID_OPTION}
     MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
     MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
@@ -59,12 +63,12 @@ set_target_properties(ShitEngine-Editor PROPERTIES
 )
 
 include(GNUInstallDirs)
-install(TARGETS ShitEngine-Editor
+install(TARGETS Editor
     BUNDLE DESTINATION .
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
 if(QT_VERSION_MAJOR EQUAL 6)
-    qt_finalize_executable(ShitEngine-Editor)
+    qt_finalize_executable(Editor)
 endif()

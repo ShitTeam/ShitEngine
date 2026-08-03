@@ -56,6 +56,18 @@ if(BUILD_RUNTIME)
     add_subdirectory(Runtime)
 endif()
 
+# 编辑器（Qt6：检测到 Qt 才构建。Qt kit 下自动启用；MinGW/CI 无 Qt 自动跳过）
+option(BUILD_EDITOR "构建 Qt 编辑器（需 Qt6）" ON)
+if(BUILD_EDITOR)
+    find_package(QT NAMES Qt6 Qt5 QUIET COMPONENTS Widgets)
+    if(QT_FOUND)
+        message(STATUS "检测到 Qt${QT_VERSION_MAJOR}，构建编辑器（Editor）")
+        add_subdirectory(Editor)
+    else()
+        message(STATUS "BUILD_EDITOR=ON 但未检测到 Qt，跳过编辑器")
+    endif()
+endif()
+
 # ── 反射扫描伞形目标（须在 Engine/Examples 之后，reflect-engine/reflect-examples 已创建）──
 if(BUILD_TOOLS)
     set(_REFLECT_DEPS "")
