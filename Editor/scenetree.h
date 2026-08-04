@@ -3,26 +3,28 @@
 
 #include <QWidget>
 
-class QAbstractItemModel;
 class QTreeView;
+class SceneTreeModel;
 
-/// 左侧场景树：列出当前场景的 GameObject 层级。
-/// P3 起由场景数据填充模型；此处先提供结构。
+namespace Shit { class Scene; class GameObject; }
+
+/// 左侧场景树：列出当前场景的 GameObject 层级，选中联动属性检查器。
 class SceneTree : public QWidget
 {
     Q_OBJECT
 public:
     explicit SceneTree(QWidget *parent = nullptr);
 
-    /// 设置场景对象模型（P3 接入 scene->getGameObjects() 的适配模型）
-    void setModel(QAbstractItemModel *model);
+    /// 绑定场景并填充层级（nullptr 清空），自动选中第一项
+    void setScene(Shit::Scene *scene);
 
 signals:
-    /// 选中某个对象（P3 起连接属性检查器）
-    void objectSelected(const QString &objectName);
+    /// 选中某个对象（供属性检查器联动）
+    void objectSelected(Shit::GameObject *object);
 
 private:
     QTreeView *m_view;
+    SceneTreeModel *m_model;
 };
 
 #endif // SCENETREE_H

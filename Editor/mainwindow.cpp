@@ -38,13 +38,14 @@ MainWindow::MainWindow(QWidget *parent)
     m_gamePreview = new EnginePreview(ViewMode::Game, this);
     connect(m_gamePreview, &EnginePreview::frameReady, m_gameViewport, &Viewport::setFrame);
 
+    // P3：场景树选中 → 属性检查器
+    connect(m_sceneTree, &SceneTree::objectSelected, m_inspector, &Inspector::setGameObject);
+
     if (m_scenePreview->start() && m_gamePreview->start()) {
         m_log->appendMessage(tr("双视口预览已启动（场景 + 运行）"));
 
-        // P4：默认选中场景视图里的玩家对象，属性检查器反射其组件
-        Shit::Scene *scene = m_scenePreview->getScene();
-        if (scene && !scene->getGameObjects().empty())
-            m_inspector->setGameObject(scene->getGameObjects().front().get());
+        // P3：场景树绑定场景（自动选中第一项，触发检查器）
+        m_sceneTree->setScene(m_scenePreview->getScene());
     } else {
         m_log->appendMessage(tr("预览启动失败"), Qt::red);
     }

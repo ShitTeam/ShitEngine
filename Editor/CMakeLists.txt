@@ -21,6 +21,8 @@ set(PROJECT_SOURCES
         viewport.h
         scenetree.cpp
         scenetree.h
+        scenetreemodel.cpp
+        scenetreemodel.h
         inspector.cpp
         inspector.h
         logwidget.cpp
