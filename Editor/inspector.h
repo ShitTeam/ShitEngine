@@ -3,6 +3,9 @@
 
 #include <QWidget>
 
+#include <functional>
+#include <vector>
+
 class QFormLayout;
 class QScrollArea;
 
@@ -14,7 +17,7 @@ struct FieldInfo;
 
 /// 右侧属性检查器：反射选中对象的组件字段，生成可编辑控件。
 /// P4：TypeRegistry 查询字段元数据（displayName/range/step/readOnly），
-/// 编辑通过 GetFieldPtr 就地写回组件。
+/// 编辑通过 GetFieldPtr 就地写回组件；refresh() 每帧从引擎回读，实时同步。
 class Inspector : public QWidget
 {
     Q_OBJECT
@@ -27,6 +30,9 @@ public:
     /// 反射 object 的组件并渲染为编辑表单
     void setGameObject(Shit::GameObject *object);
 
+    /// 从组件重读当前值并更新控件（引擎 → 检查器实时同步）
+    void refresh();
+
 private:
     /// 为单个字段生成一行编辑控件
     void addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj);
@@ -37,6 +43,9 @@ private:
     QScrollArea *m_scroll;
     QWidget *m_content;
     QFormLayout *m_form;
+
+    /// 每个字段的"组件 → 控件"回读函数（refresh 时逐行调用）
+    std::vector<std::function<void()>> m_readbacks;
 };
 
 #endif // INSPECTOR_H

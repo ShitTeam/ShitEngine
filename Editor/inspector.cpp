@@ -67,6 +67,7 @@ Inspector::Inspector(QWidget *parent)
 
 void Inspector::clear()
 {
+    m_readbacks.clear();
     while (m_form->rowCount() > 0)
         m_form->removeRow(0);
 
@@ -74,6 +75,12 @@ void Inspector::clear()
     placeholder->setAlignment(Qt::AlignCenter);
     placeholder->setWordWrap(true);
     m_form->addRow(placeholder);
+}
+
+void Inspector::refresh()
+{
+    for (auto &readback : m_readbacks)
+        readback();
 }
 
 void Inspector::setGameObject(Shit::GameObject *object)
@@ -126,6 +133,11 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
             *reinterpret_cast<float *>(field.GetFieldPtr(obj)) = static_cast<float>(v);
         });
         m_form->addRow(name, box);
+        m_readbacks.push_back([box, obj, field] {
+            box->blockSignals(true);
+            box->setValue(*reinterpret_cast<float *>(field.GetFieldPtr(obj)));
+            box->blockSignals(false);
+        });
     }
     else if (field.typeName == "int") {
         auto *box = new QSpinBox(m_content);
@@ -135,6 +147,11 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
             *reinterpret_cast<int *>(field.GetFieldPtr(obj)) = v;
         });
         m_form->addRow(name, box);
+        m_readbacks.push_back([box, obj, field] {
+            box->blockSignals(true);
+            box->setValue(*reinterpret_cast<int *>(field.GetFieldPtr(obj)));
+            box->blockSignals(false);
+        });
     }
     else if (field.typeName == "bool") {
         auto *check = new QCheckBox(m_content);
@@ -143,6 +160,11 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
             *reinterpret_cast<bool *>(field.GetFieldPtr(obj)) = on;
         });
         m_form->addRow(name, check);
+        m_readbacks.push_back([check, obj, field] {
+            check->blockSignals(true);
+            check->setChecked(*reinterpret_cast<bool *>(field.GetFieldPtr(obj)));
+            check->blockSignals(false);
+        });
     }
     else if (field.typeName == "Vector2") {
         auto *p = reinterpret_cast<Shit::Vector2 *>(field.GetFieldPtr(obj));
@@ -160,6 +182,15 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
         layout->addWidget(xBox);
         layout->addWidget(yBox);
         m_form->addRow(name, row);
+        m_readbacks.push_back([xBox, yBox, obj, field] {
+            auto *p = reinterpret_cast<Shit::Vector2 *>(field.GetFieldPtr(obj));
+            xBox->blockSignals(true);
+            yBox->blockSignals(true);
+            xBox->setValue(p->x);
+            yBox->setValue(p->y);
+            xBox->blockSignals(false);
+            yBox->blockSignals(false);
+        });
     }
     else if (field.typeName == "std::string") {
         auto *p = reinterpret_cast<std::string *>(field.GetFieldPtr(obj));
@@ -168,6 +199,11 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
             *reinterpret_cast<std::string *>(field.GetFieldPtr(obj)) = text.toStdString();
         });
         m_form->addRow(name, edit);
+        m_readbacks.push_back([edit, obj, field] {
+            edit->blockSignals(true);
+            edit->setText(QString::fromStdString(*reinterpret_cast<std::string *>(field.GetFieldPtr(obj))));
+            edit->blockSignals(false);
+        });
     }
     else {
         // 枚举或未知类型：优先尝试枚举下拉，否则只读展示
@@ -186,6 +222,13 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
                 *reinterpret_cast<int *>(field.GetFieldPtr(obj)) = combo->currentData().toInt();
             });
             m_form->addRow(name, combo);
+            m_readbacks.push_back([combo, obj, field] {
+                const int v = *reinterpret_cast<int *>(field.GetFieldPtr(obj));
+                const int idx = combo->findData(v);
+                combo->blockSignals(true);
+                combo->setCurrentIndex(idx >= 0 ? idx : 0);
+                combo->blockSignals(false);
+            });
         } else {
             m_form->addRow(name, new QLabel(fieldToString(field, obj), m_content));
         }

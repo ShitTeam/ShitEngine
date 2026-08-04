@@ -31,6 +31,7 @@ MainWindow::MainWindow(QWidget *parent)
     // 引擎预览：离屏渲染 → 视口显示
     m_preview = new EnginePreview(this);
     connect(m_preview, &EnginePreview::frameReady, m_viewport, &Viewport::setFrame);
+    connect(m_preview, &EnginePreview::frameReady, m_inspector, &Inspector::refresh); // 每帧回读引擎值
     if (m_preview->start()) {
         m_log->appendMessage(tr("引擎预览已启动（离屏渲染）"));
 
