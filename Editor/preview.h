@@ -8,7 +8,7 @@
 #include <memory>
 #include <vector>
 
-namespace Shit { class EngineContext; }
+namespace Shit { class EngineContext; class Scene; }
 
 /// 引擎预览：在独立的 EngineContext 中驱动引擎渲染（隐藏窗口离屏），
 /// 每帧读回渲染缓冲像素并发出 QImage，供视口显示。
@@ -22,6 +22,9 @@ public:
     /// 初始化预览引擎 + 构建测试场景，启动定时渲染。成功返回 true。
     bool start();
     void stop();
+
+    /// 预览的当前场景（未启动/已停止返回 nullptr）
+    Shit::Scene *getScene();
 
 signals:
     /// 每帧渲染完成后发出（含最新画面）

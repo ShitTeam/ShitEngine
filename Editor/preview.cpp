@@ -85,6 +85,13 @@ void EnginePreview::stop()
     m_running = false;
 }
 
+Shit::Scene *EnginePreview::getScene()
+{
+    if (!m_context) return nullptr;
+    Shit::EngineContext::setCurrent(m_context.get());
+    return Shit::SceneManager::GetCurrentScene();
+}
+
 void EnginePreview::tick()
 {
     if (!m_context) return;

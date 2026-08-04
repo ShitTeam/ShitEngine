@@ -12,6 +12,9 @@
 #include "logwidget.h"
 #include "preview.h"
 
+#include <ShitEngine.h>
+#include <ShitEngine/Core/EngineContext.h>
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -28,10 +31,16 @@ MainWindow::MainWindow(QWidget *parent)
     // 引擎预览：离屏渲染 → 视口显示
     m_preview = new EnginePreview(this);
     connect(m_preview, &EnginePreview::frameReady, m_viewport, &Viewport::setFrame);
-    if (m_preview->start())
+    if (m_preview->start()) {
         m_log->appendMessage(tr("引擎预览已启动（离屏渲染）"));
-    else
+
+        // P4：默认选中场景第一个对象（玩家），属性检查器反射其组件
+        Shit::Scene *scene = m_preview->getScene();
+        if (scene && !scene->getGameObjects().empty())
+            m_inspector->setGameObject(scene->getGameObjects().front().get());
+    } else {
         m_log->appendMessage(tr("引擎预览启动失败"), Qt::red);
+    }
 
     statusBar()->showMessage(tr("就绪"));
     m_log->appendMessage(tr("ShitEngine 编辑器已启动"));
