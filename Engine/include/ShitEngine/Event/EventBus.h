@@ -44,7 +44,7 @@ public:
 
     template<typename EventType>
     static void Emit(const EventType& event) {
-        GetInstance().emit<EventType>(event);
+        GetInstance().emitEvent<EventType>(event);
     }
 
     static void ProcessEvents() {
@@ -102,7 +102,8 @@ private:
     }
 
     template<typename EventType>
-    void emit(const EventType& event) {
+    // 注：方法名用 emitEvent 而非 emit —— Qt 将 emit 定义为空宏，同名成员在含 Qt 的 TU 会展开成非法语法
+    void emitEvent(const EventType& event) {
         std::lock_guard<std::mutex> lock(m_mutex);
         m_eventQueue.push(std::make_shared<EventType>(event));
     }

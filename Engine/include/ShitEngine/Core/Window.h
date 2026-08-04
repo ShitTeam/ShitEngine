@@ -20,10 +20,11 @@ namespace Shit {
 		static Window& GetInstance();                                   ///< 获取单例
 		static bool Init() { return GetInstance().init(); }             ///< 初始化窗口
 		static SDL_Window* GetWindow() { return GetInstance().m_window.get(); } ///< 获取原生 SDL_Window 指针
-		static void HandleEvent(const SDL_Event& event) { GetInstance().handleEvent(event); } ///< 分发窗口事件给子系统
+		static void HandleEvent(const SDL_Event& event) { return GetInstance().handleEvent(event); } ///< 分发窗口事件给子系统
 		static bool IsOpen() { return GetInstance().isOpen(); }         ///< 窗口是否仍然打开
 		static void Close() { GetInstance().close(); }                  ///< 关闭窗口
 		static void Destroy();                                          ///< 销毁窗口及资源
+		static void SetHidden(bool hidden) { GetInstance().m_hidden = hidden; } ///< 以隐藏窗口创建（离屏渲染/编辑器预览用，须在 Init 之前调用）
 
 		Window(const Window&) = delete;
 		Window& operator=(const Window&) = delete;
@@ -44,5 +45,6 @@ namespace Shit {
 
 		std::unique_ptr<SDL_Window, SDLWindowDeleter> m_window;
 		bool m_isOpen = false;
+		bool m_hidden = false;  ///< 以隐藏窗口创建（离屏渲染）
 	};
 }

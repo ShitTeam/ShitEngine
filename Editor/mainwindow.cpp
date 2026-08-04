@@ -10,6 +10,7 @@
 #include "scenetree.h"
 #include "inspector.h"
 #include "logwidget.h"
+#include "preview.h"
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -23,6 +24,14 @@ MainWindow::MainWindow(QWidget *parent)
 
     createDocks();
     createMenus();
+
+    // 引擎预览：离屏渲染 → 视口显示
+    m_preview = new EnginePreview(this);
+    connect(m_preview, &EnginePreview::frameReady, m_viewport, &Viewport::setFrame);
+    if (m_preview->start())
+        m_log->appendMessage(tr("引擎预览已启动（离屏渲染）"));
+    else
+        m_log->appendMessage(tr("引擎预览启动失败"), Qt::red);
 
     statusBar()->showMessage(tr("就绪"));
     m_log->appendMessage(tr("ShitEngine 编辑器已启动"));

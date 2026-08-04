@@ -11,6 +11,7 @@ class Viewport;
 class SceneTree;
 class Inspector;
 class LogWidget;
+class EnginePreview;
 
 class MainWindow : public QMainWindow
 {
@@ -36,5 +37,6 @@ private:
     SceneTree *m_sceneTree;
     Inspector *m_inspector;
     LogWidget *m_log;
+    EnginePreview *m_preview;
 };
 #endif // MAINWINDOW_H

@@ -1,6 +1,8 @@
 #include "ShitEngine/Core/pch.h"
 #include "ShitEngine/Core/EngineContext.h"
 
+#include <cstring>
+
 #include "ShitEngine/Render/Renderer.h"
 #include "ShitEngine/Core/Window.h"
 #include "ShitEngine/Core/Log.h"
@@ -42,6 +44,30 @@ namespace Shit {
         if (SDL_Renderer* r = GetInstance().raw()) {
             SDL_RenderPresent(r);
         }
+    }
+
+    bool Renderer::readPixels(void* pixels, int pitch) {
+        SDL_Renderer* r = raw();
+        if (!r || !pixels) return false;
+
+        // SDL3 新 API：返回当前渲染目标的 SDL_Surface
+        SDL_Surface* frame = SDL_RenderReadPixels(r, nullptr);
+        if (!frame) return false;
+
+        bool ok = false;
+        // 转为 ARGB8888（与 QImage::Format_ARGB32 字节序一致），逐行拷贝到调用方缓冲
+        SDL_Surface* argb = SDL_ConvertSurface(frame, SDL_PIXELFORMAT_ARGB8888);
+        if (argb) {
+            for (int y = 0; y < argb->h; ++y) {
+                memcpy(static_cast<char*>(pixels) + static_cast<size_t>(y) * pitch,
+                       static_cast<char*>(argb->pixels) + static_cast<size_t>(y) * argb->pitch,
+                       static_cast<size_t>(argb->w) * 4);
+            }
+            ok = true;
+            SDL_DestroySurface(argb);
+        }
+        SDL_DestroySurface(frame);
+        return ok;
     }
 
     void Renderer::DrawSprite(const Sprite& sprite, const Vector2& position, const std::optional<Vector2>& size) {

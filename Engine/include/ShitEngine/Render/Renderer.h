@@ -33,6 +33,14 @@ namespace Shit {
 		static void Present() { GetInstance().present(); }                         ///< 交换缓冲区（每帧末尾调用）
 		static SDL_Renderer* GetRenderer() { return GetInstance().m_renderer.get(); } ///< 获取原生 SDL_Renderer
 
+		/**
+		 * @brief 读取渲染缓冲像素（离屏渲染/编辑器预览用）
+		 * @param pixels 输出缓冲区，至少 width*height*4 字节（ARGB8888）
+		 * @param pitch  每行字节数（通常 width*4）
+		 * @return 成功返回 true
+		 */
+		static bool ReadPixels(void* pixels, int pitch) { return GetInstance().readPixels(pixels, pitch); }
+
 		static int GetLogicalWidth() { return GetInstance().m_logicalWidth; }      ///< 逻辑分辨率宽度
 		static int GetLogicalHeight() { return GetInstance().m_logicalHeight; }    ///< 逻辑分辨率高度
 
@@ -65,6 +73,7 @@ namespace Shit {
 		bool init();
 		void clearScreen();
 		void present();
+		bool readPixels(void* pixels, int pitch);
 
 		/// @brief 原生渲染器裸指针（未初始化/已销毁则为 nullptr，供绘制接口判空保护）
 		SDL_Renderer* raw() const { return m_renderer ? m_renderer.get() : nullptr; }

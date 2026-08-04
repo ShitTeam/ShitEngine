@@ -18,7 +18,8 @@ namespace Shit {
 	}
 
 	bool Window::init() { // 初始化
-		m_window = std::unique_ptr<SDL_Window, SDLWindowDeleter>(SDL_CreateWindow(Config::GetWindowConfig().title.c_str(), Config::GetWindowConfig().width, Config::GetWindowConfig().height, 0));
+		Uint32 flags = m_hidden ? SDL_WINDOW_HIDDEN : 0; // 离屏渲染（编辑器预览）：隐藏窗口但渲染正常
+		m_window = std::unique_ptr<SDL_Window, SDLWindowDeleter>(SDL_CreateWindow(Config::GetWindowConfig().title.c_str(), Config::GetWindowConfig().width, Config::GetWindowConfig().height, flags));
 		if (!m_window) {
 			ST_CORE_ERROR("窗口创建失败: {0}", SDL_GetError());
 			return false;
