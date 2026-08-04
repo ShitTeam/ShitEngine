@@ -17,6 +17,14 @@ set(PROJECT_SOURCES
         mainwindow.cpp
         mainwindow.h
         mainwindow.ui
+        viewport.cpp
+        viewport.h
+        scenetree.cpp
+        scenetree.h
+        inspector.cpp
+        inspector.h
+        logwidget.cpp
+        logwidget.h
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)

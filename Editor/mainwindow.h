@@ -4,20 +4,37 @@
 #include <QMainWindow>
 
 QT_BEGIN_NAMESPACE
-namespace Ui {
-class MainWindow;
-}
+namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
+
+class Viewport;
+class SceneTree;
+class Inspector;
+class LogWidget;
 
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    MainWindow(QWidget *parent = nullptr);
+    explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
+private slots:
+    void newScene();
+    void openScene();
+    void saveScene();
+    void about();
+
 private:
+    void createDocks();
+    void createMenus();
+
     Ui::MainWindow *ui;
+
+    Viewport *m_viewport;
+    SceneTree *m_sceneTree;
+    Inspector *m_inspector;
+    LogWidget *m_log;
 };
 #endif // MAINWINDOW_H
