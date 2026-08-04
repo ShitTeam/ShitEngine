@@ -26,10 +26,13 @@ private slots:
     void openScene();
     void saveScene();
     void about();
+    void setPlaying(bool playing);          ///< 播放/停止（▶/⏹）
+    void pickSceneAt(float x, float y);     ///< 场景视图点击拾取
 
 private:
     void createDocks();
     void createMenus();
+    void createToolbar();
 
     Ui::MainWindow *ui;
 
@@ -40,5 +43,6 @@ private:
     LogWidget *m_log;
     EnginePreview *m_scenePreview;
     EnginePreview *m_gamePreview;
+    QAction *m_playAction;
 };
 #endif // MAINWINDOW_H

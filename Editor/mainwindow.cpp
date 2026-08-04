@@ -1,11 +1,13 @@
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
 
+#include <QAction>
 #include <QDockWidget>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QStatusBar>
 #include <QSplitter>
+#include <QToolBar>
 
 #include "viewport.h"
 #include "scenetree.h"
@@ -29,6 +31,10 @@ MainWindow::MainWindow(QWidget *parent)
 
     createDocks();
     createMenus();
+    createToolbar();
+
+    // 场景视图点击 → 拾取（须在双视口创建后连接）
+    connect(m_sceneViewport, &Viewport::logicalClicked, this, &MainWindow::pickSceneAt);
 
     // 双视口预览：Scene=编辑器相机全貌，Game=游戏相机居中（对齐 Unity/Godot）
     m_scenePreview = new EnginePreview(ViewMode::Scene, this);
@@ -134,4 +140,60 @@ void MainWindow::about()
         tr("ShitEngine 编辑器\n"
            "基于 Qt 6 与 ShitEngine 引擎。\n"
            "P1：UI 骨架（视口 / 场景树 / 属性 / 日志）。"));
+}
+
+void MainWindow::createToolbar()
+{
+    auto *toolbar = addToolBar(tr("控制"));
+    toolbar->setMovable(false);
+
+    // ▶ 播放 / ⏹ 停止：控制预览引擎逻辑运行（默认播放中）
+    m_playAction = toolbar->addAction(tr("⏹ 停止"));
+    m_playAction->setCheckable(true);
+    m_playAction->setChecked(true);
+    connect(m_playAction, &QAction::toggled, this, &MainWindow::setPlaying);
+}
+
+void MainWindow::setPlaying(bool playing)
+{
+    if (m_playAction)
+        m_playAction->setText(playing ? tr("⏹ 停止") : tr("▶ 播放"));
+    if (m_scenePreview) m_scenePreview->setPlaying(playing);
+    if (m_gamePreview)  m_gamePreview->setPlaying(playing);
+    statusBar()->showMessage(playing ? tr("运行中") : tr("已暂停"));
+}
+
+void MainWindow::pickSceneAt(float x, float y)
+{
+    Shit::Scene *scene = m_scenePreview ? m_scenePreview->getScene() : nullptr;
+    if (!scene) return;
+
+    // 找到场景视图用的相机（编辑器相机）
+    Shit::CameraComponent *camera = nullptr;
+    for (auto &go : scene->getGameObjects()) {
+        if (auto *cam = go->getComponent<Shit::CameraComponent>()) { camera = cam; break; }
+    }
+    if (!camera) return;
+
+    // 逻辑像素 → 世界坐标
+    const Shit::Vector2 world = camera->screenToWorld({ x, y });
+
+    // 拾取：遍历带 SpriteRenderer 的对象，测试世界包围盒
+    Shit::GameObject *hit = nullptr;
+    for (auto &go : scene->getGameObjects()) {
+        if (auto *sprite = go->getComponent<Shit::SpriteRenderer>()) {
+            const SDL_FRect b = sprite->getGlobalBounds();
+            if (world.x >= b.x && world.x <= b.x + b.w
+                && world.y >= b.y && world.y <= b.y + b.h) {
+                hit = go.get();
+                break;
+            }
+        }
+    }
+
+    if (hit) {
+        m_sceneTree->selectObject(hit);   // → objectSelected → 检查器（树/检查器双向联动）
+    } else {
+        m_inspector->setGameObject(nullptr); // 点空白 → 清空检查器
+    }
 }

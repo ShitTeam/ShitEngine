@@ -68,6 +68,26 @@ Shit::GameObject *SceneTreeModel::gameObjectAt(const QModelIndex &index) const
     return static_cast<Shit::GameObject *>(index.internalPointer());
 }
 
+QModelIndex SceneTreeModel::indexOf(Shit::GameObject *object) const
+{
+    if (!m_scene || !object) return {};
+    return indexOfIn(topLevelObjects(), object, {});
+}
+
+QModelIndex SceneTreeModel::indexOfIn(const std::vector<Shit::GameObject *> &siblings,
+                                      Shit::GameObject *target, const QModelIndex &parentIdx) const
+{
+    for (size_t i = 0; i < siblings.size(); ++i) {
+        if (siblings[i] == target)
+            return index(static_cast<int>(i), 0, parentIdx);
+        const QModelIndex childIdx = index(static_cast<int>(i), 0, parentIdx);
+        const QModelIndex sub = indexOfIn(siblings[i]->getChildren(), target, childIdx);
+        if (sub.isValid())
+            return sub;
+    }
+    return {};
+}
+
 std::vector<Shit::GameObject *> SceneTreeModel::childrenOf(const QModelIndex &parent) const
 {
     if (!m_scene) return {};

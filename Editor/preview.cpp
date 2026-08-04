@@ -94,6 +94,13 @@ Shit::Scene *EnginePreview::getScene()
     return Shit::SceneManager::GetCurrentScene();
 }
 
+void EnginePreview::setPlaying(bool playing)
+{
+    if (!m_context) return;
+    Shit::EngineContext::setCurrent(m_context.get());
+    Shit::Game::SetPaused(!playing);
+}
+
 void EnginePreview::tick()
 {
     if (!m_context) return;

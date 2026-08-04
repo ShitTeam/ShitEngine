@@ -45,3 +45,13 @@ void SceneTree::setScene(Shit::Scene *scene)
             QItemSelectionModel::Select | QItemSelectionModel::Rows);
     }
 }
+
+void SceneTree::selectObject(Shit::GameObject *object)
+{
+    const QModelIndex idx = m_model->indexOf(object);
+    if (idx.isValid()) {
+        m_view->selectionModel()->setCurrentIndex(idx,
+            QItemSelectionModel::Select | QItemSelectionModel::Rows);
+        m_view->scrollTo(idx);
+    }
+}

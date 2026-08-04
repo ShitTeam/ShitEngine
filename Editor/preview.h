@@ -32,6 +32,9 @@ public:
     /// 预览的当前场景（未启动/已停止返回 nullptr）
     Shit::Scene *getScene();
 
+    /// 设置运行状态：true=引擎逻辑运行（Behavior/物理更新），false=暂停（画面静止）
+    void setPlaying(bool playing);
+
 signals:
     /// 每帧渲染完成后发出（含最新画面）
     void frameReady(const QImage &image);

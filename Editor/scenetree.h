@@ -18,6 +18,9 @@ public:
     /// 绑定场景并填充层级（nullptr 清空），自动选中第一项
     void setScene(Shit::Scene *scene);
 
+    /// 程序化选中对象（供视口拾取联动），会触发 objectSelected
+    void selectObject(Shit::GameObject *object);
+
 signals:
     /// 选中某个对象（供属性检查器联动）
     void objectSelected(Shit::GameObject *object);
