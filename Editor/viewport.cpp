@@ -22,9 +22,14 @@ void Viewport::paintEvent(QPaintEvent *event)
     painter.fillRect(rect(), QColor(40, 42, 48));
 
     if (!m_frame.isNull()) {
+        // 保持宽高比缩放并居中（letterbox，对齐 Unity 视图行为）
+        QSize target = m_frame.size();
+        target.scale(rect().size(), Qt::KeepAspectRatio);
+        QRect drawRect(QPoint(0, 0), target);
+        drawRect.moveCenter(rect().center());
         // 最近邻缩放（像素风不糊）
         painter.setRenderHint(QPainter::SmoothPixmapTransform, false);
-        painter.drawImage(rect(), m_frame);
+        painter.drawImage(drawRect, m_frame);
     } else {
         painter.setPen(QColor(90, 94, 100));
         painter.drawText(rect(), Qt::AlignCenter, tr("引擎预览加载中…"));

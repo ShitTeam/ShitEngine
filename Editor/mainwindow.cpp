@@ -5,6 +5,7 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QStatusBar>
+#include <QSplitter>
 
 #include "viewport.h"
 #include "scenetree.h"
@@ -18,7 +19,8 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
-    , m_viewport(nullptr)
+    , m_sceneViewport(nullptr)
+    , m_gameViewport(nullptr)
     , m_sceneTree(nullptr)
     , m_inspector(nullptr)
     , m_log(nullptr)
@@ -28,19 +30,23 @@ MainWindow::MainWindow(QWidget *parent)
     createDocks();
     createMenus();
 
-    // 引擎预览：离屏渲染 → 视口显示
-    m_preview = new EnginePreview(this);
-    connect(m_preview, &EnginePreview::frameReady, m_viewport, &Viewport::setFrame);
-    connect(m_preview, &EnginePreview::frameReady, m_inspector, &Inspector::refresh); // 每帧回读引擎值
-    if (m_preview->start()) {
-        m_log->appendMessage(tr("引擎预览已启动（离屏渲染）"));
+    // 双视口预览：Scene=编辑器相机全貌，Game=游戏相机居中（对齐 Unity/Godot）
+    m_scenePreview = new EnginePreview(ViewMode::Scene, this);
+    connect(m_scenePreview, &EnginePreview::frameReady, m_sceneViewport, &Viewport::setFrame);
+    connect(m_scenePreview, &EnginePreview::frameReady, m_inspector, &Inspector::refresh); // 每帧回读引擎值
 
-        // P4：默认选中场景第一个对象（玩家），属性检查器反射其组件
-        Shit::Scene *scene = m_preview->getScene();
+    m_gamePreview = new EnginePreview(ViewMode::Game, this);
+    connect(m_gamePreview, &EnginePreview::frameReady, m_gameViewport, &Viewport::setFrame);
+
+    if (m_scenePreview->start() && m_gamePreview->start()) {
+        m_log->appendMessage(tr("双视口预览已启动（场景 + 运行）"));
+
+        // P4：默认选中场景视图里的玩家对象，属性检查器反射其组件
+        Shit::Scene *scene = m_scenePreview->getScene();
         if (scene && !scene->getGameObjects().empty())
             m_inspector->setGameObject(scene->getGameObjects().front().get());
     } else {
-        m_log->appendMessage(tr("引擎预览启动失败"), Qt::red);
+        m_log->appendMessage(tr("预览启动失败"), Qt::red);
     }
 
     statusBar()->showMessage(tr("就绪"));
@@ -54,9 +60,15 @@ MainWindow::~MainWindow()
 
 void MainWindow::createDocks()
 {
-    // 中央视口（游戏渲染区域）
-    m_viewport = new Viewport(this);
-    setCentralWidget(m_viewport);
+    // 中央双视口：左=场景视图（编辑器相机全貌），右=运行视图（游戏相机居中）
+    m_sceneViewport = new Viewport(this);
+    m_gameViewport = new Viewport(this);
+
+    auto *splitter = new QSplitter(this);
+    splitter->addWidget(m_sceneViewport);
+    splitter->addWidget(m_gameViewport);
+    splitter->setSizes({600, 600});
+    setCentralWidget(splitter);
 
     // 左侧：场景树
     auto *sceneDock = new QDockWidget(tr("场景"), this);

@@ -27,8 +27,9 @@ public:
 
 } // namespace
 
-EnginePreview::EnginePreview(QObject *parent)
+EnginePreview::EnginePreview(ViewMode mode, QObject *parent)
     : QObject(parent)
+    , m_mode(mode)
 {
 }
 
@@ -56,9 +57,10 @@ bool EnginePreview::start()
     player->addComponent<Shit::SpriteRenderer>()->setTexturePath(writeTestBmp().toStdString());
     player->addComponent<PreviewMover>();
 
-    auto *camera = scene->createGameObject("camera");
-    camera->addComponent<Shit::TransformComponent>();
-    camera->addComponent<Shit::CameraComponent>()->setZoom(5.0f);
+    // 按视图模式建相机：Scene=编辑器相机看全貌，Game=游戏相机看玩家
+    auto *cam = scene->createGameObject("camera");
+    cam->addComponent<Shit::TransformComponent>();
+    cam->addComponent<Shit::CameraComponent>()->setZoom(m_mode == ViewMode::Scene ? 1.0f : 5.0f);
 
     Shit::SceneManager::LoadScene(std::move(scene));
 

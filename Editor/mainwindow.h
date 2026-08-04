@@ -33,10 +33,12 @@ private:
 
     Ui::MainWindow *ui;
 
-    Viewport *m_viewport;
+    Viewport *m_sceneViewport;
+    Viewport *m_gameViewport;
     SceneTree *m_sceneTree;
     Inspector *m_inspector;
     LogWidget *m_log;
-    EnginePreview *m_preview;
+    EnginePreview *m_scenePreview;
+    EnginePreview *m_gamePreview;
 };
 #endif // MAINWINDOW_H
