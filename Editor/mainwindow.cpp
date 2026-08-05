@@ -46,6 +46,9 @@ MainWindow::MainWindow(QWidget *parent)
 
     // P3：场景树选中 → 属性检查器
     connect(m_sceneTree, &SceneTree::objectSelected, m_inspector, &Inspector::setGameObject);
+    connect(m_inspector, &Inspector::buildInfo, this, [this](int components, int fields) {
+        m_log->appendMessage(QString("检查器: 渲染 %1 个组件 / %2 个字段").arg(components).arg(fields));
+    });
 
     if (m_scenePreview->start() && m_gamePreview->start()) {
         m_log->appendMessage(tr("双视口预览已启动（场景 + 运行）"));
@@ -203,7 +206,8 @@ void MainWindow::pickSceneAt(float x, float y)
     if (hit) {
         m_log->appendMessage(QString("pick: 命中 %1 @logical(%2,%3)")
             .arg(QString::fromStdString(hit->getName())).arg(click.x, 0, 'f', 1).arg(click.y, 0, 'f', 1));
-        m_sceneTree->selectObject(hit);   // → objectSelected → 检查器
+        m_inspector->setGameObject(hit);   // 直接驱动检查器（不依赖树选中信号）
+        m_sceneTree->selectObject(hit);    // 同步场景树高亮
     } else {
         // 诊断：打印首个含精灵的对象其屏幕矩形，区分"点偏了" vs "映射错"
         QString rectInfo;

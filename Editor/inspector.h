@@ -33,6 +33,10 @@ public:
     /// 从组件重读当前值并更新控件（引擎 → 检查器实时同步）
     void refresh();
 
+signals:
+    /// 诊断：每次重建时报告渲染了 n 个组件 / n 个字段（供日志定位）
+    void buildInfo(int components, int fields);
+
 private:
     /// 为单个字段生成一行编辑控件
     void addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj);
@@ -46,6 +50,9 @@ private:
 
     /// 每个字段的"组件 → 控件"回读函数（refresh 时逐行调用）
     std::vector<std::function<void()>> m_readbacks;
+
+    int m_componentCount = 0;  ///< 本次构建渲染的组件数（诊断）
+    int m_fieldCount = 0;      ///< 本次构建渲染的字段数（诊断）
 };
 
 #endif // INSPECTOR_H

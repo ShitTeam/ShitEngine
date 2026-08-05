@@ -86,6 +86,8 @@ void Inspector::refresh()
 void Inspector::setGameObject(Shit::GameObject *object)
 {
     clear();
+    m_componentCount = 0;
+    m_fieldCount = 0;
     if (!object)
         return;
 
@@ -100,13 +102,18 @@ void Inspector::setGameObject(Shit::GameObject *object)
         if (!typeInfo || typeInfo->fields.empty())
             return; // 无反射元数据（如编辑器自定义 Behavior），跳过
 
+        ++m_componentCount;
         auto *title = new QLabel(QString::fromStdString(typeInfo->name), m_content);
         title->setStyleSheet("font-weight:bold; color:#2a7ab1; margin-top:6px;");
         m_form->addRow(title);
 
-        for (const Shit::FieldInfo &field : typeInfo->fields)
+        for (const Shit::FieldInfo &field : typeInfo->fields) {
             addFieldRow(field, component);
+            ++m_fieldCount;
+        }
     });
+
+    emit buildInfo(m_componentCount, m_fieldCount);
 }
 
 void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
