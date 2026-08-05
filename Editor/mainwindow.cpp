@@ -184,6 +184,13 @@ void MainWindow::openScene()
             gc->addComponent<Shit::TransformComponent>();
             gc->addComponent<Shit::CameraComponent>()->setZoom(5.0f);
         }
+        // 诊断：载入后的对象清单
+        QString names;
+        for (auto &go : scene->getGameObjects()) {
+            if (!names.isEmpty()) names += ", ";
+            names += QString::fromStdString(go->getName());
+        }
+        m_log->appendMessage(QString("载入后对象(%1): %2").arg(scene->getGameObjects().size()).arg(names));
         m_sceneTree->setScene(scene);
         m_log->appendMessage(tr("场景已从 %1 载入").arg(path));
     } catch (const std::exception &e) {
