@@ -41,6 +41,14 @@ namespace Shit {
 		 */
 		static bool ReadPixels(void* pixels, int pitch) { return GetInstance().readPixels(pixels, pitch); }
 
+		/**
+		 * @brief 开始离屏渲染到逻辑尺寸(1280×720)目标纹理（编辑器预览用）
+		 * 之后 SceneManager::Update 的渲染进该纹理；ReadPixels 读出逻辑尺寸像素，
+		 * 与相机坐标空间一致（不受窗口物理尺寸影响）。
+		 */
+		static bool BeginOffscreen() { return GetInstance().beginOffscreen(); }
+		static void EndOffscreen() { GetInstance().endOffscreen(); }
+
 		static int GetLogicalWidth() { return GetInstance().m_logicalWidth; }      ///< 逻辑分辨率宽度
 		static int GetLogicalHeight() { return GetInstance().m_logicalHeight; }    ///< 逻辑分辨率高度
 
@@ -74,6 +82,8 @@ namespace Shit {
 		void clearScreen();
 		void present();
 		bool readPixels(void* pixels, int pitch);
+		bool beginOffscreen();
+		void endOffscreen();
 
 		/// @brief 原生渲染器裸指针（未初始化/已销毁则为 nullptr，供绘制接口判空保护）
 		SDL_Renderer* raw() const { return m_renderer ? m_renderer.get() : nullptr; }
@@ -87,5 +97,12 @@ namespace Shit {
 		std::unique_ptr<SDL_Renderer, SDLRendererDeleter> m_renderer;
 		int m_logicalWidth = 1280;
 		int m_logicalHeight = 720;
+
+		struct SDLTextureDeleter {
+			void operator()(SDL_Texture* texture) const {
+				if (texture) SDL_DestroyTexture(texture);
+			}
+		};
+		std::unique_ptr<SDL_Texture, SDLTextureDeleter> m_offscreenTarget; ///< 逻辑尺寸离屏目标纹理（编辑器预览）
 	};
 }

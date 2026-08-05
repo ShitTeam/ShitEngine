@@ -111,16 +111,20 @@ void EnginePreview::tick()
     // 复刻 Game::run() 的单帧逻辑（不阻塞 Qt 事件循环）
     Shit::Time::Update();
     Shit::EventBus::ProcessEvents();
+
+    // 离屏渲染到逻辑尺寸目标纹理：读出帧恒为 1280×720，与相机坐标空间一致
+    //（不受窗口物理尺寸 / settings.json 影响，拾取坐标才精确）
+    Shit::Renderer::BeginOffscreen();
     Shit::SceneManager::Update();
     Shit::Input::Update();
     Shit::AudioPlayer::Update();
 
-    // 读回渲染缓冲 → QImage（ARGB8888 与 QImage::Format_ARGB32 字节序一致）
     if (Shit::Renderer::ReadPixels(m_pixels.data(), m_logicalWidth * 4)) {
         QImage image(m_pixels.data(), m_logicalWidth, m_logicalHeight,
                      m_logicalWidth * 4, QImage::Format_ARGB32);
         emit frameReady(image.copy()); // 深拷贝：m_pixels 下一帧会被覆盖
     }
+    Shit::Renderer::EndOffscreen();
 }
 
 QString EnginePreview::writeTestBmp() const

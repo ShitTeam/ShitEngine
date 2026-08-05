@@ -180,17 +180,19 @@ void MainWindow::pickSceneAt(float x, float y)
     const Shit::Vector2 click(x, y);
 
     // 拾取：正变换法 —— 将每个精灵的世界包围盒用相机正向映射成屏幕矩形，
-    // 测点击是否落在其中（与渲染同变换，屏幕位置精确一致，比逆变换更稳）
+    // 测点击是否落在其中（与渲染同变换，屏幕位置精确一致）。
+    // 加小容差(tol)，容忍边缘点击的少量偏差，贴近真实编辑器手感。
+    const float tol = 6.0f;
     Shit::GameObject *hit = nullptr;
     for (auto &go : scene->getGameObjects()) {
         if (auto *sprite = go->getComponent<Shit::SpriteRenderer>()) {
             const SDL_FRect b = sprite->getGlobalBounds();
             const Shit::Vector2 tl = camera->worldToScreen({ b.x, b.y });
             const Shit::Vector2 br = camera->worldToScreen({ b.x + b.w, b.y + b.h });
-            const float sxl = std::min(tl.x, br.x);
-            const float syt = std::min(tl.y, br.y);
-            const float sxr = std::max(tl.x, br.x);
-            const float syb = std::max(tl.y, br.y);
+            const float sxl = std::min(tl.x, br.x) - tol;
+            const float syt = std::min(tl.y, br.y) - tol;
+            const float sxr = std::max(tl.x, br.x) + tol;
+            const float syb = std::max(tl.y, br.y) + tol;
             if (click.x >= sxl && click.x <= sxr && click.y >= syt && click.y <= syb) {
                 hit = go.get();
                 break;

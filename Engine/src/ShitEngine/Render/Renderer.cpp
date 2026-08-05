@@ -40,6 +40,22 @@ namespace Shit {
         }
     }
 
+    bool Renderer::beginOffscreen() {
+        SDL_Renderer* r = raw();
+        if (!r) return false;
+        // 懒创建逻辑尺寸(1280×720)目标纹理；之后渲染进该纹理，读出即逻辑坐标
+        if (!m_offscreenTarget) {
+            m_offscreenTarget.reset(SDL_CreateTexture(r, SDL_PIXELFORMAT_ARGB8888,
+                SDL_TEXTUREACCESS_TARGET, m_logicalWidth, m_logicalHeight));
+        }
+        if (!m_offscreenTarget) return false;
+        return SDL_SetRenderTarget(r, m_offscreenTarget.get());
+    }
+
+    void Renderer::endOffscreen() {
+        if (SDL_Renderer* r = raw()) SDL_SetRenderTarget(r, nullptr);
+    }
+
     void Renderer::present() {
         if (SDL_Renderer* r = GetInstance().raw()) {
             SDL_RenderPresent(r);
