@@ -52,6 +52,7 @@ MainWindow::MainWindow(QWidget *parent)
 
         // P3：场景树绑定场景（自动选中第一项，触发检查器）
         m_sceneTree->setScene(m_scenePreview->getScene());
+        setPlaying(m_playAction->isChecked());   // 默认停止态：暂停预览逻辑
     } else {
         m_log->appendMessage(tr("预览启动失败"), Qt::red);
     }
@@ -147,10 +148,10 @@ void MainWindow::createToolbar()
     auto *toolbar = addToolBar(tr("控制"));
     toolbar->setMovable(false);
 
-    // ▶ 播放 / ⏹ 停止：控制预览引擎逻辑运行（默认播放中）
-    m_playAction = toolbar->addAction(tr("⏹ 停止"));
+    // ▶ 播放 / ⏹ 停止：控制预览引擎逻辑运行（默认停止）
+    m_playAction = toolbar->addAction(tr("▶ 播放"));
     m_playAction->setCheckable(true);
-    m_playAction->setChecked(true);
+    m_playAction->setChecked(false);
     connect(m_playAction, &QAction::toggled, this, &MainWindow::setPlaying);
 }
 
@@ -166,25 +167,31 @@ void MainWindow::setPlaying(bool playing)
 void MainWindow::pickSceneAt(float x, float y)
 {
     Shit::Scene *scene = m_scenePreview ? m_scenePreview->getScene() : nullptr;
-    if (!scene) return;
+    if (!scene) { m_log->appendMessage(tr("pick: 无场景"), Qt::red); return; }
 
     // 找到场景视图用的相机（编辑器相机）
     Shit::CameraComponent *camera = nullptr;
     for (auto &go : scene->getGameObjects()) {
         if (auto *cam = go->getComponent<Shit::CameraComponent>()) { camera = cam; break; }
     }
-    if (!camera) return;
+    if (!camera) { m_log->appendMessage(tr("pick: 未找到相机"), Qt::red); return; }
 
-    // 逻辑像素 → 世界坐标
-    const Shit::Vector2 world = camera->screenToWorld({ x, y });
+    // 逻辑像素点击
+    const Shit::Vector2 click(x, y);
 
-    // 拾取：遍历带 SpriteRenderer 的对象，测试世界包围盒
+    // 拾取：正变换法 —— 将每个精灵的世界包围盒用相机正向映射成屏幕矩形，
+    // 测点击是否落在其中（与渲染同变换，屏幕位置精确一致，比逆变换更稳）
     Shit::GameObject *hit = nullptr;
     for (auto &go : scene->getGameObjects()) {
         if (auto *sprite = go->getComponent<Shit::SpriteRenderer>()) {
             const SDL_FRect b = sprite->getGlobalBounds();
-            if (world.x >= b.x && world.x <= b.x + b.w
-                && world.y >= b.y && world.y <= b.y + b.h) {
+            const Shit::Vector2 tl = camera->worldToScreen({ b.x, b.y });
+            const Shit::Vector2 br = camera->worldToScreen({ b.x + b.w, b.y + b.h });
+            const float sxl = std::min(tl.x, br.x);
+            const float syt = std::min(tl.y, br.y);
+            const float sxr = std::max(tl.x, br.x);
+            const float syb = std::max(tl.y, br.y);
+            if (click.x >= sxl && click.x <= sxr && click.y >= syt && click.y <= syb) {
                 hit = go.get();
                 break;
             }
@@ -192,8 +199,12 @@ void MainWindow::pickSceneAt(float x, float y)
     }
 
     if (hit) {
-        m_sceneTree->selectObject(hit);   // → objectSelected → 检查器（树/检查器双向联动）
+        m_log->appendMessage(QString("pick: 命中 %1 @logical(%2,%3)")
+            .arg(QString::fromStdString(hit->getName())).arg(click.x, 0, 'f', 1).arg(click.y, 0, 'f', 1));
+        m_sceneTree->selectObject(hit);   // → objectSelected → 检查器
     } else {
+        m_log->appendMessage(QString("pick: 未命中 @logical(%1,%2)")
+            .arg(click.x, 0, 'f', 1).arg(click.y, 0, 'f', 1), Qt::yellow);
         m_inspector->setGameObject(nullptr); // 点空白 → 清空检查器
     }
 }
