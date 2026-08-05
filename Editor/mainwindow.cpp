@@ -3,11 +3,15 @@
 
 #include <QAction>
 #include <QDockWidget>
+#include <QFileDialog>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QStatusBar>
 #include <QSplitter>
+#include <QTimer>
 #include <QToolBar>
+
+#include <fstream>
 
 #include "viewport.h"
 #include "scenetree.h"
@@ -17,6 +21,7 @@
 
 #include <ShitEngine.h>
 #include <ShitEngine/Core/EngineContext.h>
+#include <ShitEngine/GameObject/Prefab.h>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -124,20 +129,77 @@ void MainWindow::createMenus()
 
 void MainWindow::newScene()
 {
-    m_log->appendMessage(tr("新建场景（P3 实现）"));
-    statusBar()->showMessage(tr("新建场景…（开发中）"));
+    Shit::Scene *scene = m_preview ? m_preview->getScene() : nullptr;
+    if (!scene) return;
+    // 清空除编辑器相机（scene_camera）外的对象
+    for (auto &go : scene->getGameObjects())
+        if (go->getName() != "scene_camera")
+            scene->removeGameObject(go.get());
+    m_sceneTree->setScene(scene);
+    // 帧末旧对象销毁后重绑树，清掉悬空条目
+    QTimer::singleShot(100, this, [this, scene]() { m_sceneTree->setScene(scene); });
+    m_log->appendMessage(tr("已新建空场景"));
+    statusBar()->showMessage(tr("已新建空场景"));
 }
 
 void MainWindow::openScene()
 {
-    m_log->appendMessage(tr("打开场景（P5 实现）"));
-    statusBar()->showMessage(tr("打开场景…（开发中）"));
+    Shit::Scene *scene = m_preview ? m_preview->getScene() : nullptr;
+    if (!scene) return;
+
+    const QString path = QFileDialog::getOpenFileName(this, tr("打开场景"), QString(), tr("ShitEngine 场景 (*.scene)"));
+    if (path.isEmpty()) return;
+
+    try {
+        std::ifstream file(path.toStdString());
+        nlohmann::json doc;
+        file >> doc;
+
+        // 清空除编辑器相机外的对象，再从存档重建
+        for (auto &go : scene->getGameObjects())
+            if (go->getName() != "scene_camera")
+                scene->removeGameObject(go.get());
+
+        if (doc.contains("objects")) {
+            for (auto &obj : doc["objects"]) {
+                const std::string name = obj.value("name", "Object");
+                Shit::Prefab::FromJson(obj.value("data", nlohmann::json::array()))
+                    .instantiate(scene, name);
+            }
+        }
+        m_sceneTree->setScene(scene);
+        // 帧末旧对象销毁后重绑树，清掉悬空条目
+        QTimer::singleShot(100, this, [this, scene]() { m_sceneTree->setScene(scene); });
+        m_log->appendMessage(tr("场景已从 %1 载入").arg(path));
+    } catch (const std::exception &e) {
+        m_log->appendMessage(tr("打开场景失败: %1").arg(e.what()), Qt::red);
+    }
+    statusBar()->showMessage(tr("打开场景完成"));
 }
 
 void MainWindow::saveScene()
 {
-    m_log->appendMessage(tr("保存场景（P5 实现）"));
-    statusBar()->showMessage(tr("保存场景…（开发中）"));
+    Shit::Scene *scene = m_preview ? m_preview->getScene() : nullptr;
+    if (!scene) return;
+
+    const QString path = QFileDialog::getSaveFileName(this, tr("保存场景"), QString(), tr("ShitEngine 场景 (*.scene)"));
+    if (path.isEmpty()) return;
+
+    // 收集除编辑器相机外的对象（编辑器相机是编辑基础设施，不入库）
+    nlohmann::json objects = nlohmann::json::array();
+    for (auto &go : scene->getGameObjects()) {
+        if (go->getName() == "scene_camera") continue;
+        nlohmann::json entry;
+        entry["name"] = go->getName();
+        entry["data"] = Shit::Prefab::Capture(go.get()).toJson();
+        objects.push_back(entry);
+    }
+    const nlohmann::json doc = { { "objects", objects } };
+
+    std::ofstream file(path.toStdString(), std::ios::trunc);
+    file << doc.dump(2);
+    m_log->appendMessage(tr("场景已保存到 %1（%2 个对象）").arg(path).arg(objects.size()));
+    statusBar()->showMessage(tr("场景已保存"));
 }
 
 void MainWindow::about()

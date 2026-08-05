@@ -70,6 +70,7 @@ bool EnginePreview::start()
 
     Shit::SceneManager::LoadScene(std::move(scene));
     m_scene = Shit::SceneManager::GetCurrentScene();
+    refreshCameras();   // 按名定位编辑器/游戏相机
 
     m_logicalWidth = Shit::Renderer::GetLogicalWidth();
     m_logicalHeight = Shit::Renderer::GetLogicalHeight();
@@ -111,10 +112,26 @@ void EnginePreview::setPlaying(bool playing)
     Shit::Game::SetPaused(!playing);
 }
 
+void EnginePreview::refreshCameras()
+{
+    m_editorCam = nullptr;
+    m_gameCam = nullptr;
+    if (!m_scene) return;
+    for (auto &go : m_scene->getGameObjects()) {
+        if (go->getName() == "scene_camera")
+            m_editorCam = go->getComponent<Shit::CameraComponent>();
+        else if (go->getName() == "game_camera")
+            m_gameCam = go->getComponent<Shit::CameraComponent>();
+    }
+}
+
 void EnginePreview::tick()
 {
     if (!m_context) return;
     Shit::EngineContext::setCurrent(m_context.get());
+
+    refreshCameras();   // 每帧按名定位（场景加载/编辑后相机可能重建，防悬空指针）
+    if (!m_editorCam || !m_gameCam) return;
 
     Shit::Time::Update();
     Shit::EventBus::ProcessEvents();

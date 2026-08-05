@@ -40,6 +40,8 @@ private slots:
     void tick();
 
 private:
+    /// 按名重新定位编辑器/游戏相机（场景加载/编辑后相机可能重建）
+    void refreshCameras();
     /// 运行时生成一张棋盘格 BMP（测试场景用，避免依赖仓库资产）
     QString writeTestBmp() const;
 
