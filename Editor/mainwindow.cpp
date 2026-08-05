@@ -12,6 +12,7 @@
 #include <QToolBar>
 
 #include <fstream>
+#include <vector>
 
 #include "viewport.h"
 #include "scenetree.h"
@@ -131,13 +132,16 @@ void MainWindow::newScene()
 {
     Shit::Scene *scene = m_preview ? m_preview->getScene() : nullptr;
     if (!scene) return;
-    // 清空除编辑器相机（scene_camera）外的对象
-    for (auto &go : scene->getGameObjects())
-        if (go->getName() != "scene_camera")
-            scene->removeGameObject(go.get());
+    // 先收集再删：编辑器下 removeGameObject 当场 erase，不能在遍历中删（迭代器失效）
+    std::vector<Shit::GameObject *> toRemove;
+    for (auto &go : scene->getGameObjects()) {
+        const std::string name = go->getName();
+        if (name != "scene_camera" && name != "game_camera")   // 保留两个相机
+            toRemove.push_back(go.get());
+    }
+    for (auto *go : toRemove)
+        scene->removeGameObject(go);
     m_sceneTree->setScene(scene);
-    // 帧末旧对象销毁后重绑树，清掉悬空条目
-    QTimer::singleShot(100, this, [this, scene]() { m_sceneTree->setScene(scene); });
     m_log->appendMessage(tr("已新建空场景"));
     statusBar()->showMessage(tr("已新建空场景"));
 }
@@ -155,11 +159,15 @@ void MainWindow::openScene()
         nlohmann::json doc;
         file >> doc;
 
-        // 清空除编辑器相机外的对象，再从存档重建
+        // 先收集再删（编辑器下 removeGameObject 当场 erase，不能在遍历中删）
+        std::vector<Shit::GameObject *> toRemove;
         for (auto &go : scene->getGameObjects())
             if (go->getName() != "scene_camera")
-                scene->removeGameObject(go.get());
+                toRemove.push_back(go.get());
+        for (auto *go : toRemove)
+            scene->removeGameObject(go);
 
+        // 从存档重建对象
         if (doc.contains("objects")) {
             for (auto &obj : doc["objects"]) {
                 const std::string name = obj.value("name", "Object");
@@ -167,9 +175,16 @@ void MainWindow::openScene()
                     .instantiate(scene, name);
             }
         }
+        // 兜底：存档没有游戏相机则补一个（否则运行视图无法渲染）
+        bool hasGameCam = false;
+        for (auto &go : scene->getGameObjects())
+            if (go->getName() == "game_camera") { hasGameCam = true; break; }
+        if (!hasGameCam) {
+            auto *gc = scene->createGameObject("game_camera");
+            gc->addComponent<Shit::TransformComponent>();
+            gc->addComponent<Shit::CameraComponent>()->setZoom(5.0f);
+        }
         m_sceneTree->setScene(scene);
-        // 帧末旧对象销毁后重绑树，清掉悬空条目
-        QTimer::singleShot(100, this, [this, scene]() { m_sceneTree->setScene(scene); });
         m_log->appendMessage(tr("场景已从 %1 载入").arg(path));
     } catch (const std::exception &e) {
         m_log->appendMessage(tr("打开场景失败: %1").arg(e.what()), Qt::red);
