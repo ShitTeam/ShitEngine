@@ -53,7 +53,9 @@ bool EnginePreview::start()
     scene->init();
 
     auto *player = scene->createGameObject("player");
-    player->addComponent<Shit::TransformComponent>();
+    auto *pt = player->addComponent<Shit::TransformComponent>();
+    pt->setScale({ 4.0f, 4.0f });            // 放大精灵，便于场景视口内点击拾取
+    pt->setPosition({ -128.0f, -128.0f });   // 居中于世界原点（2x缩放，size=128²）
     player->addComponent<Shit::SpriteRenderer>()->setTexturePath(writeTestBmp().toStdString());
     player->addComponent<PreviewMover>();
 
