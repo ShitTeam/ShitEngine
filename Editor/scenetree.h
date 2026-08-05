@@ -4,11 +4,13 @@
 #include <QWidget>
 
 class QTreeView;
+class QMenu;
 class SceneTreeModel;
 
-namespace Shit { class Scene; class GameObject; }
+namespace Shit { class Scene; class GameObject; class Component; struct TypeInfo; }
 
 /// 左侧场景树：列出当前场景的 GameObject 层级，选中联动属性检查器。
+/// 右键菜单：新建对象 / 添加组件 / 删除对象。
 class SceneTree : public QWidget
 {
     Q_OBJECT
@@ -25,9 +27,19 @@ signals:
     /// 选中某个对象（供属性检查器联动）
     void objectSelected(Shit::GameObject *object);
 
+protected:
+    void contextMenuEvent(QContextMenuEvent *event) override;
+
 private:
+    void createObject();
+    void deleteObject();
+    /// 为指定对象生成"添加组件"子菜单
+    QMenu *buildAddComponentMenu(Shit::GameObject *target);
+    void addComponent(const Shit::TypeInfo *type, Shit::GameObject *target);
+
     QTreeView *m_view;
     SceneTreeModel *m_model;
+    Shit::Scene *m_scene = nullptr;
 };
 
 #endif // SCENETREE_H
