@@ -44,8 +44,11 @@ MainWindow::MainWindow(QWidget *parent)
     m_gamePreview = new EnginePreview(ViewMode::Game, this);
     connect(m_gamePreview, &EnginePreview::frameReady, m_gameViewport, &Viewport::setFrame);
 
-    // P3：场景树选中 → 属性检查器
-    connect(m_sceneTree, &SceneTree::objectSelected, m_inspector, &Inspector::setGameObject);
+    // P3：场景树选中 → 属性检查器 + 场景视图 Gizmo
+    connect(m_sceneTree, &SceneTree::objectSelected, this, [this](Shit::GameObject *obj) {
+        m_inspector->setGameObject(obj);
+        m_sceneViewport->setSelectedObject(obj);
+    });
     connect(m_inspector, &Inspector::buildInfo, this, [this](int components, int fields) {
         m_log->appendMessage(QString("检查器: 渲染 %1 个组件 / %2 个字段").arg(components).arg(fields));
     });
@@ -53,8 +56,9 @@ MainWindow::MainWindow(QWidget *parent)
     if (m_scenePreview->start() && m_gamePreview->start()) {
         m_log->appendMessage(tr("双视口预览已启动（场景 + 运行）"));
 
-        // P3：场景树绑定场景（自动选中第一项，触发检查器）
+        // P3：场景树绑定场景（自动选中第一项，触发检查器 + Gizmo）
         m_sceneTree->setScene(m_scenePreview->getScene());
+        m_sceneViewport->setEditScene(m_scenePreview->getScene()); // 场景视图编辑器交互（平移/缩放/Gizmo）
         setPlaying(m_playAction->isChecked());   // 默认停止态：暂停预览逻辑
     } else {
         m_log->appendMessage(tr("预览启动失败"), Qt::red);
@@ -206,8 +210,9 @@ void MainWindow::pickSceneAt(float x, float y)
     if (hit) {
         m_log->appendMessage(QString("pick: 命中 %1 @logical(%2,%3)")
             .arg(QString::fromStdString(hit->getName())).arg(click.x, 0, 'f', 1).arg(click.y, 0, 'f', 1));
-        m_inspector->setGameObject(hit);   // 直接驱动检查器（不依赖树选中信号）
-        m_sceneTree->selectObject(hit);    // 同步场景树高亮
+        m_inspector->setGameObject(hit);        // 直接驱动检查器
+        m_sceneViewport->setSelectedObject(hit); // 场景视图显示 Gizmo
+        m_sceneTree->selectObject(hit);          // 同步场景树高亮
     } else {
         // 诊断：打印首个含精灵的对象其屏幕矩形，区分"点偏了" vs "映射错"
         QString rectInfo;
