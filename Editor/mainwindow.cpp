@@ -203,8 +203,22 @@ void MainWindow::pickSceneAt(float x, float y)
             .arg(QString::fromStdString(hit->getName())).arg(click.x, 0, 'f', 1).arg(click.y, 0, 'f', 1));
         m_sceneTree->selectObject(hit);   // → objectSelected → 检查器
     } else {
-        m_log->appendMessage(QString("pick: 未命中 @logical(%1,%2)")
-            .arg(click.x, 0, 'f', 1).arg(click.y, 0, 'f', 1), Qt::yellow);
+        // 诊断：打印首个含精灵的对象其屏幕矩形，区分"点偏了" vs "映射错"
+        QString rectInfo;
+        for (auto &go : scene->getGameObjects()) {
+            if (auto *sp = go->getComponent<Shit::SpriteRenderer>()) {
+                const SDL_FRect b = sp->getGlobalBounds();
+                const Shit::Vector2 tl = camera->worldToScreen({ b.x, b.y });
+                const Shit::Vector2 br = camera->worldToScreen({ b.x + b.w, b.y + b.h });
+                rectInfo = QString(" %1 screen[%2..%3]×[%4..%5]")
+                    .arg(QString::fromStdString(go->getName()))
+                    .arg(tl.x, 0, 'f', 0).arg(br.x, 0, 'f', 0)
+                    .arg(tl.y, 0, 'f', 0).arg(br.y, 0, 'f', 0);
+                break;
+            }
+        }
+        m_log->appendMessage(QString("pick: 未命中 @logical(%1,%2)%3")
+            .arg(click.x, 0, 'f', 1).arg(click.y, 0, 'f', 1).arg(rectInfo), Qt::yellow);
         m_inspector->setGameObject(nullptr); // 点空白 → 清空检查器
     }
 }
