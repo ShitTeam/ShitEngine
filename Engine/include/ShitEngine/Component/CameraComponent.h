@@ -34,6 +34,8 @@ namespace Shit {
 		void setSize(const Vector2& worldSize) { m_worldSize = worldSize; }
 		void setZoom(float zoom) { m_zoom = zoom; }
 		void setPriority(int priority) { m_priority = priority; }
+		void setEnabled(bool enabled) { m_isEnabled = enabled; }  ///< 是否参与渲染（编辑器双视图分离用）
+		bool isEnabled() const { return m_isEnabled; }
 
 		const SDL_FRect& getViewportRatio() const { return m_viewportRatio; }  ///< 视口比例 (0~1)
 		void setViewportRatio(const SDL_FRect& ratio) { m_viewportRatio = ratio; } ///< 设置视口比例
@@ -47,5 +49,6 @@ namespace Shit {
 		int m_priority = 0;
 		SHIT_META(({.displayName = "Viewport Ratio", .tooltip = "相对于逻辑分辨率的视口区域 (0~1)"}))
 		SDL_FRect m_viewportRatio{ 0.0f, 0.0f, 1.0f, 1.0f };
+		bool m_isEnabled = true;  ///< 参与渲染开关（编辑器双视图）
 	};
 }

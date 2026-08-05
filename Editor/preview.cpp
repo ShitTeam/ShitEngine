@@ -20,16 +20,15 @@ public:
         if (!transform) return;
         Shit::Vector2 pos = transform->getPosition();
         pos.x += 80.0f * Shit::Time::GetDeltaTime();
-        if (pos.x > 90.0f) pos.x = -90.0f;
+        if (pos.x > 300.0f) pos.x = -300.0f;
         transform->setPosition(pos);
     }
 };
 
 } // namespace
 
-EnginePreview::EnginePreview(ViewMode mode, QObject *parent)
+EnginePreview::EnginePreview(QObject *parent)
     : QObject(parent)
-    , m_mode(mode)
 {
 }
 
@@ -48,23 +47,29 @@ bool EnginePreview::start()
     Shit::Window::SetHidden(true); // 离屏渲染：隐藏窗口，渲染照常进行
     if (!Shit::Game::Init()) return false;
 
-    // 构建测试场景：相机 + 一个移动的棋盘格精灵
+    // 构建共享场景：玩家 + 编辑器相机（满窗）+ 游戏相机（居中）
     auto scene = std::make_unique<Shit::Scene>("preview");
     scene->init();
 
     auto *player = scene->createGameObject("player");
     auto *pt = player->addComponent<Shit::TransformComponent>();
-    pt->setScale({ 4.0f, 4.0f });            // 放大精灵，便于场景视口内点击拾取
-    pt->setPosition({ -128.0f, -128.0f });   // 居中于世界原点（2x缩放，size=128²）
+    pt->setScale({ 4.0f, 4.0f });            // 放大精灵，便于场景视口内点击/拖动
+    pt->setPosition({ -128.0f, -128.0f });
     player->addComponent<Shit::SpriteRenderer>()->setTexturePath(writeTestBmp().toStdString());
     player->addComponent<PreviewMover>();
 
-    // 按视图模式建相机：Scene=编辑器相机看全貌，Game=游戏相机看玩家
-    auto *cam = scene->createGameObject("camera");
-    cam->addComponent<Shit::TransformComponent>();
-    cam->addComponent<Shit::CameraComponent>()->setZoom(m_mode == ViewMode::Scene ? 1.0f : 5.0f);
+    auto *editorGo = scene->createGameObject("scene_camera");
+    editorGo->addComponent<Shit::TransformComponent>();
+    m_editorCam = editorGo->addComponent<Shit::CameraComponent>();
+    m_editorCam->setZoom(1.0f);
+
+    auto *gameGo = scene->createGameObject("game_camera");
+    gameGo->addComponent<Shit::TransformComponent>();
+    m_gameCam = gameGo->addComponent<Shit::CameraComponent>();
+    m_gameCam->setZoom(5.0f);
 
     Shit::SceneManager::LoadScene(std::move(scene));
+    m_scene = Shit::SceneManager::GetCurrentScene();
 
     m_logicalWidth = Shit::Renderer::GetLogicalWidth();
     m_logicalHeight = Shit::Renderer::GetLogicalHeight();
@@ -86,6 +91,9 @@ void EnginePreview::stop()
         Shit::EngineContext::resetCurrent();
         m_context.reset();
     }
+    m_scene = nullptr;
+    m_editorCam = nullptr;
+    m_gameCam = nullptr;
     m_running = false;
 }
 
@@ -108,21 +116,33 @@ void EnginePreview::tick()
     if (!m_context) return;
     Shit::EngineContext::setCurrent(m_context.get());
 
-    // 复刻 Game::run() 的单帧逻辑（不阻塞 Qt 事件循环）
     Shit::Time::Update();
     Shit::EventBus::ProcessEvents();
-
-    // 离屏渲染到逻辑尺寸目标纹理：读出帧恒为 1280×720，与相机坐标空间一致
-    //（不受窗口物理尺寸 / settings.json 影响，拾取坐标才精确）
-    Shit::Renderer::BeginOffscreen();
-    Shit::SceneManager::Update();
     Shit::Input::Update();
     Shit::AudioPlayer::Update();
 
+    // 游戏视图 pass：驱动逻辑一次（Behavior 等），渲染游戏相机 → target → 读图
+    m_gameCam->setEnabled(true);
+    m_editorCam->setEnabled(false);
+    Shit::Renderer::BeginOffscreen();
+    Shit::SceneManager::Update();
     if (Shit::Renderer::ReadPixels(m_pixels.data(), m_logicalWidth * 4)) {
         QImage image(m_pixels.data(), m_logicalWidth, m_logicalHeight,
                      m_logicalWidth * 4, QImage::Format_ARGB32);
-        emit frameReady(image.copy()); // 深拷贝：m_pixels 下一帧会被覆盖
+        emit gameFrameReady(image.copy());
+    }
+
+    // 场景视图 pass：仅重渲染编辑器相机（不重跑逻辑），复用同一目标纹理
+    m_editorCam->setEnabled(true);
+    m_gameCam->setEnabled(false);
+    if (m_scene) {
+        if (auto *renderSystem = m_scene->getSystem<Shit::RenderSystem>())
+            renderSystem->update();
+    }
+    if (Shit::Renderer::ReadPixels(m_pixels.data(), m_logicalWidth * 4)) {
+        QImage image(m_pixels.data(), m_logicalWidth, m_logicalHeight,
+                     m_logicalWidth * 4, QImage::Format_ARGB32);
+        emit sceneFrameReady(image.copy());
     }
     Shit::Renderer::EndOffscreen();
 }

@@ -36,13 +36,11 @@ MainWindow::MainWindow(QWidget *parent)
     // 场景视图点击 → 拾取（须在双视口创建后连接）
     connect(m_sceneViewport, &Viewport::logicalClicked, this, &MainWindow::pickSceneAt);
 
-    // 双视口预览：Scene=编辑器相机全貌，Game=游戏相机居中（对齐 Unity/Godot）
-    m_scenePreview = new EnginePreview(ViewMode::Scene, this);
-    connect(m_scenePreview, &EnginePreview::frameReady, m_sceneViewport, &Viewport::setFrame);
-    connect(m_scenePreview, &EnginePreview::frameReady, m_inspector, &Inspector::refresh); // 每帧回读引擎值
-
-    m_gamePreview = new EnginePreview(ViewMode::Game, this);
-    connect(m_gamePreview, &EnginePreview::frameReady, m_gameViewport, &Viewport::setFrame);
+    // 单一引擎预览：共享场景，双视口同源（编辑一处，双视图同步）
+    m_preview = new EnginePreview(this);
+    connect(m_preview, &EnginePreview::sceneFrameReady, m_sceneViewport, &Viewport::setFrame);
+    connect(m_preview, &EnginePreview::gameFrameReady, m_gameViewport, &Viewport::setFrame);
+    connect(m_preview, &EnginePreview::sceneFrameReady, m_inspector, &Inspector::refresh); // 每帧回读引擎值
 
     // P3：场景树选中 → 属性检查器 + 场景视图 Gizmo
     connect(m_sceneTree, &SceneTree::objectSelected, this, [this](Shit::GameObject *obj) {
@@ -53,12 +51,12 @@ MainWindow::MainWindow(QWidget *parent)
         m_log->appendMessage(QString("检查器: 渲染 %1 个组件 / %2 个字段").arg(components).arg(fields));
     });
 
-    if (m_scenePreview->start() && m_gamePreview->start()) {
-        m_log->appendMessage(tr("双视口预览已启动（场景 + 运行）"));
+    if (m_preview->start()) {
+        m_log->appendMessage(tr("预览已启动（场景 + 运行，共享场景）"));
 
-        // P3：场景树绑定场景（自动选中第一项，触发检查器 + Gizmo）
-        m_sceneTree->setScene(m_scenePreview->getScene());
-        m_sceneViewport->setEditScene(m_scenePreview->getScene()); // 场景视图编辑器交互（平移/缩放/Gizmo）
+        // 场景树绑定共享场景（自动选中第一项 → 检查器 + Gizmo）
+        m_sceneTree->setScene(m_preview->getScene());
+        m_sceneViewport->setEditScene(m_preview->getScene()); // 编辑器交互（平移/缩放/Gizmo）
         setPlaying(m_playAction->isChecked());   // 默认停止态：暂停预览逻辑
     } else {
         m_log->appendMessage(tr("预览启动失败"), Qt::red);
@@ -166,14 +164,13 @@ void MainWindow::setPlaying(bool playing)
 {
     if (m_playAction)
         m_playAction->setText(playing ? tr("⏹ 停止") : tr("▶ 播放"));
-    if (m_scenePreview) m_scenePreview->setPlaying(playing);
-    if (m_gamePreview)  m_gamePreview->setPlaying(playing);
+    if (m_preview) m_preview->setPlaying(playing);
     statusBar()->showMessage(playing ? tr("运行中") : tr("已暂停"));
 }
 
 void MainWindow::pickSceneAt(float x, float y)
 {
-    Shit::Scene *scene = m_scenePreview ? m_scenePreview->getScene() : nullptr;
+    Shit::Scene *scene = m_preview ? m_preview->getScene() : nullptr;
     if (!scene) { m_log->appendMessage(tr("pick: 无场景"), Qt::red); return; }
 
     // 找到场景视图用的相机（编辑器相机）

@@ -41,8 +41,7 @@ private:
     SceneTree *m_sceneTree;
     Inspector *m_inspector;
     LogWidget *m_log;
-    EnginePreview *m_scenePreview;
-    EnginePreview *m_gamePreview;
+    EnginePreview *m_preview;   ///< 单一引擎预览（共享场景，双视图同源）
     QAction *m_playAction;
 };
 #endif // MAINWINDOW_H

@@ -68,6 +68,7 @@ namespace Shit {
 		for (size_t i = 0; i < m_cameras.size(); ++i) {
 			CameraComponent* camera = m_cameras[i];
 			if (!camera) continue;
+			if (!camera->isEnabled()) continue;   // 禁用的相机不参与本次渲染（编辑器双视图分离用）
 
 			SDL_FRect vpRatio = camera->getViewportRatio();
 			SDL_Rect viewport;
