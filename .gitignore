@@ -6,6 +6,7 @@ out/
 
 # IDE
 .codebuddy/
+.zcode/
 .vs/
 .vscode/
 .idea/
@@ -38,6 +39,13 @@ build_prefab/
 .claude/
 .codebuild/
 CLAUDE.md
+AGENTS.md
+
+# 调试残留（ReflectionScanner 开发期临时文件）
+test_marker.h
+test_regex.cpp
+test_regex.exe
+test_scan/
 
 # fuck-u-code
 fuck-u-code.bat
