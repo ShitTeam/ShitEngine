@@ -25,6 +25,7 @@
 // Scene
 #include "ShitEngine/Scene/Scene.h"
 #include "ShitEngine/Scene/SceneManager.h"
+#include "ShitEngine/Scene/SceneSerializer.h"
 
 // GameObject
 #include "ShitEngine/GameObject/GameObject.h"

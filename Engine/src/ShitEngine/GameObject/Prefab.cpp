@@ -171,8 +171,12 @@ void Prefab::apply(GameObject* go) const {
                 }
             }
         }
-        go->addComponentInstance(comp);
-    }
+// 反序列化钩子：字段已直写，通知组件重建依赖引擎状态的内部数据（如纹理加载）。
+		// addComponentInstance 遇同类型已存在时会丢弃新实例并返回已有组件，
+		// 故钩子须对"实际生效的那个实例"调用。
+		if (Component* attached = go->addComponentInstance(comp))
+			attached->onAfterDeserialize();
+	}
 }
 
 GameObject* Prefab::instantiate(Scene* scene, const std::string& name) const {

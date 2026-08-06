@@ -19,6 +19,8 @@ inline bool Register_CameraComponent() {
         .Field("m_viewportRatio",
             &Shit::CameraComponent::m_viewportRatio, "SDL_FRect")
         .Meta(Shit::FieldMeta{.displayName = "Viewport Ratio", .tooltip = "相对于逻辑分辨率的视口区域 (0~1)"})
+        .Field("m_isEnabled",
+            &Shit::CameraComponent::m_isEnabled, "bool")
         .Factory<CameraComponent>()
         .Register<CameraComponent>();
     return true;

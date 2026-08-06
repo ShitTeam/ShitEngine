@@ -38,8 +38,12 @@ namespace Shit {
 		void setFlipped(bool flipped) { m_sprite.setFlipped(flipped); }
 		bool isFlipped() const { return m_sprite.isFlipped(); }
 
+		void onAfterDeserialize() override;  // 反序列化后按 m_texturePath 重载纹理
+
 		SDL_FRect getGlobalBounds() override;
 	private:
+		SHIT_META(({.displayName = "Texture Path", .tooltip = "纹理文件路径（持久化；反序列化后自动重载）"}))
+		std::string m_texturePath; ///< 纹理路径（序列化用；m_sprite 因 readOnly 不入档）
 		SHIT_META(({.displayName = "Sprite Data", .readOnly = true}))
 		Sprite m_sprite; ///< 描述"画什么"的数据
 	};

@@ -16,7 +16,7 @@ set_target_properties(ShitRuntime PROPERTIES CXX_STANDARD 20)
 set_target_properties(ShitRuntime PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
-# 拷贝 config.json / settings.json / resource/ 到 exe 所在目录
+# 拷贝 config.json / settings.json / resource/ / Scenes/*.scene 到 exe 所在目录
 add_custom_command(TARGET ShitRuntime POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_CURRENT_SOURCE_DIR}/config.json"
@@ -24,6 +24,9 @@ add_custom_command(TARGET ShitRuntime POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_SOURCE_DIR}/Examples/settings.json"
         "$<TARGET_FILE_DIR:ShitRuntime>/settings.json"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/Scenes"
+        "$<TARGET_FILE_DIR:ShitRuntime>/Scenes"
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_SOURCE_DIR}/Examples/resource"
         "$<TARGET_FILE_DIR:ShitRuntime>/resource"

@@ -7,7 +7,8 @@
 
 /// @brief 动态插件管理器
 /// @details 负责加载/卸载插件 DLL，调用插件的 C ABI 函数
-///          支持从 JSON 配置文件批量加载插件
+///          支持从 JSON 配置文件批量加载插件。
+///          插件 = 脚本库：只负责注册反射类型，不搭建场景（场景来自 .scene 文件）。
 class PluginManager {
 public:
     /// 插件 ABI 函数指针类型
@@ -15,7 +16,6 @@ public:
     using GetNameFn        = const char* (*)();
     using GetVersionFn     = const char* (*)();
     using RegisterTypesFn  = void (*)();
-    using CreateSceneFn    = Shit::Scene* (*)();
 
     ~PluginManager() { UnloadAll(); }
 
@@ -26,7 +26,6 @@ public:
         std::string     path;                    ///< DLL 路径
         int             abiVersion   = 0;        ///< ABI 版本
         std::string     version;                 ///< 插件版本
-        CreateSceneFn   createScene  = nullptr;  ///< 创建主场景函数
         RegisterTypesFn registerTypes = nullptr; ///< 注册类型函数
     };
 
@@ -37,10 +36,6 @@ public:
     /// 调用所有已加载插件的 RegisterPluginTypes()
     /// 必须在 Game::Init() 之后调用
     void RegisterAllTypes();
-
-    /// 创建所有已加载插件的主场景
-    /// @return 场景指针列表（调用方获取所有权）
-    std::vector<Shit::Scene*> CreateAllScenes();
 
     /// 卸载所有插件（FreeLibrary / dlclose）
     void UnloadAll();

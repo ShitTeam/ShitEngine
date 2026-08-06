@@ -26,10 +26,14 @@ namespace Shit {
 		Component();
 		virtual ~Component() = default;
 
-		virtual void onCreate() {}   // 组件创建时（有 owner，但可能尚未挂到场景）
+virtual void onCreate() {}   // 组件创建时（有 owner，但可能尚未挂到场景）
 		virtual void onAttach() { m_isRegistered = true; }   // 组件挂载到活动场景时（基类默认标记已注册；依赖系统的组件在找不到系统时自行置回 false 以便补挂）
 		virtual void onDetach() {}   // 组件从场景卸下时
 		virtual void onDestroy() {}  // 组件销毁时
+
+		/// 反序列化完成后回调（Prefab::apply 逐组件调用一次，字段已写入）。
+		/// 用于重建"直写字段绕过了 setter、无法自动触发的引擎状态"（如精灵纹理加载）。
+		virtual void onAfterDeserialize() {}
 
 		// 禁止拷贝和移动
 		Component(const Component&) = delete;

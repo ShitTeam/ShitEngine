@@ -1,8 +1,11 @@
 #include "ShitEngine/Core/pch.h"
 #include "ShitEngine/Core/EngineContext.h"
 #include "ShitEngine/Scene/SceneManager.h"
+#include "ShitEngine/Scene/SceneSerializer.h"
 #include "ShitEngine/Core/Log.h"
 #include "ShitEngine/Scene/Scene.h"
+
+#include <fstream>
 
 namespace Shit {
 	SceneManager::SceneManager() {
@@ -16,6 +19,42 @@ namespace Shit {
 
 	SceneManager& SceneManager::GetInstance() {
 		return EngineContext::current().sceneManager;
+	}
+
+	bool SceneManager::loadSceneFromFile(const std::string& path) {
+		ST_CORE_INFO("正在从文件加载场景: {}", path);
+		std::ifstream file(path);
+		if (!file.is_open()) {
+			ST_CORE_ERROR("[SceneManager] 无法打开场景文件: {}", path);
+			return false;
+		}
+
+		nlohmann::json doc;
+		try {
+			file >> doc;
+		} catch (const std::exception& e) {
+			ST_CORE_ERROR("[SceneManager] 解析场景文件失败 ({}): {}", path, e.what());
+			return false;
+		}
+
+		// 场景名取文件名（去扩展名）
+		std::string name = path;
+		if (auto slash = name.find_last_of("/\\"); slash != std::string::npos)
+			name = name.substr(slash + 1);
+		if (auto dot = name.find_last_of('.'); dot != std::string::npos)
+			name = name.substr(0, dot);
+
+		auto scene = std::make_unique<Scene>(name);
+		scene->init();
+		try {
+			SceneSerializer::fromJson(doc, scene.get());
+		} catch (const std::exception& e) {
+			ST_CORE_ERROR("[SceneManager] 实例化场景失败 ({}): {}", path, e.what());
+			return false;
+		}
+
+		loadScene(std::move(scene));
+		return true;
 	}
 
 	void SceneManager::update() {

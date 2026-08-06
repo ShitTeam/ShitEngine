@@ -54,12 +54,20 @@ namespace Shit {
 	}
 
 	void SpriteRenderer::setTexturePath(const std::string& texturePath) {
+		// 保留路径本身（即使纹理暂时加载失败也保留，便于序列化往返不丢数据）
+		m_texturePath = texturePath;
 		SDL_Texture* texture = ResourceManager::GetTexture(texturePath);
 		if (!texture) {
 			ST_CORE_ERROR("无法获取路径为 {} 的纹理！", texturePath);
 			return;
 		}
 		m_sprite.setTexturePath(texturePath);
+	}
+
+	void SpriteRenderer::onAfterDeserialize() {
+		if (m_texturePath.empty()) return;
+		// 反射直写字段后 m_sprite 仍为空，这里按路径重载（GetTexture 懒加载）
+		setTexturePath(m_texturePath);
 	}
 
 	SDL_FRect SpriteRenderer::getGlobalBounds() {

@@ -67,14 +67,13 @@ bool PluginManager::loadPlugin(const std::string& path) {
     plugin.handle = handle;
     plugin.path   = path;
 
-    // 解析导出函数
+    // 解析导出函数（ABI v2：插件只负责注册反射类型，不搭建场景）
     auto* getABI  = reinterpret_cast<GetABIVersionFn>(getSymbol(handle, "GetPluginABIVersion"));
     auto* getName = reinterpret_cast<GetNameFn>(getSymbol(handle, "GetPluginName"));
     auto* getVer  = reinterpret_cast<GetVersionFn>(getSymbol(handle, "GetPluginVersion"));
     auto* regTypes = reinterpret_cast<RegisterTypesFn>(getSymbol(handle, "RegisterPluginTypes"));
-    auto* createSc = reinterpret_cast<CreateSceneFn>(getSymbol(handle, "CreateMainScene"));
 
-    if (!getABI || !getName || !getVer || !regTypes || !createSc) {
+    if (!getABI || !getName || !getVer || !regTypes) {
         ST_CORE_ERROR("[PluginManager] Plugin '{}' missing required exports", path);
         freeLibrary(handle);
         return false;
@@ -82,8 +81,8 @@ bool PluginManager::loadPlugin(const std::string& path) {
 
     // ABI 版本检查
     plugin.abiVersion = getABI();
-    if (plugin.abiVersion != 1) {
-        ST_CORE_ERROR("[PluginManager] Plugin '{}' has unsupported ABI version: {} (expected 1)",
+    if (plugin.abiVersion != 2) {
+        ST_CORE_ERROR("[PluginManager] Plugin '{}' has unsupported ABI version: {} (expected 2)",
             path, plugin.abiVersion);
         freeLibrary(handle);
         return false;
@@ -92,7 +91,6 @@ bool PluginManager::loadPlugin(const std::string& path) {
     plugin.name          = getName();
     plugin.version       = getVer();
     plugin.registerTypes = regTypes;
-    plugin.createScene   = createSc;
 
     ST_CORE_INFO("[PluginManager] Loaded plugin '{}' v{} (ABI {}) from {}",
         plugin.name, plugin.version, plugin.abiVersion, path);
@@ -149,33 +147,6 @@ void PluginManager::RegisterAllTypes() {
         }
     }
     Shit::TypeRegistry::SetRegistrationSource("");  // 恢复默认（引擎来源）
-}
-
-// ── 创建所有场景 ────────────────────────────────────────
-
-std::vector<Shit::Scene*> PluginManager::CreateAllScenes() {
-    std::vector<Shit::Scene*> scenes;
-    for (auto& plugin : m_plugins) {
-        if (plugin.createScene) {
-            Shit::Scene* scene = nullptr;
-            try {
-                scene = plugin.createScene();
-            } catch (const std::exception& e) {
-                ST_CORE_ERROR("[PluginManager] Plugin '{}' threw during CreateMainScene: {}",
-                    plugin.name, e.what());
-            } catch (...) {
-                ST_CORE_ERROR("[PluginManager] Plugin '{}' threw unknown exception during CreateMainScene",
-                    plugin.name);
-            }
-            if (scene) {
-                ST_CORE_INFO("[PluginManager] Created scene from plugin '{}'", plugin.name);
-                scenes.push_back(scene);
-            } else {
-                ST_CORE_WARN("[PluginManager] Plugin '{}' returned null scene", plugin.name);
-            }
-        }
-    }
-    return scenes;
 }
 
 // ── 卸载所有插件 ────────────────────────────────────────

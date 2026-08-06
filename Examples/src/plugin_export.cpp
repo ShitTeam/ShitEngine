@@ -17,9 +17,11 @@
 #endif
 
 // ── 插件 ABI 版本（用于兼容性检查）──────────────────────
+// ABI v2：插件不再导出场景工厂（无 CreateMainScene），只注册反射类型。
+// CreateMainScene 以下保留仅为兼容过渡期，Runtime 不再调用。
 extern "C" SHIT_PLUGIN_EXPORT
 int GetPluginABIVersion() {
-    return 1;
+    return 2;
 }
 
 // ── 插件元信息 ──────────────────────────────────────────

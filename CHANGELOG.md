@@ -5,6 +5,22 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### 新增
+
+- **场景数据驱动（P6）** — `.scene` 文件成为场景唯一来源（编辑 / 运行 / 切关共用）：
+  - `SceneSerializer`（`Scene/SceneSerializer.h`）全场景序列化：对象 + 层级（v2 格式，`parent` 下标引用，兼容 v1 平铺）+ 组件（复用 Prefab）；加载后无相机自动补 `game_camera`
+  - `SceneManager::LoadSceneFromFile(path)` — 从 .scene 文件加载 / 切换场景（启动、关卡切换统一入口）
+  - `Component::onAfterDeserialize()` 反序列化钩子 — `Prefab::apply` 逐组件调用，用于重建「反射直写字段绕过的 setter 状态」
+  - `SpriteRenderer` 新增反射字段 `texturePath` — 精灵纹理路径随 .scene 持久化，反序列化后自动重载（此前 `m_sprite` 只读、贴图丢失）
+  - 编辑器存储/打开改用共享 `SceneSerializer`（替换手写 JSON），新增演示 `Runtime/Scenes/Preview.scene`
+
+### 变更
+
+- **插件 ABI v2** — 移除 `CreateMainScene` 场景工厂导出，插件 = 脚本库（只导出身份 + `RegisterPluginTypes`），插件不再写场景搭建代码
+- **Runtime 启动流程** — 读 `config.json` 顶层 `"scene"` 字段 → `SceneManager::LoadSceneFromFile`；缺省启动空场景、由序列化器兜底默认相机
+
 ## [1.3.0] - 2026-08-02
 
 > 🎉 **首个正式 Release**。v1.1 / v1.2 为开发阶段里程碑，本次随 v1.3.0 一起发布。

@@ -22,7 +22,7 @@
 
 #include <ShitEngine.h>
 #include <ShitEngine/Core/EngineContext.h>
-#include <ShitEngine/GameObject/Prefab.h>
+#include <ShitEngine/Scene/SceneSerializer.h>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -157,7 +157,7 @@ void MainWindow::openScene()
     try {
         std::ifstream file(path.toStdString());
         nlohmann::json doc;
-        file >> doc;
+        file >> doc;  // 解析失败在触碰场景前抛出（scene 保持原样）
 
         // 先收集再删（编辑器下 removeGameObject 当场 erase，不能在遍历中删）
         std::vector<Shit::GameObject *> toRemove;
@@ -167,23 +167,9 @@ void MainWindow::openScene()
         for (auto *go : toRemove)
             scene->removeGameObject(go);
 
-        // 从存档重建对象
-        if (doc.contains("objects")) {
-            for (auto &obj : doc["objects"]) {
-                const std::string name = obj.value("name", "Object");
-                Shit::Prefab::FromJson(obj.value("data", nlohmann::json::array()))
-                    .instantiate(scene, name);
-            }
-        }
-        // 兜底：存档没有游戏相机则补一个（否则运行视图无法渲染）
-        bool hasGameCam = false;
-        for (auto &go : scene->getGameObjects())
-            if (go->getName() == "game_camera") { hasGameCam = true; break; }
-        if (!hasGameCam) {
-            auto *gc = scene->createGameObject("game_camera");
-            gc->addComponent<Shit::TransformComponent>();
-            gc->addComponent<Shit::CameraComponent>()->setZoom(5.0f);
-        }
+        // 共享加载器：对象 + 组件 + 层级 + 相机兜底（唯一 .scene 事实标准）
+        Shit::SceneSerializer::fromJson(doc, scene);
+
         // 诊断：载入后的对象清单
         QString names;
         for (auto &go : scene->getGameObjects()) {
@@ -207,20 +193,14 @@ void MainWindow::saveScene()
     const QString path = QFileDialog::getSaveFileName(this, tr("保存场景"), QString(), tr("ShitEngine 场景 (*.scene)"));
     if (path.isEmpty()) return;
 
-    // 收集除编辑器相机外的对象（编辑器相机是编辑基础设施，不入库）
-    nlohmann::json objects = nlohmann::json::array();
-    for (auto &go : scene->getGameObjects()) {
-        if (go->getName() == "scene_camera") continue;
-        nlohmann::json entry;
-        entry["name"] = go->getName();
-        entry["data"] = Shit::Prefab::Capture(go.get()).toJson();
-        objects.push_back(entry);
-    }
-    const nlohmann::json doc = { { "objects", objects } };
+    // 编辑器相机（scene_camera）是编辑基础设施，不入库；其余对象含层级整体序列化（v2）
+    const nlohmann::json doc = Shit::SceneSerializer::toJson(scene, { "scene_camera" });
 
     std::ofstream file(path.toStdString(), std::ios::trunc);
     file << doc.dump(2);
-    m_log->appendMessage(tr("场景已保存到 %1（%2 个对象）").arg(path).arg(objects.size()));
+    const size_t objectCount = doc.contains("objects") && doc["objects"].is_array()
+        ? doc["objects"].size() : 0;
+    m_log->appendMessage(tr("场景已保存到 %1（%2 个对象）").arg(path).arg(objectCount));
     statusBar()->showMessage(tr("场景已保存"));
 }
 

@@ -1,4 +1,5 @@
 {
+    "scene": "Scenes/Preview.scene",
     "plugins": [
         {
             "name": "ExamplePlugin",

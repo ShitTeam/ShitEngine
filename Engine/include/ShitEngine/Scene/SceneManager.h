@@ -27,6 +27,7 @@ namespace Shit {
 		// --- 静态API ---
 		static SceneManager& GetInstance();
 		inline static void LoadScene(std::unique_ptr<Scene>&& scene) { GetInstance().loadScene(std::move(scene)); }  ///< 切换场景（销毁当前，加载新场景；update 期间调用时延迟到 update 结束后生效）
+		inline static bool LoadSceneFromFile(const std::string& path) { return GetInstance().loadSceneFromFile(path); }  ///< 从 .scene 文件加载并替换当前场景（启动 / 关卡切换共用）
 		inline static void Update() { GetInstance().update(); }
 		inline static void Destroy() { GetInstance().destroy(); }
 		inline static Scene* GetCurrentScene() { return GetInstance().getCurrentScene(); }
@@ -37,6 +38,7 @@ namespace Shit {
 		~SceneManager();
 
 		void loadScene(std::unique_ptr<Scene>&& scene);
+		bool loadSceneFromFile(const std::string& path);  ///< 读 .scene → 构建 → LoadScene（解析/实例化失败返回 false 且不触碰当前场景）
 		void applyLoadScene(std::unique_ptr<Scene>&& scene);  ///< 实际执行切换（销毁旧场景 + 自动 init + 装载）
 		void update();
 		void destroy();
