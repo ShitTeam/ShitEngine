@@ -21,6 +21,15 @@
 - **插件 ABI v2** — 移除 `CreateMainScene` 场景工厂导出，插件 = 脚本库（只导出身份 + `RegisterPluginTypes`），插件不再写场景搭建代码
 - **Runtime 启动流程** — 读 `config.json` 顶层 `"scene"` 字段 → `SceneManager::LoadSceneFromFile`；缺省启动空场景、由序列化器兜底默认相机
 
+### 新增
+
+- **PluginManager 移入引擎共享（P7）** — `Engine/Plugin/PluginManager.h`，Runtime 与编辑器共用；编辑器启动时从 exe 同目录 `config.json` 加载插件，自定义行为类型可实例化 / 编辑 / 序列化
+- **示例迁移为数据驱动（P7）** — PhysicsTest / UITest / InputMapping / ReflectionTest 由 C++ 搭建改为 `Examples/scenes/*.scene`：
+  - 行为重构为 `SHIT_REFLECT` 脚本库（`Behaviors.h` / `ReflectionBehavior.h`）：指针引用改「对象名」字段在 onStart 解析；UIButton onClick 改 `ButtonClickDemo` 行为；物理重力改 `GravityConfig` 行为
+  - 删除搭建代码与 `CreateMainScene`，Runtime 默认场景 `PhysicsTest.scene`
+- **反射类型名归一化** — 插件全局类字段（`Shit::Vector2` 等）在 Prefab 序列化 / 检查器中按裸类型名分派（此前带命名空间前缀导致字段被跳过）
+- **AudioTrack 补 SHIT_API** — 引擎外按值持有 EngineContext 时析构符号跨 DLL 可链接
+
 ## [1.3.0] - 2026-08-02
 
 > 🎉 **首个正式 Release**。v1.1 / v1.2 为开发阶段里程碑，本次随 v1.3.0 一起发布。

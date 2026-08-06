@@ -3,17 +3,11 @@
 
 add_library(ExamplePlugin SHARED
     "src/plugin_export.cpp"
+    "src/Behaviors.h"
+    "src/ReflectionBehavior.h"
     "src/Player.cpp"
     "src/Player.h"
-    "src/UITestScene.cpp"
-    "src/UITestScene.h"
-    "src/InputMappingTestScene.cpp"
-    "src/InputMappingTestScene.h"
-    "src/ReflectionTestScene.cpp"
-    "src/ReflectionTestScene.h"
     "src/ReflectionTestTypes.h"
-    "src/PhysicsTestScene.cpp"
-    "src/PhysicsTestScene.h"
 )
 
 target_link_libraries(ExamplePlugin PRIVATE ShitEngine)

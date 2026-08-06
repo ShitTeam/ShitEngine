@@ -1,5 +1,6 @@
 #include "preview.h"
 
+#include <QCoreApplication>
 #include <QDataStream>
 #include <QDir>
 #include <QFile>
@@ -7,6 +8,7 @@
 
 #include <ShitEngine.h>
 #include <ShitEngine/Core/EngineContext.h>
+#include <ShitEngine/Plugin/PluginManager.h>
 
 namespace {
 
@@ -46,6 +48,15 @@ bool EnginePreview::start()
 
     Shit::Window::SetHidden(true); // 离屏渲染：隐藏窗口，渲染照常进行
     if (!Shit::Game::Init()) return false;
+
+    // 加载插件（脚本库：注册自定义行为/组件类型 → 编辑器可实例化/序列化）。
+    // 配置文件与 exe 同目录（与 Runtime 一致），缺失时忽略，不阻塞编辑器启动。
+    m_plugins = std::make_unique<Shit::PluginManager>();
+    const QString configPath = QCoreApplication::applicationDirPath() + "/config.json";
+    if (QFile::exists(configPath)) {
+        m_plugins->LoadFromConfig(configPath.toStdString());
+        m_plugins->RegisterAllTypes();
+    }
 
     // 构建共享场景：玩家 + 编辑器相机（满窗）+ 游戏相机（居中）
     auto scene = std::make_unique<Shit::Scene>("preview");
@@ -88,6 +99,8 @@ void EnginePreview::stop()
     m_timer.stop();
     if (m_context) {
         Shit::EngineContext::setCurrent(m_context.get());
+        // 先卸载插件（其反射类型 factory 在 DLL 内），再销毁引擎
+        if (m_plugins) m_plugins->UnloadAll();
         Shit::Game::Destroy();
         Shit::EngineContext::resetCurrent();
         m_context.reset();

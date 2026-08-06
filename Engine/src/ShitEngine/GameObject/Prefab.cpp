@@ -23,10 +23,19 @@ bool isReadOnly(const FieldInfo& field) {
     return false;
 }
 
+/// @brief 去掉类型名的命名空间前缀
+/// 引擎头文件在 namespace Shit 内声明（如 "Vector2"）；插件全局类引用时写成
+/// "Shit::Vector2"。序列化按裸类型名分派，故先归一化。
+std::string_view normalizedTypeName(std::string_view type) {
+    constexpr std::string_view prefix = "Shit::";
+    if (type.substr(0, prefix.size()) == prefix) return type.substr(prefix.size());
+    return type;
+}
+
 /// @brief 把字段值转换为 JSON（支持常见数值/字符串/Vector2/Color/枚举）
 json fieldToJson(const FieldInfo& field, const void* obj) {
     const void* p = field.GetFieldPtr(obj);
-    const std::string& t = field.typeName;
+    const std::string_view t = normalizedTypeName(field.typeName);
 
     if (t == "float")            return json(*static_cast<const float*>(p));
     if (t == "int")              return json(*static_cast<const int*>(p));
@@ -59,7 +68,7 @@ json fieldToJson(const FieldInfo& field, const void* obj) {
 /// @brief 从 JSON 写回字段值
 bool fieldFromJson(const FieldInfo& field, void* obj, const json& j) {
     void* p = field.GetFieldPtr(obj);
-    const std::string& t = field.typeName;
+    const std::string_view t = normalizedTypeName(field.typeName);
 
     if (t == "float")            { *static_cast<float*>(p) = j.get<float>(); return true; }
     if (t == "int")              { *static_cast<int*>(p) = j.get<int>(); return true; }

@@ -1,0 +1,640 @@
+{
+  "objects": [
+    {
+      "data": [
+        {
+          "fields": {
+            "m_sortOrder": 0
+          },
+          "type": "UICanvas"
+        },
+        {
+          "fields": {
+            "m_anchorMax": [
+              0.5,
+              0.5
+            ],
+            "m_anchorMin": [
+              0.5,
+              0.5
+            ],
+            "m_anchoredPosition": [
+              0.0,
+              0.0
+            ],
+            "m_height": 720.0,
+            "m_pivot": [
+              0.5,
+              0.5
+            ],
+            "m_width": 1280.0,
+            "m_zIndex": 0
+          },
+          "type": "UITransform"
+        }
+      ],
+      "name": "Canvas",
+      "parent": -1
+    },
+    {
+      "data": [
+        {
+          "fields": {
+            "m_anchor": 1,
+            "m_color": [
+              240,
+              240,
+              240,
+              255
+            ],
+            "m_fontPath": "resource/Roboto-Regular.ttf",
+            "m_fontSize": 28.0,
+            "m_text": "Reflection System Test"
+          },
+          "type": "UIText"
+        },
+        {
+          "fields": {
+            "m_anchorMax": [
+              0.5,
+              0.8999999761581421
+            ],
+            "m_anchorMin": [
+              0.5,
+              0.8999999761581421
+            ],
+            "m_anchoredPosition": [
+              0.0,
+              0.0
+            ],
+            "m_height": 42.0,
+            "m_pivot": [
+              0.5,
+              0.5
+            ],
+            "m_width": 640.0,
+            "m_zIndex": 0
+          },
+          "type": "UITransform"
+        }
+      ],
+      "name": "Title",
+      "parent": 0
+    },
+    {
+      "data": [
+        {
+          "fields": {
+            "m_anchor": 0,
+            "m_color": [
+              200,
+              220,
+              240,
+              255
+            ],
+            "m_fontPath": "resource/Roboto-Regular.ttf",
+            "m_fontSize": 18.0,
+            "m_text": ""
+          },
+          "type": "UIText"
+        },
+        {
+          "fields": {
+            "m_anchorMax": [
+              0.5,
+              0.5
+            ],
+            "m_anchorMin": [
+              0.5,
+              0.5
+            ],
+            "m_anchoredPosition": [
+              0.0,
+              -60.0
+            ],
+            "m_height": 24.0,
+            "m_pivot": [
+              0.5,
+              0.5
+            ],
+            "m_width": 780.0,
+            "m_zIndex": 0
+          },
+          "type": "UITransform"
+        }
+      ],
+      "name": "R0",
+      "parent": 0
+    },
+    {
+      "data": [
+        {
+          "fields": {
+            "m_anchor": 0,
+            "m_color": [
+              200,
+              220,
+              240,
+              255
+            ],
+            "m_fontPath": "resource/Roboto-Regular.ttf",
+            "m_fontSize": 18.0,
+            "m_text": ""
+          },
+          "type": "UIText"
+        },
+        {
+          "fields": {
+            "m_anchorMax": [
+              0.5,
+              0.5
+            ],
+            "m_anchorMin": [
+              0.5,
+              0.5
+            ],
+            "m_anchoredPosition": [
+              0.0,
+              -30.0
+            ],
+            "m_height": 24.0,
+            "m_pivot": [
+              0.5,
+              0.5
+            ],
+            "m_width": 780.0,
+            "m_zIndex": 0
+          },
+          "type": "UITransform"
+        }
+      ],
+      "name": "R1",
+      "parent": 0
+    },
+    {
+      "data": [
+        {
+          "fields": {
+            "m_anchor": 0,
+            "m_color": [
+              200,
+              220,
+              240,
+              255
+            ],
+            "m_fontPath": "resource/Roboto-Regular.ttf",
+            "m_fontSize": 18.0,
+            "m_text": ""
+          },
+          "type": "UIText"
+        },
+        {
+          "fields": {
+            "m_anchorMax": [
+              0.5,
+              0.5
+            ],
+            "m_anchorMin": [
+              0.5,
+              0.5
+            ],
+            "m_anchoredPosition": [
+              0.0,
+              0.0
+            ],
+            "m_height": 24.0,
+            "m_pivot": [
+              0.5,
+              0.5
+            ],
+            "m_width": 780.0,
+            "m_zIndex": 0
+          },
+          "type": "UITransform"
+        }
+      ],
+      "name": "R2",
+      "parent": 0
+    },
+    {
+      "data": [
+        {
+          "fields": {
+            "m_anchor": 0,
+            "m_color": [
+              200,
+              220,
+              240,
+              255
+            ],
+            "m_fontPath": "resource/Roboto-Regular.ttf",
+            "m_fontSize": 17.0,
+            "m_text": ""
+          },
+          "type": "UIText"
+        },
+        {
+          "fields": {
+            "m_anchorMax": [
+              0.5,
+              0.5
+            ],
+            "m_anchorMin": [
+              0.5,
+              0.5
+            ],
+            "m_anchoredPosition": [
+              0.0,
+              30.0
+            ],
+            "m_height": 24.0,
+            "m_pivot": [
+              0.5,
+              0.5
+            ],
+            "m_width": 780.0,
+            "m_zIndex": 0
+          },
+          "type": "UITransform"
+        }
+      ],
+      "name": "R3",
+      "parent": 0
+    },
+    {
+      "data": [
+        {
+          "fields": {
+            "m_anchor": 0,
+            "m_color": [
+              200,
+              220,
+              240,
+              255
+            ],
+            "m_fontPath": "resource/Roboto-Regular.ttf",
+            "m_fontSize": 17.0,
+            "m_text": ""
+          },
+          "type": "UIText"
+        },
+        {
+          "fields": {
+            "m_anchorMax": [
+              0.5,
+              0.5
+            ],
+            "m_anchorMin": [
+              0.5,
+              0.5
+            ],
+            "m_anchoredPosition": [
+              0.0,
+              60.0
+            ],
+            "m_height": 24.0,
+            "m_pivot": [
+              0.5,
+              0.5
+            ],
+            "m_width": 780.0,
+            "m_zIndex": 0
+          },
+          "type": "UITransform"
+        }
+      ],
+      "name": "R4",
+      "parent": 0
+    },
+    {
+      "data": [
+        {
+          "fields": {
+            "m_anchor": 0,
+            "m_color": [
+              200,
+              220,
+              240,
+              255
+            ],
+            "m_fontPath": "resource/Roboto-Regular.ttf",
+            "m_fontSize": 17.0,
+            "m_text": ""
+          },
+          "type": "UIText"
+        },
+        {
+          "fields": {
+            "m_anchorMax": [
+              0.5,
+              0.5
+            ],
+            "m_anchorMin": [
+              0.5,
+              0.5
+            ],
+            "m_anchoredPosition": [
+              0.0,
+              90.0
+            ],
+            "m_height": 24.0,
+            "m_pivot": [
+              0.5,
+              0.5
+            ],
+            "m_width": 780.0,
+            "m_zIndex": 0
+          },
+          "type": "UITransform"
+        }
+      ],
+      "name": "R5",
+      "parent": 0
+    },
+    {
+      "data": [
+        {
+          "fields": {
+            "m_anchor": 0,
+            "m_color": [
+              200,
+              220,
+              240,
+              255
+            ],
+            "m_fontPath": "resource/Roboto-Regular.ttf",
+            "m_fontSize": 17.0,
+            "m_text": ""
+          },
+          "type": "UIText"
+        },
+        {
+          "fields": {
+            "m_anchorMax": [
+              0.5,
+              0.5
+            ],
+            "m_anchorMin": [
+              0.5,
+              0.5
+            ],
+            "m_anchoredPosition": [
+              0.0,
+              130.0
+            ],
+            "m_height": 24.0,
+            "m_pivot": [
+              0.5,
+              0.5
+            ],
+            "m_width": 780.0,
+            "m_zIndex": 0
+          },
+          "type": "UITransform"
+        }
+      ],
+      "name": "R6",
+      "parent": 0
+    },
+    {
+      "data": [
+        {
+          "fields": {
+            "m_anchor": 0,
+            "m_color": [
+              200,
+              220,
+              240,
+              255
+            ],
+            "m_fontPath": "resource/Roboto-Regular.ttf",
+            "m_fontSize": 17.0,
+            "m_text": ""
+          },
+          "type": "UIText"
+        },
+        {
+          "fields": {
+            "m_anchorMax": [
+              0.5,
+              0.5
+            ],
+            "m_anchorMin": [
+              0.5,
+              0.5
+            ],
+            "m_anchoredPosition": [
+              0.0,
+              160.0
+            ],
+            "m_height": 24.0,
+            "m_pivot": [
+              0.5,
+              0.5
+            ],
+            "m_width": 780.0,
+            "m_zIndex": 0
+          },
+          "type": "UITransform"
+        }
+      ],
+      "name": "R7",
+      "parent": 0
+    },
+    {
+      "data": [
+        {
+          "fields": {
+            "m_anchor": 0,
+            "m_color": [
+              200,
+              220,
+              240,
+              255
+            ],
+            "m_fontPath": "resource/Roboto-Regular.ttf",
+            "m_fontSize": 16.0,
+            "m_text": ""
+          },
+          "type": "UIText"
+        },
+        {
+          "fields": {
+            "m_anchorMax": [
+              0.5,
+              0.5
+            ],
+            "m_anchorMin": [
+              0.5,
+              0.5
+            ],
+            "m_anchoredPosition": [
+              0.0,
+              200.0
+            ],
+            "m_height": 24.0,
+            "m_pivot": [
+              0.5,
+              0.5
+            ],
+            "m_width": 780.0,
+            "m_zIndex": 0
+          },
+          "type": "UITransform"
+        }
+      ],
+      "name": "R8",
+      "parent": 0
+    },
+    {
+      "data": [
+        {
+          "fields": {
+            "m_anchor": 0,
+            "m_color": [
+              200,
+              220,
+              240,
+              255
+            ],
+            "m_fontPath": "resource/Roboto-Regular.ttf",
+            "m_fontSize": 16.0,
+            "m_text": ""
+          },
+          "type": "UIText"
+        },
+        {
+          "fields": {
+            "m_anchorMax": [
+              0.5,
+              0.5
+            ],
+            "m_anchorMin": [
+              0.5,
+              0.5
+            ],
+            "m_anchoredPosition": [
+              0.0,
+              230.0
+            ],
+            "m_height": 24.0,
+            "m_pivot": [
+              0.5,
+              0.5
+            ],
+            "m_width": 780.0,
+            "m_zIndex": 0
+          },
+          "type": "UITransform"
+        }
+      ],
+      "name": "R9",
+      "parent": 0
+    },
+    {
+      "data": [
+        {
+          "fields": {
+            "m_anchor": 0,
+            "m_color": [
+              200,
+              220,
+              240,
+              255
+            ],
+            "m_fontPath": "resource/Roboto-Regular.ttf",
+            "m_fontSize": 16.0,
+            "m_text": ""
+          },
+          "type": "UIText"
+        },
+        {
+          "fields": {
+            "m_anchorMax": [
+              0.5,
+              0.5
+            ],
+            "m_anchorMin": [
+              0.5,
+              0.5
+            ],
+            "m_anchoredPosition": [
+              0.0,
+              260.0
+            ],
+            "m_height": 24.0,
+            "m_pivot": [
+              0.5,
+              0.5
+            ],
+            "m_width": 780.0,
+            "m_zIndex": 0
+          },
+          "type": "UITransform"
+        }
+      ],
+      "name": "R10",
+      "parent": 0
+    },
+    {
+      "data": [
+        {
+          "fields": {
+            "m_anchor": 0,
+            "m_color": [
+              200,
+              220,
+              240,
+              255
+            ],
+            "m_fontPath": "resource/Roboto-Regular.ttf",
+            "m_fontSize": 16.0,
+            "m_text": ""
+          },
+          "type": "UIText"
+        },
+        {
+          "fields": {
+            "m_anchorMax": [
+              0.5,
+              0.5
+            ],
+            "m_anchorMin": [
+              0.5,
+              0.5
+            ],
+            "m_anchoredPosition": [
+              0.0,
+              290.0
+            ],
+            "m_height": 24.0,
+            "m_pivot": [
+              0.5,
+              0.5
+            ],
+            "m_width": 780.0,
+            "m_zIndex": 0
+          },
+          "type": "UITransform"
+        }
+      ],
+      "name": "R11",
+      "parent": 0
+    },
+    {
+      "data": [
+        {
+          "fields": {
+            "m_lineNames": "R0,R1,R2,R3,R4,R5,R6,R7,R8,R9,R10,R11",
+            "m_lines": 0,
+            "m_results": 0
+          },
+          "type": "ReflectionTestBehavior"
+        }
+      ],
+      "name": "TestBehavior",
+      "parent": 0
+    }
+  ],
+  "version": 2
+}

@@ -31,6 +31,9 @@
 #include "ShitEngine/GameObject/GameObject.h"
 #include "ShitEngine/GameObject/Prefab.h"
 
+// Plugin（Runtime 与编辑器共享的动态插件加载）
+#include "ShitEngine/Plugin/PluginManager.h"
+
 // Component
 #include "ShitEngine/Component/Component.h"
 #include "ShitEngine/Component/Behavior.h"
@@ -68,6 +71,7 @@
 #include "ShitEngine/UI/UITextArea.h"
 
 // Physics
+#include "ShitEngine/Physics/PhysicsSystem2D.h"
 #include "ShitEngine/Physics/RigidBody2D.h"
 #include "ShitEngine/Physics/BoxCollider2D.h"
 #include "ShitEngine/Physics/CircleCollider2D.h"

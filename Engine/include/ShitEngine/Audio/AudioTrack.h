@@ -7,7 +7,9 @@ namespace Shit {
 
 class AudioTrackGroup;
 
-class AudioTrack {
+// SHIT_API：AudioPlayer 在引擎外被按值持有（EngineContext），
+// 析构/移动需要跨 DLL 导出符号
+class SHIT_API AudioTrack {
 public:
     AudioTrack(const AudioTrack&) = delete;
     AudioTrack& operator=(const AudioTrack&) = delete;

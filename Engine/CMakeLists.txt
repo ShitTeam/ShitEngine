@@ -36,6 +36,8 @@ add_library(ShitEngine SHARED
     # GameObject
     "src/ShitEngine/GameObject/GameObject.cpp"
     "src/ShitEngine/GameObject/Prefab.cpp"
+    # Plugin
+    "src/ShitEngine/Plugin/PluginManager.cpp"
     # Component
     "src/ShitEngine/Component/Component.cpp"
     "src/ShitEngine/Component/Behavior.cpp"

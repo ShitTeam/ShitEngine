@@ -1,9 +1,7 @@
-# Runtime — 宿主程序，动态加载插件 DLL
+# Runtime — 宿主程序，动态加载插件 DLL（PluginManager 由引擎提供）
 
 add_executable(ShitRuntime
     "src/main.cpp"
-    "src/PluginManager.cpp"
-    "src/PluginManager.h"
 )
 
 target_link_libraries(ShitRuntime PRIVATE ShitEngine)
@@ -26,6 +24,9 @@ add_custom_command(TARGET ShitRuntime POST_BUILD
         "$<TARGET_FILE_DIR:ShitRuntime>/settings.json"
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_CURRENT_SOURCE_DIR}/Scenes"
+        "$<TARGET_FILE_DIR:ShitRuntime>/Scenes"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/Examples/scenes"
         "$<TARGET_FILE_DIR:ShitRuntime>/Scenes"
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_SOURCE_DIR}/Examples/resource"

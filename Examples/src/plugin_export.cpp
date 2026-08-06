@@ -1,8 +1,8 @@
 // Plugin C ABI 导出函数
-// Runtime 通过 LoadLibrary/GetProcAddress 调用这些函数来加载插件
+// Runtime 通过 LoadLibrary/GetProcAddress 调用这些函数来加载插件。
+// ABI v2：插件 = 脚本库，只注册反射类型，不导出场景工厂（场景来自 .scene 文件）。
 
-#include "PhysicsTestScene.h"
-#include "ReflectionTestScene.h"
+#include "ReflectionTestTypes.h"
 
 #include <ShitEngine.h>
 
@@ -16,12 +16,10 @@
     #define SHIT_PLUGIN_EXPORT __attribute__((visibility("default")))
 #endif
 
-// ── 插件 ABI 版本（用于兼容性检查）──────────────────────
-// ABI v2：插件不再导出场景工厂（无 CreateMainScene），只注册反射类型。
-// CreateMainScene 以下保留仅为兼容过渡期，Runtime 不再调用。
+// ── 插件 ABI 版本（与引擎 PluginManager::kAbiVersion 保持一致）──
 extern "C" SHIT_PLUGIN_EXPORT
 int GetPluginABIVersion() {
-    return 2;
+    return Shit::PluginManager::kAbiVersion;
 }
 
 // ── 插件元信息 ──────────────────────────────────────────
@@ -36,18 +34,10 @@ const char* GetPluginVersion() {
 }
 
 // ── 注册插件中的反射类型到共享 TypeRegistry ──────────────
-// 必须在 Game::Init() 之后调用（引擎内置类型已注册）
+// 必须在 Game::Init() 之后调用（引擎内置类型已注册）。
+// 注册内容包括：自定义行为（Behaviors.h / ReflectionBehavior.h）与
+// 反射测试类型（TestPlayer / TestEnemy / TestDirection）。
 extern "C" SHIT_PLUGIN_EXPORT
 void RegisterPluginTypes() {
-    // 调用 ReflectionScanner 为插件生成的类型注册（TestPlayer/TestEnemy/TestDirection 等）
     RegisterAllReflectedTypes();
-}
-
-// ── 创建插件的主场景 ────────────────────────────────────
-// Runtime 获取此函数指针后调用，将返回的 Scene* 推入 SceneManager
-// 所有权转移给 Runtime
-extern "C" SHIT_PLUGIN_EXPORT
-Shit::Scene* CreateMainScene() {
-    auto scene = createPhysicsTestScene();
-    return scene.release();
 }

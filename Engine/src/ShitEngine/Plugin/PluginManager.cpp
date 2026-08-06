@@ -1,11 +1,11 @@
-#include "PluginManager.h"
+#include "ShitEngine/Core/pch.h"
+#include "ShitEngine/Plugin/PluginManager.h"
 
-#include <ShitEngine/Core/Log.h>
+#include "ShitEngine/Core/Log.h"
 
 #include <nlohmann/json.hpp>
 
 #include <fstream>
-#include <iostream>
 
 #ifdef _WIN32
     #ifndef NOMINMAX
@@ -19,6 +19,8 @@
     #include <dlfcn.h>
 #endif
 
+namespace Shit {
+
 // ── 平台抽象 ────────────────────────────────────────────
 
 void* PluginManager::loadLibrary(const std::string& path) {
@@ -31,8 +33,7 @@ void* PluginManager::loadLibrary(const std::string& path) {
 
 void* PluginManager::getSymbol(void* handle, const char* name) {
 #ifdef _WIN32
-    return reinterpret_cast<void*>(GetProcAddress(
-        reinterpret_cast<HMODULE>(handle), name));
+    return reinterpret_cast<void*>(GetProcAddress(reinterpret_cast<HMODULE>(handle), name));
 #else
     return dlsym(handle, name);
 #endif
@@ -51,12 +52,9 @@ void PluginManager::freeLibrary(void* handle) {
 bool PluginManager::loadPlugin(const std::string& path) {
     void* handle = loadLibrary(path);
     if (!handle) {
-#ifdef _WIN32
-        DWORD err = GetLastError();
-#endif
         ST_CORE_ERROR("[PluginManager] Failed to load plugin: {}", path);
 #ifdef _WIN32
-        ST_CORE_ERROR("  GetLastError() = {}", err);
+        ST_CORE_ERROR("  GetLastError() = {}", GetLastError());
 #else
         ST_CORE_ERROR("  dlerror() = {}", dlerror());
 #endif
@@ -67,10 +65,10 @@ bool PluginManager::loadPlugin(const std::string& path) {
     plugin.handle = handle;
     plugin.path   = path;
 
-    // 解析导出函数（ABI v2：插件只负责注册反射类型，不搭建场景）
-    auto* getABI  = reinterpret_cast<GetABIVersionFn>(getSymbol(handle, "GetPluginABIVersion"));
-    auto* getName = reinterpret_cast<GetNameFn>(getSymbol(handle, "GetPluginName"));
-    auto* getVer  = reinterpret_cast<GetVersionFn>(getSymbol(handle, "GetPluginVersion"));
+    // ABI v2：插件只负责注册反射类型，不导出场景工厂、不搭建场景
+    auto* getABI   = reinterpret_cast<GetABIVersionFn>(getSymbol(handle, "GetPluginABIVersion"));
+    auto* getName  = reinterpret_cast<GetNameFn>(getSymbol(handle, "GetPluginName"));
+    auto* getVer   = reinterpret_cast<GetVersionFn>(getSymbol(handle, "GetPluginVersion"));
     auto* regTypes = reinterpret_cast<RegisterTypesFn>(getSymbol(handle, "RegisterPluginTypes"));
 
     if (!getABI || !getName || !getVer || !regTypes) {
@@ -81,9 +79,9 @@ bool PluginManager::loadPlugin(const std::string& path) {
 
     // ABI 版本检查
     plugin.abiVersion = getABI();
-    if (plugin.abiVersion != 2) {
-        ST_CORE_ERROR("[PluginManager] Plugin '{}' has unsupported ABI version: {} (expected 2)",
-            path, plugin.abiVersion);
+    if (plugin.abiVersion != kAbiVersion) {
+        ST_CORE_ERROR("[PluginManager] Plugin '{}' has unsupported ABI version: {} (expected {})",
+            path, plugin.abiVersion, kAbiVersion);
         freeLibrary(handle);
         return false;
     }
@@ -142,11 +140,11 @@ void PluginManager::RegisterAllTypes() {
         if (plugin.registerTypes) {
             ST_CORE_INFO("[PluginManager] Registering types from plugin '{}'", plugin.name);
             // 标记注册来源，便于卸载时按插件清理（factory 位于 DLL 内）
-            Shit::TypeRegistry::SetRegistrationSource(plugin.name);
+            TypeRegistry::SetRegistrationSource(plugin.name);
             plugin.registerTypes();
         }
     }
-    Shit::TypeRegistry::SetRegistrationSource("");  // 恢复默认（引擎来源）
+    TypeRegistry::SetRegistrationSource("");
 }
 
 // ── 卸载所有插件 ────────────────────────────────────────
@@ -154,9 +152,9 @@ void PluginManager::RegisterAllTypes() {
 void PluginManager::UnloadAll() {
     for (auto& plugin : m_plugins) {
         // 先清理插件注册的反射类型：其 factory 分配在 DLL 堆上，
-        // 必须在 FreeLibrary 之前销毁，否则 TypeRegistry 持有悬垂 std::function
+        // 必须在 FreeLibrary 之前注销，否则 TypeRegistry 持有悬垂 std::function
         if (!plugin.name.empty()) {
-            size_t removed = Shit::TypeRegistry::UnregisterTypesBySource(plugin.name);
+            size_t removed = TypeRegistry::UnregisterTypesBySource(plugin.name);
             if (removed > 0) {
                 ST_CORE_INFO("[PluginManager] Unregistered {} reflected type(s) from plugin '{}'",
                     removed, plugin.name);
@@ -170,3 +168,5 @@ void PluginManager::UnloadAll() {
     }
     m_plugins.clear();
 }
+
+} // namespace Shit

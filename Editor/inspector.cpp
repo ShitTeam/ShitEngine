@@ -26,6 +26,16 @@ const FieldMeta* metaOf(const Shit::FieldInfo &field)
     return field.meta.empty() ? nullptr : &field.meta[0];
 }
 
+/// 类型名归一化：引擎头内声明为 "Vector2"，插件全局类引用为 "Shit::Vector2"
+QString typeNameOf(const Shit::FieldInfo &field)
+{
+    const std::string &t = field.typeName;
+    const std::string prefix = "Shit::";
+    if (t.rfind(prefix, 0) == 0)
+        return QString::fromStdString(t.substr(prefix.size()));
+    return QString::fromStdString(t);
+}
+
 QString displayNameOf(const Shit::FieldInfo &field)
 {
     if (const FieldMeta *m = metaOf(field); m && !m->displayName.empty())
@@ -126,7 +136,7 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
         return;
     }
 
-    if (field.typeName == "float") {
+    if (typeNameOf(field) == "float") {
         auto *box = new QDoubleSpinBox(m_content);
         const FieldMeta *m = metaOf(field);
         if (m && m->range.min != m->range.max)
@@ -146,7 +156,7 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
             box->blockSignals(false);
         });
     }
-    else if (field.typeName == "int") {
+    else if (typeNameOf(field) == "int") {
         auto *box = new QSpinBox(m_content);
         box->setRange(std::numeric_limits<int>::min(), std::numeric_limits<int>::max());
         box->setValue(*reinterpret_cast<int *>(field.GetFieldPtr(obj)));
@@ -160,7 +170,7 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
             box->blockSignals(false);
         });
     }
-    else if (field.typeName == "bool") {
+    else if (typeNameOf(field) == "bool") {
         auto *check = new QCheckBox(m_content);
         check->setChecked(*reinterpret_cast<bool *>(field.GetFieldPtr(obj)));
         connect(check, &QCheckBox::toggled, [obj, field](bool on) {
@@ -173,7 +183,7 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
             check->blockSignals(false);
         });
     }
-    else if (field.typeName == "Vector2") {
+    else if (typeNameOf(field) == "Vector2") {
         auto *p = reinterpret_cast<Shit::Vector2 *>(field.GetFieldPtr(obj));
         auto *xBox = makeSpin(p->x);
         auto *yBox = makeSpin(p->y);
@@ -199,7 +209,7 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
             yBox->blockSignals(false);
         });
     }
-    else if (field.typeName == "std::string") {
+    else if (typeNameOf(field) == "std::string") {
         auto *p = reinterpret_cast<std::string *>(field.GetFieldPtr(obj));
         auto *edit = new QLineEdit(QString::fromStdString(*p), m_content);
         connect(edit, &QLineEdit::textChanged, [obj, field](const QString &text) {
@@ -214,7 +224,7 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
     }
     else {
         // 枚举或未知类型：优先尝试枚举下拉，否则只读展示
-        const Shit::TypeInfo *enumType = Shit::TypeRegistry::Get(field.typeName);
+        const Shit::TypeInfo *enumType = Shit::TypeRegistry::Get(typeNameOf(field).toStdString());
         if (enumType && !enumType->enumValues.empty()) {
             auto *combo = new QComboBox(m_content);
             const int cur = *reinterpret_cast<int *>(field.GetFieldPtr(obj));
@@ -245,17 +255,17 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
 QString Inspector::fieldToString(const Shit::FieldInfo &field, Shit::Component *obj) const
 {
     void *ptr = field.GetFieldPtr(obj);
-    if (field.typeName == "float")
+    if (typeNameOf(field) == "float")
         return QString::number(*reinterpret_cast<float *>(ptr), 'g', 4);
-    if (field.typeName == "int")
+    if (typeNameOf(field) == "int")
         return QString::number(*reinterpret_cast<int *>(ptr));
-    if (field.typeName == "bool")
+    if (typeNameOf(field) == "bool")
         return *reinterpret_cast<bool *>(ptr) ? tr("是") : tr("否");
-    if (field.typeName == "Vector2") {
+    if (typeNameOf(field) == "Vector2") {
         auto *v = reinterpret_cast<Shit::Vector2 *>(ptr);
         return QString("(%1, %2)").arg(v->x).arg(v->y);
     }
-    if (field.typeName == "std::string")
+    if (typeNameOf(field) == "std::string")
         return QString::fromStdString(*reinterpret_cast<std::string *>(ptr));
-    return QString("<%1>").arg(QString::fromStdString(field.typeName));
+    return QString("<%1>").arg(typeNameOf(field));
 }

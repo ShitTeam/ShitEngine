@@ -1,5 +1,5 @@
 {
-    "scene": "Scenes/Preview.scene",
+    "scene": "Scenes/PhysicsTest.scene",
     "plugins": [
         {
             "name": "ExamplePlugin",

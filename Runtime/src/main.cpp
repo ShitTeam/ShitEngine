@@ -1,7 +1,5 @@
 #include <ShitEngine.h>
 
-#include "PluginManager.h"
-
 #include <nlohmann/json.hpp>
 
 #include <fstream>
@@ -36,8 +34,8 @@ int main() {
         return 1;
     }
 
-    // 2. 加载插件（脚本库：只注册反射类型，不搭建场景）
-    PluginManager pluginManager;
+    // 2. 加载插件（脚本库：只注册反射类型，不搭建场景；PluginManager 由引擎提供）
+    Shit::PluginManager pluginManager;
     pluginManager.LoadFromConfig("config.json");
     pluginManager.RegisterAllTypes();
 

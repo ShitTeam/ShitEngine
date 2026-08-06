@@ -102,7 +102,15 @@
 
 ---
 
-### P7 · 插件共享加载 + 示例迁移
+### P7 · 插件共享加载 + 示例迁移 —— ✓ 已实现（2026-08-06）
+
+> 状态：`PluginManager` 已移入引擎（`Engine/include/ShitEngine/Plugin/PluginManager.h`），Runtime 与编辑器共用；
+> 编辑器启动时从 exe 同目录 `config.json` 加载插件。四个测试场景（PhysicsTest / UITest / InputMapping /
+> ReflectionTest）已迁移为 `Examples/scenes/*.scene`（行为类重构为 `SHIT_REFLECT` 脚本库，指针引用改对象名
+> 解析，UIButton onClick 改 `ButtonClickDemo` 行为，物理重力改 `GravityConfig` 行为），搭建代码与
+> `CreateMainScene`/SceneDumper 已删除。Runtime 默认配置 `PhysicsTest.scene` 验证通过。
+> 额外修复：插件反射字段类型带 `Shit::` 前缀导致序列化/检查器不识别（Prefab/Inspector 归一化）；
+> `AudioTrack` 补 `SHIT_API` 导出（引擎外按值持有 EngineContext 时的链接问题）。
 
 **目标**：编辑器能编辑含自定义行为的场景；示例全部改为 `.scene`。
 
