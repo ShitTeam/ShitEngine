@@ -31,6 +31,18 @@ void ensureDefaultCamera(Scene* scene) {
 		}
 	}
 
+	// 兼容：编辑器双 pass 渲染轮流改相机 enabled，旧版本可能把 game_camera
+	// 序列化成禁用态——此时复用同名相机对象并启用，而不是再建一个，
+	// 否则场景出现两个 game_camera 后「同一画面渲染两遍」（对象显示双份）。
+	for (auto& go : scene->getGameObjects()) {
+		if (go->getName() != "game_camera") continue;
+		if (auto* cam = go->getComponent<CameraComponent>()) {
+			cam->setEnabled(true);
+			ST_CORE_WARN("[SceneSerializer] 已启用被保存为禁用态的 game_camera（复用，不新建重复相机）");
+			return;
+		}
+	}
+
 	auto* gc = scene->createGameObject("game_camera");
 	gc->addComponent<TransformComponent>();
 	gc->addComponent<CameraComponent>();

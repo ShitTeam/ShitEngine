@@ -16,6 +16,13 @@ set(_BIN_DIR "${ShitEngine_LIB_DIR}/../bin")
 set(_LIB_DIR "${ShitEngine_LIB_DIR}")
 set(_INC_DIR "${ShitEngine_INCLUDE_DIR}")
 
+# P14 SDK：多配置生成器（VS/Ninja Multi-Config）无 CMAKE_BUILD_TYPE；
+# 且当前 SDK 仅安装 Debug(-d) 运行库 —— 探测 bin/ 下实际 DLL 形态，自动回退 -d。
+if(_SE_SUFFIX STREQUAL "" AND EXISTS "${_BIN_DIR}/ShitEngine-d.dll" AND NOT EXISTS "${_BIN_DIR}/ShitEngine.dll")
+    set(_SE_SUFFIX "-d")
+    message(STATUS "ShitEngine: SDK 仅含 Debug 运行库（ShitEngine-d.dll），统一使用 -d 后缀")
+endif()
+
 # ============================================================
 # 创建 imported target（DLL 不存在则跳过，该依赖已静态链接）
 # ============================================================

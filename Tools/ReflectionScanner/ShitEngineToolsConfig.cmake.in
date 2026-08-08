@@ -1,0 +1,13 @@
+# ShitEngineToolsConfig.cmake —— SDK 工具信息（Tools/ReflectionScanner 安装时生成）。
+# ReflectionScanSetup.cmake 在 SDK 模式（tools 目录同级存在本文件）下 include 本文件，
+# 拿到扫描器可执行路径与 libclang resource 目录。
+# 仓库内开发构建不安装本文件，ReflectionScanSetup 回退到仓库模式默认逻辑。
+#
+# 本文件内部路径全部相对 CMAKE_CURRENT_LIST_DIR（= SDK/lib/cmake/ShitEngine），
+# SDK 整体搬运到其它目录/机器后依旧有效。
+
+# 扫描器可执行（SDK bin 目录）
+set(REFLECTION_SCANNER_EXE "${CMAKE_CURRENT_LIST_DIR}/../../../bin/ReflectionScanner@CMAKE_EXECUTABLE_SUFFIX@")
+
+# libclang resource 目录（builtin headers：stddef.h 等；SDK 自带拷贝）
+set(REFLECTION_CLANG_RESOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/../../../lib/ShitEngine/clang-resource/@_SDK_CLANG_RES_NAME@")

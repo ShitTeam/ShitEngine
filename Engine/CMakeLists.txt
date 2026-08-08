@@ -176,6 +176,24 @@ install(TARGETS ShitEngine
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
+# P14：第三方依赖 DLL 收集 → SDK bin/。各 FetchContent 库输出在全局
+# CMAKE_RUNTIME_OUTPUT_DIRECTORY（=${CMAKE_BINARY_DIR}/bin）下，按明确清单安装，
+# 保证 SDK 自包含（ShitEngineConfig.cmake 按 bin/ 探测依赖 DLL），
+# 且不会把示例插件（ExamplePlugin.dll 等）带入 SDK。
+# 注意：新增动态链接的第三方库时，请同步把其 DLL 名追加到清单。
+if(WIN32)
+    set(_SDK_BIN "${CMAKE_BINARY_DIR}/bin")
+    set(_SDK_THIRD_PARTY_DLLS SDL3 SDL3_image SDL3_mixer SDL3_ttf)
+    foreach(_dllname IN LISTS _SDK_THIRD_PARTY_DLLS)
+        set(_src "${_SDK_BIN}/${_dllname}.dll")
+        if(EXISTS "${_src}")
+            install(FILES "${_src}" DESTINATION ${CMAKE_INSTALL_BINDIR})
+        else()
+            message(WARNING "SDK 依赖 DLL 缺失：${_src}（若该库为静态链接可忽略）")
+        endif()
+    endforeach()
+endif()
+
 # CMake config
 include(CMakePackageConfigHelpers)
 configure_package_config_file(

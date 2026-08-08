@@ -89,6 +89,17 @@ namespace Shit {
         m_pendingBehaviors.push_back(static_cast<Behavior *>(behavior));
     }
 
+    void BehaviorSystem::resetAllBehaviors() {
+        // 置为「未启动」：下次 update 对每个 Behavior 重新执行 onStart
+        // （进入运行态时调用 —— Unity 式每局从头开始）
+        for (auto* b : m_behaviors) {
+            if (b) b->setStarted(false);
+        }
+        for (auto* b : m_pendingBehaviors) {
+            if (b) b->setStarted(false);
+        }
+    }
+
     void BehaviorSystem::unregisterBehavior(Behavior *behavior) {
         if (!behavior) {
             auto* scene = getScene();

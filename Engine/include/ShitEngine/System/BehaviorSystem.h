@@ -25,6 +25,10 @@ namespace Shit {
         void registerBehavior(Behavior *behavior);   ///< 注册 Behavior（onAttach 时自动调用）
         void unregisterBehavior(Behavior *behavior); ///< 注销 Behavior（onDetach 时自动调用）
 
+        /// 重置全部 Behavior 的启动标志（isStarted=false）——进入运行态时调用，
+        /// 使 onStart 在运行第一帧重新执行（Unity 式「每次运行从头开始」）。
+        void resetAllBehaviors();
+
     private:
         std::vector<Behavior*> m_behaviors;
         std::vector<Behavior*> m_pendingBehaviors;

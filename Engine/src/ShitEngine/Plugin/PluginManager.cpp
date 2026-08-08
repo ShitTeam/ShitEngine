@@ -5,6 +5,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include <filesystem>
 #include <fstream>
 
 #ifdef _WIN32
@@ -128,6 +129,15 @@ void PluginManager::LoadFromConfig(const std::string& configPath) {
         if (path.empty()) {
             ST_CORE_WARN("[PluginManager] Skipping plugin entry with empty path");
             continue;
+        }
+        // P14：相对 DLL 路径以 config.json 所在目录为基准（编辑器 CWD 不可控），
+        // 绝对路径照原样使用。Runtime 的 config 与 exe 同目录，行为与旧版（按 CWD）一致。
+        const std::filesystem::path dllPath(path);
+        if (dllPath.is_relative()) {
+            const std::filesystem::path configDir =
+                std::filesystem::path(configPath).parent_path();
+            if (!configDir.empty())
+                path = (configDir / dllPath).lexically_normal().string();
         }
         loadPlugin(path);
     }

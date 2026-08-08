@@ -5,19 +5,37 @@
 
 namespace Shit {
 	bool Config::init() {
-		std::ifstream file("settings.json");
-		if (!file.is_open()) {
-			ST_CORE_WARN("配置文件无法打开，正在使用默认配置。");
-			return true;
+		Json j;
+		{
+			std::ifstream file("settings.json");
+			if (!file.is_open()) {
+				ST_CORE_WARN("配置文件无法打开，正在使用默认配置。");
+			} else {
+				try {
+					file >> j;
+				} catch (const std::exception& e) {
+					ST_CORE_WARN("配置文件解析失败: {}，使用默认配置", e.what());
+				}
+			}
 		}
 
-		Json j;
-		try {
-			file >> j;
-		} catch (const std::exception& e) {
-			ST_CORE_WARN("配置文件解析失败: {}，使用默认配置", e.what());
-			return true;
+		// 项目级 config.json 的 inputMappings 覆盖 settings.json（编辑器「项目设置」页写入，
+		// 使独立 Runtime 与编辑器播放共用同一套按键映射；无 config.json 时行为不变）
+		{
+			std::ifstream cfg("config.json");
+			if (cfg.is_open()) {
+				try {
+					Json cj;
+					cfg >> cj;
+					if (cj.contains("inputMappings")) {
+						j["inputMappings"] = cj["inputMappings"];
+					}
+				} catch (const std::exception& e) {
+					ST_CORE_WARN("config.json 解析失败（不影响主配置）: {}", e.what());
+				}
+			}
 		}
+
 		loadFromJson(j);
 		return true;
 	}

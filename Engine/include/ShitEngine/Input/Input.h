@@ -64,6 +64,8 @@ namespace Shit {
 		void handleEvent(const SDL_Event& event);
 		/// 注入鼠标逻辑坐标（编辑器进程内嵌时由宿主转发 Qt 事件坐标）
 		void setMousePosition(const Vector2& position);
+		/// 清空键鼠三态快照与注入坐标（进入运行态时调用，防遗留按住状态）
+		void resetState();
 
 		// --- 静态门面 ---
 		static Input& GetInstance();
@@ -87,6 +89,7 @@ namespace Shit {
 		static void Update() { GetInstance().update(); }
 		static void HandleEvent(const SDL_Event& event) { GetInstance().handleEvent(event); }
 		static void SetMousePosition(const Vector2& position) { GetInstance().setMousePosition(position); } ///< 编辑器注入逻辑坐标（隐藏窗口下 SDL 轮询不到真实鼠标）
+		static void ResetState() { GetInstance().resetState(); } ///< 清空键鼠快照与注入坐标（进入运行态时调用）
 
 	private:
 		friend class EngineContext;

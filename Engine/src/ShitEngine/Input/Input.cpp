@@ -88,6 +88,17 @@ namespace Shit {
 		m_hasInjectedMousePosition = true;
 	}
 
+	void Input::resetState() {
+		// 清空键鼠三态快照与注入坐标（进入运行态时调用，
+		// 避免遗留「按住」状态污染下一局/下次运行）
+		m_currentKeys.fill(false);
+		m_previousKeys.fill(false);
+		m_currentMouseButtons.fill(false);
+		m_previousMouseButtons.fill(false);
+		m_mouseScroll = { 0.0f, 0.0f };
+		m_hasInjectedMousePosition = false;
+	}
+
 	// =========================================================================
 	// 键名解析
 	// =========================================================================

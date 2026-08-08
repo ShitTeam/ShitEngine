@@ -68,3 +68,49 @@ else()
         "libclang.dll 未在 ${LIBCLANG_DLL_PATH} 找到，已跳过拷贝。\n"
         "  运行 ReflectionScanner 时请确保 libclang.dll 在 PATH 中。")
 endif()
+
+# ── Install（P14 SDK：编辑器外部脚本工程需要随 SDK 安装扫描器与构建脚本）──
+include(GNUInstallDirs)
+
+# 扫描器 exe + libclang.dll（Windows 上二者同目录才能运行）
+install(TARGETS ReflectionScanner RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+if(EXISTS "${LIBCLANG_DLL_PATH}")
+    install(FILES "${LIBCLANG_DLL_PATH}" DESTINATION ${CMAKE_INSTALL_BINDIR})
+endif()
+
+# 反射扫描 CMake 脚本（脚本工程的 CMakeLists 从 ${ShitEngine_DIR}/tools/ 引用）
+install(FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/ReflectionScanSetup.cmake
+    ${CMAKE_CURRENT_SOURCE_DIR}/detect_system_includes.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ShitEngine/tools)
+
+# ── libclang resource 目录（builtin headers：stddef.h/stdarg.h 等）──
+# 解析反射头必须有；SDK 自带拷贝 → 整个 SDK 可搬移，不依赖本机 LLVM 安装。
+set(_SDK_CLANG_RES_NAME "")
+if(EXISTS "${LIBCLANG_PREFIX}/lib/clang")
+    file(GLOB _CLANG_RES_CANDIDATES LIST_DIRECTORIES true "${LIBCLANG_PREFIX}/lib/clang/*")
+    foreach(_dir IN LISTS _CLANG_RES_CANDIDATES)
+        if(IS_DIRECTORY "${_dir}")
+            get_filename_component(_dir_name "${_dir}" NAME)
+            if(_dir_name MATCHES "^[0-9][0-9.]*$")
+                set(_SDK_CLANG_RES_NAME "${_dir_name}")
+            endif()
+        endif()
+    endforeach()
+endif()
+if(_SDK_CLANG_RES_NAME)
+    install(DIRECTORY "${LIBCLANG_PREFIX}/lib/clang/${_SDK_CLANG_RES_NAME}"
+            DESTINATION ${CMAKE_INSTALL_LIBDIR}/ShitEngine/clang-resource)
+    message(STATUS "SDK clang resource: ${_SDK_CLANG_RES_NAME}")
+else()
+    message(WARNING "未找到 libclang resource 目录（${LIBCLANG_PREFIX}/lib/clang/*），SDK 反射扫描可能失败")
+endif()
+
+# ── 工具信息配置（SDK 模式下由 ReflectionScanSetup.cmake include）──
+# 采用相对 CMAKE_CURRENT_LIST_DIR 的路径，SDK 整体搬移后仍有效。
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/ShitEngineToolsConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/ShitEngineToolsConfig.cmake
+    @ONLY)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/ShitEngineToolsConfig.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ShitEngine)
