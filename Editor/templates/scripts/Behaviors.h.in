@@ -1,0 +1,49 @@
+#pragma once
+// ═══════════════════════════════════════════════════════════════
+// {{PROJECT_NAME}} 脚本 —— SHIT_REFLECT 行为组件
+// ═══════════════════════════════════════════════════════════════
+// 约定（与引擎 / 示例插件一致）：
+//   - 类前 SHIT_REFLECT(BlackList)，类体内 SHIT_REFLECT_BODY(类名)
+//     （反射工厂要求默认构造；BlackList = 反射全部成员字段）
+//   - 配置字段走 setter 赋值（检查器 / .scene 反序列化会调用）
+//   - 指向其它对象的引用一律用「对象名字符串」在 onStart 解析（指针不可序列化）
+//
+// 新增/修改本文件后 Run「Build Scripts」→ 编辑器自动重编译 + 热加载。
+
+#include <ShitEngine.h>
+
+// ── 示例：键盘方向移动 + 空格跳跃（演示 onStart/onUpdate 与字段序列化）──
+// 在场景里给任意对象加此组件，运行视口点击后按方向键/空格即可驱动。
+
+class SHIT_REFLECT(BlackList) PlayerBehavior : public Shit::Behavior {
+    SHIT_REFLECT_BODY(PlayerBehavior)
+public:
+    PlayerBehavior() = default;
+
+    void setSpeed(float speed) { m_speed = speed; }
+
+    void onStart() override {
+        auto* scene = getOwner() ? getOwner()->getScene() : nullptr;
+        if (!scene) return;
+    }
+
+    void onUpdate() override {
+        auto* owner = getOwner();
+        auto* transform = owner ? owner->getComponent<Shit::TransformComponent>() : nullptr;
+        if (!transform) return;
+
+        float dx = 0.0f, dy = 0.0f;
+        if (Shit::Input::IsKeyPressed(Shit::KeyCode::A)) dx -= 1.0f;
+        if (Shit::Input::IsKeyPressed(Shit::KeyCode::D)) dx += 1.0f;
+        if (Shit::Input::IsKeyPressed(Shit::KeyCode::W)) dy -= 1.0f;
+        if (Shit::Input::IsKeyPressed(Shit::KeyCode::S)) dy += 1.0f;
+
+        const Shit::Vector2 delta{ dx * m_speed * Shit::Time::GetDeltaTime(),
+                                   dy * m_speed * Shit::Time::GetDeltaTime() };
+        transform->setPosition(transform->getPosition() + delta);
+    }
+
+private:
+    SHIT_META(({.displayName = "速度", .tooltip = "移动速度（像素/秒）"}))
+    float m_speed = 200.0f;
+};

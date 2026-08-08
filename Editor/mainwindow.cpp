@@ -4,12 +4,15 @@
 #include <QAction>
 #include <QActionGroup>
 #include <QCloseEvent>
+#include <QDir>
 #include <QDockWidget>
 #include <QEvent>
+#include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QKeyEvent>
 #include <QKeySequence>
+#include <QLineEdit>
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
@@ -36,60 +39,22 @@
 #include "preview.h"
 #include "assetsdock.h"
 #include "undostack.h"
+#include "project.h"
+#include "projectwizard.h"
+#include "projectsettingsdialog.h"
+#include "idefinder.h"
+#include "keys.h"
 
 #include <ShitEngine.h>
 #include <ShitEngine/Core/EngineContext.h>
 #include <ShitEngine/Scene/SceneSerializer.h>
+#include <ShitEngine/System/BehaviorSystem.h>
 
 
 
 namespace {
 constexpr int kMaxRecentScenes = 5;   ///< 最近场景列表长度上限
-
-/// P12：Qt 键盘键 → SDL 扫描码（播放态输入转发；未识别返回 UNKNOWN 丢弃）
-SDL_Scancode qtKeyToSDLScancode(int qtKey)
-{
-    if (qtKey >= Qt::Key_A && qtKey <= Qt::Key_Z)
-        return static_cast<SDL_Scancode>(SDL_SCANCODE_A + (qtKey - Qt::Key_A));
-    if (qtKey >= Qt::Key_0 && qtKey <= Qt::Key_9)
-        return static_cast<SDL_Scancode>(SDL_SCANCODE_0 + (qtKey - Qt::Key_0));
-    if (qtKey >= Qt::Key_F1 && qtKey <= Qt::Key_F12)
-        return static_cast<SDL_Scancode>(SDL_SCANCODE_F1 + (qtKey - Qt::Key_F1));
-
-    switch (qtKey) {
-        case Qt::Key_Space:       return SDL_SCANCODE_SPACE;
-        case Qt::Key_Return:      return SDL_SCANCODE_RETURN;
-        case Qt::Key_Enter:       return SDL_SCANCODE_RETURN;   // 小键盘回车
-        case Qt::Key_Backspace:   return SDL_SCANCODE_BACKSPACE;
-        case Qt::Key_Tab:         return SDL_SCANCODE_TAB;
-        case Qt::Key_Escape:      return SDL_SCANCODE_ESCAPE;
-        case Qt::Key_Delete:      return SDL_SCANCODE_DELETE;
-        case Qt::Key_Home:        return SDL_SCANCODE_HOME;
-        case Qt::Key_End:         return SDL_SCANCODE_END;
-        case Qt::Key_PageUp:      return SDL_SCANCODE_PAGEUP;
-        case Qt::Key_PageDown:    return SDL_SCANCODE_PAGEDOWN;
-        case Qt::Key_Up:          return SDL_SCANCODE_UP;
-        case Qt::Key_Down:        return SDL_SCANCODE_DOWN;
-        case Qt::Key_Left:        return SDL_SCANCODE_LEFT;
-        case Qt::Key_Right:       return SDL_SCANCODE_RIGHT;
-        case Qt::Key_Shift:       return SDL_SCANCODE_LSHIFT;
-        case Qt::Key_Control:     return SDL_SCANCODE_LCTRL;
-        case Qt::Key_Alt:         return SDL_SCANCODE_LALT;
-        case Qt::Key_Meta:        return SDL_SCANCODE_LGUI;
-        case Qt::Key_Semicolon:   return SDL_SCANCODE_SEMICOLON;
-        case Qt::Key_Apostrophe:  return SDL_SCANCODE_APOSTROPHE;
-        case Qt::Key_Comma:       return SDL_SCANCODE_COMMA;
-        case Qt::Key_Period:      return SDL_SCANCODE_PERIOD;
-        case Qt::Key_Slash:       return SDL_SCANCODE_SLASH;
-        case Qt::Key_Backslash:   return SDL_SCANCODE_BACKSLASH;
-        case Qt::Key_BracketLeft: return SDL_SCANCODE_LEFTBRACKET;
-        case Qt::Key_BracketRight:return SDL_SCANCODE_RIGHTBRACKET;
-        case Qt::Key_Minus:       return SDL_SCANCODE_MINUS;
-        case Qt::Key_Equal:       return SDL_SCANCODE_EQUALS;
-        case Qt::Key_QuoteLeft:   return SDL_SCANCODE_GRAVE;
-        default:                  return SDL_SCANCODE_UNKNOWN;
-    }
-}
+constexpr int kMaxRecentProjects = 5; ///< 最近项目列表长度上限
 } // namespace
 
 MainWindow::MainWindow(QWidget *parent)
@@ -112,14 +77,23 @@ MainWindow::MainWindow(QWidget *parent)
     createMenus();
     createToolbar();
 
-    // P13：Dock 布局持久化 —— 首次启动存出厂默认，之后恢复上次布局；窗口几何同理
+    // P13：Dock 布局持久化 —— 项目级 .shitengine/state.ini（无项目时回退全局注册表）。
+    // 有上次布局恢复之；否则恢复「默认布局」（P17：可经「视图 → 将当前布局设为默认」
+    // 覆盖，即自定义启动时的初始排列）；首次启动无默认时保存出厂布局为默认。
+    // 窗口几何同理。
     {
-        const QByteArray userLayout = m_settings.value("dockState").toByteArray();
-        if (userLayout.isEmpty())
-            m_settings.setValue("dockStateDefault", saveState(0));
-        else
+        QSettings *s = stateSettings();
+        const QByteArray userLayout = s->value("dockState").toByteArray();
+        if (!userLayout.isEmpty()) {
             restoreState(userLayout);
-        restoreGeometry(m_settings.value("windowGeometry").toByteArray());
+        } else {
+            const QByteArray def = s->value("dockStateDefault").toByteArray();
+            if (!def.isEmpty())
+                restoreState(def);
+            else
+                s->setValue("dockStateDefault", saveState(0));
+        }
+        restoreGeometry(s->value("windowGeometry").toByteArray());
     }
 
     // 场景视图点击 → 拾取（须在双视口创建后连接）
@@ -187,6 +161,11 @@ MainWindow::MainWindow(QWidget *parent)
         m_sceneTree->setScene(m_preview->getScene());
         m_sceneViewport->setEditScene(m_preview->getScene()); // 编辑器交互（平移/缩放/Gizmo）
         setPlaying(m_playAction->isChecked());   // 默认停止态：暂停预览逻辑
+
+        // P14：启动时自动恢复上次打开的项目（静默；项目损坏/被删则忽略，不影响启动）
+        const QString lastProject = m_settings.value("lastProjectDir").toString();
+        if (!lastProject.isEmpty())
+            openProjectPath(lastProject, /*silent=*/true);
     } else {
         m_log->appendMessage(tr("预览启动失败"), Qt::red);
     }
@@ -194,7 +173,16 @@ MainWindow::MainWindow(QWidget *parent)
     m_savedSnapshot = snapshot();   // 启动初始场景作为存档基准（撤销/重做的 * 对比）
     updateUndoActions();
     updateWindowTitle();   // 初始标题（未命名场景）
+    updateProjectMenus();  // P14：按是否有项目初始化菜单可用性
     statusBar()->showMessage(tr("就绪"));
+
+    // P14：脚本工程编译管线（buildFinished → 热重载）
+    m_scriptBuilder = new ScriptBuilder(this);
+    connect(m_scriptBuilder, &ScriptBuilder::buildOutput, this,
+            [this](const QString &line) { m_log->appendMessage(line); });
+    connect(m_scriptBuilder, &ScriptBuilder::buildFailed, this,
+            [this](const QString &reason) { statusBar()->showMessage(tr("构建失败"), 3000); });
+    connect(m_scriptBuilder, &ScriptBuilder::buildFinished, this, &MainWindow::onBuildFinished);
     m_log->appendMessage(tr("ShitEngine 编辑器已启动"));
 }
 
@@ -213,6 +201,7 @@ void MainWindow::createDocks()
     // 中央改空占位——主视口不再是中央 widget，拖走面板后不残留空白。
     m_sceneViewport = new Viewport(this);
     m_gameViewport = new Viewport(this);
+    m_gameViewport->setGizmoBarVisible(false);   // 运行视口不显示 Gizmo 工具条（运行态无编辑）
     auto *centerPlaceholder = new QWidget(this);   // 空占位（dock 覆盖中央区）
     setCentralWidget(centerPlaceholder);
 
@@ -263,20 +252,30 @@ void MainWindow::createMenus()
 {
     auto *fileMenu = menuBar()->addMenu(tr("文件"));
 
-    auto *newAction = fileMenu->addAction(tr("新建场景"), this, &MainWindow::newScene);
-    newAction->setShortcut(QKeySequence::New);
-    auto *openAction = fileMenu->addAction(tr("打开场景…"), this, &MainWindow::openScene);
-    openAction->setShortcut(QKeySequence::Open);
+    // P14：项目 —— 新建 / 打开 / 最近项目 / 关闭
+    fileMenu->addAction(tr("新建项目…"), this, &MainWindow::newProject);
+    fileMenu->addAction(tr("打开项目…"), this, &MainWindow::openProject);
+    m_recentProjectsMenu = fileMenu->addMenu(tr("最近项目"));
+    updateRecentProjectsMenu();
+    m_closeProjectAction = fileMenu->addAction(tr("关闭项目"), this, &MainWindow::closeProject);
+    fileMenu->addSeparator();
 
-    // P8：最近场景（QSettings 持久化，最多 kMaxRecentScenes 条）
+    m_newSceneAction = fileMenu->addAction(tr("新建场景"), this, &MainWindow::newScene);
+    m_newSceneAction->setShortcut(QKeySequence::New);
+    m_openSceneAction = fileMenu->addAction(tr("打开场景…"), this, &MainWindow::openScene);
+    m_openSceneAction->setShortcut(QKeySequence::Open);
+
+    // P8：最近场景（QSettings 持久化，最多 kMaxRecentScenes 条；项目态存项目 .shitengine）
     m_recentMenu = fileMenu->addMenu(tr("最近场景"));
     updateRecentMenu();
 
     fileMenu->addSeparator();
-    auto *saveAction = fileMenu->addAction(tr("保存场景"), this, &MainWindow::saveScene);
-    saveAction->setShortcut(QKeySequence::Save);
-    auto *saveAsAction = fileMenu->addAction(tr("场景另存为…"), this, &MainWindow::saveSceneAs);
-    saveAsAction->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_S));
+    m_saveSceneAction = fileMenu->addAction(tr("保存场景"), this, &MainWindow::saveScene);
+    m_saveSceneAction->setShortcut(QKeySequence::Save);
+    m_saveSceneAsAction = fileMenu->addAction(tr("场景另存为…"), this, &MainWindow::saveSceneAs);
+    m_saveSceneAsAction->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_S));
+    fileMenu->addSeparator();
+    m_projectSettingsAction = fileMenu->addAction(tr("项目设置…"), this, &MainWindow::onProjectSettings);
     fileMenu->addSeparator();
     fileMenu->addAction(tr("退出"), this, &QWidget::close);
 
@@ -288,9 +287,16 @@ void MainWindow::createMenus()
     m_redoAction->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Z));
     updateUndoActions();
 
+    // P16：打开代码编辑器（IDE 在项目设置 → 通用 → 代码编辑器 中选择）
+    editMenu->addSeparator();
+    m_openIdeAction = editMenu->addAction(tr("打开代码…"), this, &MainWindow::openIde);
+    m_openIdeAction->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_O));
+    m_openIdeAction->setToolTip(tr("用项目设置中配置的 IDE 打开项目根目录（Ctrl+Shift+O）"));
+
     // P13：视图菜单（布局恢复）
     auto *viewMenu = menuBar()->addMenu(tr("视图"));
     viewMenu->addAction(tr("恢复默认布局"), this, &MainWindow::resetDockLayout);
+    viewMenu->addAction(tr("将当前布局设为默认"), this, &MainWindow::saveLayoutAsDefault);
 
     auto *helpMenu = menuBar()->addMenu(tr("帮助"));
     helpMenu->addAction(tr("关于"), this, &MainWindow::about);
@@ -300,6 +306,8 @@ void MainWindow::newScene()
 {
     Shit::Scene *scene = m_preview ? m_preview->getScene() : nullptr;
     if (!scene) return;
+
+    if (isPlaying()) setPlaying(false);   // 运行中先停止（恢复快照）再操作
 
     if (!confirmDiscardChanges(tr("新建场景")))
         return;
@@ -326,16 +334,21 @@ void MainWindow::newScene()
 
 void MainWindow::openScene()
 {
+    if (isPlaying()) setPlaying(false);   // 运行中先退出再切换场景
     if (!confirmDiscardChanges(tr("打开场景")))
         return;
 
-    const QString path = QFileDialog::getOpenFileName(this, tr("打开场景"), QString(), tr("ShitEngine 场景 (*.scene)"));
+    // P14：项目态默认从项目 Scenes/ 目录挑场景
+    const QString initialDir = hasProject() ? m_project.scenesDir() : QString();
+    const QString path = QFileDialog::getOpenFileName(this, tr("打开场景"), initialDir, tr("ShitEngine 场景 (*.scene)"));
     if (path.isEmpty()) return;
     openScenePath(path);
 }
 
 bool MainWindow::openScenePath(const QString &path)
 {
+    if (isPlaying()) setPlaying(false);   // 运行中先退出（恢复快照），再进入新场景
+
     Shit::Scene *scene = m_preview ? m_preview->getScene() : nullptr;
     if (!scene) return false;
 
@@ -504,8 +517,9 @@ void MainWindow::updateUndoActions()
 {
     if (!m_undoAction || !m_redoAction) return;
     const bool running = isPlaying();
-    m_undoAction->setEnabled(!running && m_undo.canUndo());
-    m_redoAction->setEnabled(!running && m_undo.canRedo());
+    const bool enabled = hasProject() && !running;
+    m_undoAction->setEnabled(enabled && m_undo.canUndo());
+    m_redoAction->setEnabled(enabled && m_undo.canRedo());
 }
 
 void MainWindow::onViewportAssetDropped(const QString &path, float logicalX, float logicalY)
@@ -547,7 +561,10 @@ bool MainWindow::saveScene()
 
 bool MainWindow::saveSceneAs()
 {
-    const QString path = QFileDialog::getSaveFileName(this, tr("保存场景为"), m_scenePath, tr("ShitEngine 场景 (*.scene)"));
+    const QString initialDir = m_scenePath.isEmpty()
+        ? (hasProject() ? m_project.scenesDir() : QString())
+        : QFileInfo(m_scenePath).absolutePath();
+    const QString path = QFileDialog::getSaveFileName(this, tr("保存场景为"), initialDir, tr("ShitEngine 场景 (*.scene)"));
     if (path.isEmpty()) return false;
     return saveSceneTo(path);
 }
@@ -618,13 +635,16 @@ void MainWindow::updateWindowTitle()
         : QFileInfo(m_scenePath).fileName();
     QString title = sceneName;
     if (m_dirty) title += QStringLiteral(" *");
+    // P14：项目态显示项目名
+    if (hasProject())
+        title += QStringLiteral(" - %1").arg(m_project.name());
     title += QStringLiteral(" - ") + tr("ShitEngine 编辑器");
     setWindowTitle(title);
 }
 
 QStringList MainWindow::recentScenes() const
 {
-    QStringList list = m_settings.value("recentScenes").toStringList();
+    QStringList list = stateSettings()->value("recentScenes").toStringList();
     // 剔除已被删除的文件
     list.erase(std::remove_if(list.begin(), list.end(),
         [](const QString &p) { return !QFileInfo::exists(p); }), list.end());
@@ -638,7 +658,7 @@ void MainWindow::addRecentScene(const QString &path)
     list.prepend(path);
     while (list.size() > kMaxRecentScenes)
         list.removeLast();
-    m_settings.setValue("recentScenes", list);
+    stateSettings()->setValue("recentScenes", list);
     updateRecentMenu();
 }
 
@@ -664,13 +684,23 @@ void MainWindow::updateRecentMenu()
 
 void MainWindow::resetDockLayout()
 {
-    const QByteArray def = m_settings.value("dockStateDefault").toByteArray();
+    const QByteArray def = stateSettings()->value("dockStateDefault").toByteArray();
     if (!def.isEmpty()) {
         restoreState(def);
         statusBar()->showMessage(tr("已恢复默认布局"), 2000);
     } else {
         statusBar()->showMessage(tr("当前布局即为默认"), 2000);
     }
+}
+
+/// P17：把当前 Dock 布局存为默认（写入项目 .shitengine/state.ini 或全局注册表的
+/// dockStateDefault；之后「恢复默认布局」即回到当前排列）。
+void MainWindow::saveLayoutAsDefault()
+{
+    QSettings *s = stateSettings();
+    s->setValue("dockStateDefault", saveState(0));
+    s->sync();
+    statusBar()->showMessage(tr("已把当前布局设为默认布局"), 2000);
 }
 
 void MainWindow::about()
@@ -681,11 +711,15 @@ void MainWindow::about()
            "编辑 / 运行 / 切关共用同一加载器。<br><br>"
            "<b>快捷键</b><br>"
            "· Ctrl+N / Ctrl+O / Ctrl+S / Ctrl+Shift+S — 新建 / 打开 / 保存 / 另存为<br>"
+           "· Ctrl+B — 构建脚本（编译 C++ 脚本工程并热重载）<br>"
            "· Ctrl+Z / Ctrl+Shift+Z — 撤销 / 重做<br>"
            "· Q / W / E — Gizmo 移动 / 旋转 / 缩放（Ctrl 吸附）<br>"
            "· F2 — 重命名对象；Del — 删除对象<br>"
-           "· 滚轮缩放视图 / 中键拖拽平移相机<br>"
-           "· ▶ 播放后点击运行视口即可用键鼠驱动游戏<br><br>"
+           "· 滚轮缩放视图 / 中键拖拽平移相机<br><br>"
+           "<b>运行态（Unity 风格）</b><br>"
+           "· ▶ 运行：先编译脚本（若存在）并热加载，再播放逻辑；运行中可改属性<br>"
+           "· ⏸ 暂停 / ⏯ 继续：冻结 / 恢复逻辑，画面保持（不恢复快照）<br>"
+           "· ■ 停止：恢复运行前的场景与属性（运行中的改动全部回退）<br><br>"
            "Dock 布局自动记忆；「视图 → 恢复默认布局」可重置。"));
 }
 
@@ -694,57 +728,517 @@ void MainWindow::createToolbar()
     auto *toolbar = addToolBar(tr("控制"));
     toolbar->setMovable(false);
 
-    // ▶ 播放 / ⏹ 停止：控制预览引擎逻辑运行（默认停止）
-    m_playAction = toolbar->addAction(tr("▶ 播放"));
+    // ▶ 运行 / ■ 停止（Unity 式）：进入运行态先编译脚本并热加载，停止恢复运行前快照。
+    // 运行中可编辑属性/场景；「⏸ 暂停」冻结逻辑但画面保持。
+    m_playAction = toolbar->addAction(tr("▶ 运行"));
     m_playAction->setCheckable(true);
     m_playAction->setChecked(false);
     connect(m_playAction, &QAction::toggled, this, &MainWindow::setPlaying);
 
-    // P11：Gizmo 三模式（移动/旋转/缩放，Q/W/E 快捷键）
-    toolbar->addSeparator();
-    m_gizmoGroup = new QActionGroup(this);
+    // ⏸ 暂停 / 继续（仅运行态可用；与「停止」不同——暂停不恢复快照）
+    m_pauseAction = toolbar->addAction(tr("⏸ 暂停"));
+    m_pauseAction->setCheckable(true);
+    m_pauseAction->setChecked(false);
+    m_pauseAction->setEnabled(false);
+    connect(m_pauseAction, &QAction::toggled, this, &MainWindow::onPauseToggled);
 
-    auto addGizmoAction = [this, toolbar](const QString &text, Qt::Key key,
-                                          Viewport::GizmoMode mode) {
-        auto *act = toolbar->addAction(text);
-        act->setCheckable(true);
+    // P11/P14：Gizmo 三模式工具条已移到场景视口内（左上角，Unity 风格）；
+    // 这里保留窗口级 Q/W/E 快捷键（不可见于任何菜单/工具栏）。
+    auto addGizmoShortcut = [this](Qt::Key key, Viewport::GizmoMode mode) {
+        auto *act = new QAction(this);
         act->setShortcut(QKeySequence(key));
-        act->setChecked(mode == Viewport::GizmoMode::Move);
-        m_gizmoGroup->addAction(act);
         connect(act, &QAction::triggered, this, [this, mode]() {
             if (m_sceneViewport) m_sceneViewport->setGizmoMode(mode);
         });
-        return act;
+        addAction(act);   // 窗口级 action：快捷键生效、UI 不可见
+        m_gizmoShortcutActions.push_back(act);
     };
-    addGizmoAction(tr("移动"), Qt::Key_Q, Viewport::GizmoMode::Move);
-    addGizmoAction(tr("旋转"), Qt::Key_W, Viewport::GizmoMode::Rotate);
-    addGizmoAction(tr("缩放"), Qt::Key_E, Viewport::GizmoMode::Scale);
+    addGizmoShortcut(Qt::Key_Q, Viewport::GizmoMode::Move);
+    addGizmoShortcut(Qt::Key_W, Viewport::GizmoMode::Rotate);
+    addGizmoShortcut(Qt::Key_E, Viewport::GizmoMode::Scale);
 
     // P13：工具栏增补 —— 撤销 / 重做（与菜单共享同一 QAction）
     toolbar->addSeparator();
     toolbar->addAction(m_undoAction);
     toolbar->addAction(m_redoAction);
+
+    // P14：构建脚本（Ctrl+B）→ 编译 C++ 脚本工程并热重载
+    toolbar->addSeparator();
+    m_buildAction = toolbar->addAction(tr("构建脚本"));
+    m_buildAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_B));
+    connect(m_buildAction, &QAction::triggered, this, &MainWindow::onBuildScripts);
 }
 
 void MainWindow::setPlaying(bool playing)
 {
-    if (m_playAction)
-        m_playAction->setText(playing ? tr("⏹ 停止") : tr("▶ 播放"));
-    if (m_preview) m_preview->setPlaying(playing);
-    updateUndoActions();   // 运行态撤销/重做禁用
-    statusBar()->showMessage(playing ? tr("运行中") : tr("已暂停"));
+    if (playing) {
+        // ── 进入运行态 ──
+        // 1) 记录运行前快照（Unity 语义：停止时恢复，运行中的对象/属性改动全部回退）
+        if (!m_hasRunSnapshot) {
+            m_runSnapshot = snapshot();
+            m_hasRunSnapshot = true;
+        }
+        // 2) 有 C++ 脚本工程 + SDK → 先编译（反射扫描）并热加载 DLL，构建成功后才进入运行；
+        //    无脚本/SDK 直接运行（Unity：无脚本也能 Play）
+        const bool withBuild = hasProject() && m_project.hasScripts()
+                               && !m_project.sdkDir().trimmed().isEmpty() && m_scriptBuilder;
+        if (withBuild) {
+            m_playPendingBuild = true;
+            onBuildScripts();
+            if (m_playPendingBuild) return;   // 构建已启动：成功 → onBuildFinished → enterPlayMode
+            // onBuildScripts 前置失败（已弹框提示）→ 取消本次运行请求，按钮复位
+            if (m_playAction) m_playAction->setChecked(false);
+            return;
+        }
+        enterPlayMode();
+    } else {
+        // ── 停止运行（恢复运行前快照）──
+        exitPlayMode();
+    }
+}
+
+void MainWindow::enterPlayMode()
+{
+    if (m_playAction) m_playAction->setText(tr("■ 停止"));
+    if (m_pauseAction) {
+        m_pauseAction->setEnabled(true);
+        m_pauseAction->setChecked(false);   // 默认运行（未暂停）
+    }
+    // P14：运行态自动抓取键盘（无需先点击运行视口），并释放 Gizmo 快捷键
+    // （Q/W/E 是窗口级 QShortcut，会抢在游戏输入前消费按键——W 既是前进键
+    // 又是旋转 Gizmo 快捷键，运行中必须交给游戏）。工具栏按钮随之禁用，
+    // 运行中切工具请用鼠标点击（停止后自动恢复）。
+    m_gameViewport->grabKeyboard();
+    for (QAction *a : m_gizmoShortcutActions) a->setEnabled(false);   // 运行态释放 Q/W/E 给游戏
+    if (m_preview) {
+        // Unity 式「每次运行从头开始」：时钟归零 + Behavior 重新 onStart + 清键鼠残留
+        if (m_preview->context()) {
+            Shit::EngineContext::setCurrent(m_preview->context());
+            applyInputMappingsToEngine();   // P15：播放前刷新输入映射（改键无需重开）
+            Shit::Time::ResetTotalTime();
+            Shit::Input::ResetState();
+            if (auto *scene = Shit::SceneManager::GetCurrentScene())
+                if (auto *bs = scene->getSystem<Shit::BehaviorSystem>())
+                    bs->resetAllBehaviors();
+        }
+        m_preview->setPlaying(true);
+    }
+    updateUndoActions();
+    statusBar()->showMessage(tr("运行中"));
+}
+
+void MainWindow::exitPlayMode()
+{
+    if (m_playAction) m_playAction->setText(tr("▶ 运行"));
+    if (m_pauseAction) {
+        m_pauseAction->setChecked(false);
+        m_pauseAction->setEnabled(false);
+    }
+    m_gameViewport->releaseKeyboard();   // 释放键盘捕获（编辑器快捷键恢复）
+    for (QAction *a : m_gizmoShortcutActions) a->setEnabled(true);   // 恢复 Gizmo 快捷键
+    if (m_preview) m_preview->setPlaying(false);   // 引擎逻辑冻结
+    // 恢复运行前快照：运行期间的属性/对象改动全部回退（保留编辑器相机）
+    if (m_hasRunSnapshot && !m_runSnapshot.empty())
+        applySnapshot(m_runSnapshot);
+    m_hasRunSnapshot = false;
+    m_playPendingBuild = false;
+    updateUndoActions();
+    statusBar()->showMessage(tr("已停止（恢复运行前状态）"), 2500);
+}
+
+void MainWindow::onPauseToggled(bool paused)
+{
+    if (m_preview) m_preview->setPlaying(!paused);
+    statusBar()->showMessage(m_playAction && m_playAction->isChecked()
+        ? (paused ? tr("已暂停（⏸）") : tr("运行中"))
+        : tr("未在运行"), 2000);
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
+    if (isPlaying()) setPlaying(false);   // 退出前先结束运行（恢复运行前快照）
     if (confirmDiscardChanges(tr("退出编辑器"))) {
-        // P13：退出前记忆 Dock 布局与窗口几何（下次启动恢复）
-        m_settings.setValue("dockState", saveState(0));
-        m_settings.setValue("windowGeometry", saveGeometry());
+        // P13/P14：退出前记忆 Dock 布局与窗口几何（存当前项目 .shitengine/state.ini 或全局）
+        saveProjectState();
         event->accept();
     } else {
         event->ignore();
     }
+}
+
+// ═════════════════════════ P14 项目系统 ═════════════════════════
+
+void MainWindow::newProject()
+{
+    if (!confirmDiscardChanges(tr("新建项目")))
+        return;
+
+    ProjectWizard wizard(this);
+    if (wizard.exec() != QDialog::Accepted)
+        return;
+
+    const QString root = wizard.rootDir();
+    if (root.isEmpty()) return;
+    if (QFileInfo::exists(root)) {
+        m_log->appendMessage(tr("新建项目失败：目录已存在，不会覆盖 — %1").arg(root), Qt::red);
+        QMessageBox::warning(this, tr("新建项目"), tr("所选项目目录已存在：\n%1\n\n为防止误覆盖，请更换项目名或位置。").arg(root));
+        return;
+    }
+
+    Project project;
+    if (!project.create(root, wizard.projectName(), wizard.sdkDir(), wizard.withScripts())) {
+        m_log->appendMessage(tr("新建项目失败：%1").arg(project.error()), Qt::red);
+        QMessageBox::warning(this, tr("新建项目"), project.error());
+        return;
+    }
+
+    // 全局记忆：SDK 目录 + 父目录（供下次向导预填）
+    m_settings.setValue("lastSdkDir", wizard.sdkDir());
+    m_settings.setValue("lastProjectParentDir", QFileInfo(root).absolutePath());
+
+    enterProject(project);
+    m_log->appendMessage(tr("项目已创建：%1").arg(project.name()));
+}
+
+void MainWindow::openProject()
+{
+    const QString dir = ProjectWizard::pickProjectRoot(this);
+    if (!dir.isEmpty())
+        openProjectPath(dir);
+}
+
+void MainWindow::closeProject()
+{
+    if (!hasProject()) return;
+    if (isPlaying()) setPlaying(false);   // 先退出运行（恢复快照）
+    if (!confirmDiscardChanges(tr("关闭项目")))
+        return;
+    closeProjectInternal();
+}
+
+bool MainWindow::openProjectPath(const QString &path, bool silent)
+{
+    if (isPlaying()) setPlaying(false);   // 运行中先退出再做项目切换
+    if (!silent && !confirmDiscardChanges(tr("打开项目")))
+        return false;
+
+    Project project;
+    if (!project.open(path)) {
+        m_log->appendMessage(project.error(), Qt::red);
+        if (!silent)
+            QMessageBox::warning(this, tr("打开项目"), project.error());
+        return false;
+    }
+
+    enterProject(project);
+    return true;
+}
+
+void MainWindow::enterProject(const Project &project)
+{
+    // 1) 保存旧状态（布局/几何 → 当前 settings 目标：旧项目 state.ini 或全局）
+    saveProjectState();
+
+    // 2) 切换项目：状态持久化迁到项目 .shitengine/state.ini（IniFormat）
+    delete m_projectSettings;
+    m_projectSettings = nullptr;
+    m_project = project;
+    m_projectSettings = new QSettings(project.stateFilePath(), QSettings::IniFormat);
+    m_projectSettings->setFallbacksEnabled(false);   // 项目态独立于注册表
+
+    // 3) 恢复项目布局/几何（无保存值则保持现状）
+    {
+        const QByteArray layout = m_projectSettings->value("dockState").toByteArray();
+        if (!layout.isEmpty()) restoreState(layout);
+        const QByteArray geo = m_projectSettings->value("windowGeometry").toByteArray();
+        if (!geo.isEmpty()) restoreGeometry(geo);
+    }
+
+    // 4) 资源面板绑定项目 Assets/；最近场景切到项目级列表
+    m_assets->applyProjectDir(project.assetsDir());
+    updateRecentMenu();
+
+    // 5) 插件 + 场景：卸载旧插件（项目脚本库）→ 加载本项目插件 → 载入项目场景
+    if (m_preview && m_preview->isRunning()) {
+        m_preview->loadProjectConfig(project.configPath());
+        applyInputMappingsToEngine();   // 项目输入映射 → 引擎（播放直接用项目按键设置）
+
+        const QString scene = project.scenePath();
+        if (!scene.isEmpty() && QFileInfo::exists(scene)) {
+            if (!openScenePath(scene))
+                m_log->appendMessage(tr("项目场景损坏或无法载入：%1").arg(scene), Qt::red);
+        } else {
+            // 首次进入：清成双相机空场景并落盘为 Main.scene（引擎序列化保证格式正确）
+            resetToEmptyScene();
+            const QString freshScene = project.scenesDir() + "/Main.scene";
+            if (saveSceneTo(freshScene)) {
+                m_project.setScenePath(m_scenePath);
+                m_project.saveConfig();
+            }
+        }
+    }
+
+    // 6) 全局记忆 + 最近项目（跨项目共享）
+    m_settings.setValue("lastProjectDir", project.rootDir());
+    addRecentProject(project.rootDir());
+    m_settings.sync();
+
+    // 7) 标题 / 菜单可用性
+    updateProjectMenus();
+    updateWindowTitle();
+    statusBar()->showMessage(tr("已打开项目：%1").arg(project.name()), 3000);
+}
+
+void MainWindow::closeProjectInternal()
+{
+    if (!hasProject()) return;
+    saveProjectState();   // 布局/几何 → 项目 .shitengine/state.ini
+
+    // 卸载项目插件前先清场景（组件析构调用 DLL 内代码，必须在 FreeLibrary 前完成）
+    if (m_preview) m_preview->unloadPlugins();
+    resetToEmptyScene();
+
+    delete m_projectSettings;
+    m_projectSettings = nullptr;
+    m_project = Project();
+
+    m_assets->applyProjectDir(m_settings.value("projectDir").toString());
+    updateRecentMenu();          // 最近场景回退到全局列表
+    updateProjectMenus();
+    updateWindowTitle();
+    statusBar()->showMessage(tr("项目已关闭"), 3000);
+}
+
+QSettings *MainWindow::stateSettings() const
+{
+    return m_projectSettings ? m_projectSettings : const_cast<QSettings *>(&m_settings);
+}
+
+void MainWindow::saveProjectState()
+{
+    stateSettings()->setValue("dockState", saveState(0));
+    stateSettings()->setValue("windowGeometry", saveGeometry());
+    stateSettings()->sync();
+}
+
+QStringList MainWindow::recentProjects() const
+{
+    QStringList list = m_settings.value("recentProjects").toStringList();
+    // 剔除已删除的目录
+    list.erase(std::remove_if(list.begin(), list.end(),
+        [](const QString &p) { return !QFileInfo::exists(p + "/config.json"); }), list.end());
+    return list;
+}
+
+void MainWindow::addRecentProject(const QString &path)
+{
+    QStringList list = recentProjects();
+    list.removeAll(path);
+    list.prepend(path);
+    while (list.size() > kMaxRecentProjects)
+        list.removeLast();
+    m_settings.setValue("recentProjects", list);
+    updateRecentProjectsMenu();
+}
+
+void MainWindow::updateRecentProjectsMenu()
+{
+    if (!m_recentProjectsMenu) return;
+    m_recentProjectsMenu->clear();
+
+    const QStringList recents = recentProjects();
+    if (recents.isEmpty()) {
+        m_recentProjectsMenu->addAction(tr("（空）"))->setEnabled(false);
+        return;
+    }
+    for (const QString &path : recents) {
+        auto *act = m_recentProjectsMenu->addAction(QFileInfo(path).fileName());
+        act->setToolTip(path);
+        connect(act, &QAction::triggered, this, [this, path]() {
+            openProjectPath(path);
+        });
+    }
+}
+
+void MainWindow::onProjectSettings()
+{
+    if (!hasProject()) return;
+
+    ProjectSettingsDialog dialog(m_project, this);
+    if (dialog.exec() != QDialog::Accepted) return;
+
+    const QString sdk = m_project.sdkDir();
+    dialog.applyToProject();                 // 写回 SDK / 启动场景 / inputMappings
+    m_project.saveConfig();
+    m_settings.setValue("lastSdkDir", sdk);   // 全局记忆：下次新建项目向导预填
+    applyInputMappingsToEngine();             // 输入映射立即生效（播放中也热更新）
+    m_log->appendMessage(sdk.isEmpty()
+        ? tr("项目设置已更新（输入映射已生效）")
+        : tr("项目设置已更新：输入映射已生效，SDK 目录 %1").arg(sdk));
+}
+
+void MainWindow::openIde()
+{
+    if (!hasProject()) return;
+
+    const QString ide = m_project.ideExePath();
+    if (ide.isEmpty()) {
+        QMessageBox::information(this, tr("打开代码"),
+            tr("尚未配置代码编辑器。\n\n"
+               "请通过「文件 → 项目设置… → 通用 → 代码编辑器」选择已安装的 IDE（本机可自动探测），保存后即可一键打开。"));
+        return;
+    }
+
+    const IdeInfo info{ QFileInfo(ide).fileName(), ide };
+    QString err;
+    if (startIdeProject(info, m_project.rootDir(), &err)) {
+        m_log->appendMessage(tr("已启动代码编辑器 %1，打开项目：%2")
+            .arg(info.name, m_project.rootDir()));
+    } else {
+        m_log->appendMessage(err, Qt::red);
+        QMessageBox::warning(this, tr("打开代码"), err);
+    }
+}
+
+/// 把项目 config.json 的 inputMappings 推入引擎（P15）：
+/// Config::loadFromJson 只替换 inputMappings 段（整体清空重载），随后
+/// Input::InitMappings 重新编译绑定——未映射时传空对象等价于清空全部绑定。
+void MainWindow::applyInputMappingsToEngine()
+{
+    if (!m_preview || !m_preview->context()) return;
+    Shit::EngineContext::setCurrent(m_preview->context());
+    Shit::Config::GetInstance().loadFromJson(
+        { { "inputMappings", m_project.inputMappings() } });
+    Shit::Input::InitMappings();
+}
+
+void MainWindow::onBuildScripts()
+{
+    if (!hasProject()) return;
+    if (!m_scriptBuilder) return;
+    // 运行中手动构建：先退出运行（Unity 语义：运行中不编译）。
+    // 注意：由「▶ 运行」发起的构建（m_playPendingBuild）不能在这里退出——
+    // 否则按钮被弹回、m_playPendingBuild 被清，构建完成后不会进入运行态。
+    if (isPlaying() && !m_playPendingBuild) setPlaying(false);
+    if (m_scriptBuilder->isBuilding()) {
+        statusBar()->showMessage(tr("构建进行中…"), 1500);
+        return;
+    }
+    if (!m_project.hasScripts()) {
+        m_playPendingBuild = false;   // 「▶ 运行」的构建请求取消（下方弹框已提示）
+        QMessageBox::information(this, tr("构建脚本"),
+            tr("当前项目没有 C++ 脚本工程（%1 不存在）。\n"
+               "请使用「新建项目」时勾选脚本工程，或在项目目录下手动创建。")
+                .arg(m_project.scriptsDir() + "/CMakeLists.txt"));
+        return;
+    }
+    if (m_project.sdkDir().trimmed().isEmpty()) {
+        m_playPendingBuild = false;   // 「▶ 运行」的构建请求取消（下方弹框已提示）
+        QMessageBox::information(this, tr("构建脚本"),
+            tr("尚未配置引擎 SDK 目录。\n请先通过「文件 → 项目设置…」指定 SDK（cmake --install 的安装目录）。"));
+        return;
+    }
+
+    // 热重载用内存 JSON 快照恢复场景（preview 内部完成），无需先保存到磁盘
+    m_log->appendMessage(tr("──── 构建脚本开始 ────"));
+    m_scriptBuilder->build(m_project.scriptsDir(), m_project.buildDir(),
+                           m_project.sdkDir(), m_project.binDir());
+    statusBar()->showMessage(tr("正在构建脚本…"));
+}
+
+void MainWindow::onBuildFinished(bool success)
+{
+    if (!success) {
+        // 构建失败：若正在等待「运行」→ 取消运行（按钮复位）
+        if (m_playPendingBuild) {
+            m_playPendingBuild = false;
+            if (m_playAction) m_playAction->setChecked(false);
+        }
+        statusBar()->showMessage(tr("构建失败（详见日志面板）"), 4000);
+        return;
+    }
+    if (!m_preview || !m_preview->isRunning()) return;
+
+    // 构建成功：产物在 build/out/（MSBuild 写临时目录，避开编辑器对 bin/ DLL 的占用）
+    const QString srcDll = m_project.buildOutDir() + "/" + m_project.pluginDllFileName();
+    const QString dstDll = m_project.pluginDllPath();
+if (!QFile::exists(srcDll)) {
+        m_log->appendMessage(tr("构建产物缺失（%1）——未重载 DLL").arg(srcDll), Qt::red);
+        return;
+    }
+
+    // 热重载：reload 内部先卸载旧 DLL（释放文件锁）→ 回调中覆盖拷贝新 DLL → 重新加载
+    const bool reloaded = m_preview->reloadProjectPlugins(
+        m_project.configPath(),
+        [this, srcDll, dstDll]() -> bool {
+            if (QFile::exists(dstDll) && !QFile::remove(dstDll)) {
+                m_log->appendMessage(tr("无法替换旧 DLL（仍被占用）：%1").arg(dstDll), Qt::red);
+                return false;
+            }
+            if (!QFile::copy(srcDll, dstDll)) {
+                m_log->appendMessage(tr("DLL 复制失败：%1 → %2").arg(srcDll, dstDll), Qt::red);
+                return false;
+            }
+            return true;
+        });
+    if (reloaded) {
+        // 场景被重建（对象全部换新）→ 先清旧选中态再重挂树/检查器
+        m_inspector->setGameObject(nullptr);
+        m_sceneViewport->setSelectedObject(nullptr);
+        m_sceneTree->setScene(m_preview->getScene());
+        m_sceneViewport->setEditScene(m_preview->getScene());
+        m_savedSnapshot = snapshot();
+        refreshDirtyFromSaved();
+        statusBar()->showMessage(tr("脚本已重载"), 3000);
+    } else {
+        m_log->appendMessage(tr("热重载失败：插件加载异常（详见日志）"), Qt::red);
+    }
+
+    // 由「▶ 运行」触发的构建：成功后热重载完毕 → 进入运行态
+    if (m_playPendingBuild) {
+        m_playPendingBuild = false;
+        enterPlayMode();
+    }
+}
+
+void MainWindow::updateProjectMenus()
+{
+    const bool enabled = hasProject();
+    if (m_newSceneAction)  m_newSceneAction->setEnabled(enabled);
+    if (m_openSceneAction) m_openSceneAction->setEnabled(enabled);
+    if (m_saveSceneAction) m_saveSceneAction->setEnabled(enabled);
+    if (m_saveSceneAsAction) m_saveSceneAsAction->setEnabled(enabled);
+    if (m_closeProjectAction) m_closeProjectAction->setEnabled(enabled);
+    if (m_projectSettingsAction) m_projectSettingsAction->setEnabled(enabled);
+    if (m_openIdeAction) m_openIdeAction->setEnabled(enabled);
+    if (m_buildAction) m_buildAction->setEnabled(enabled);
+    if (m_playAction) m_playAction->setEnabled(enabled);
+    for (QAction *a : m_gizmoShortcutActions) a->setEnabled(enabled);
+    if (m_recentMenu) m_recentMenu->setEnabled(enabled);
+    updateUndoActions();   // 撤销/重做可用性同样受项目态约束
+}
+
+void MainWindow::resetToEmptyScene()
+{
+    Shit::Scene *scene = m_preview ? m_preview->getScene() : nullptr;
+    if (!scene) return;
+
+    // 先收集再删（编辑器下 removeGameObject 当场删，迭代中不能删）
+    std::vector<Shit::GameObject *> toRemove;
+    for (auto &go : scene->getGameObjects()) {
+        const std::string name = go->getName();
+        if (name != "scene_camera" && name != "game_camera")
+            toRemove.push_back(go.get());
+    }
+    for (auto *go : toRemove)
+        scene->removeGameObject(go);
+
+    m_scenePath.clear();
+    m_undo.clear();
+    m_savedSnapshot = snapshot();
+    refreshDirtyFromSaved();
+    updateUndoActions();
+    m_sceneTree->setScene(scene);
 }
 
 bool MainWindow::eventFilter(QObject *watched, QEvent *event)
@@ -762,7 +1256,10 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
         case QEvent::KeyPress:
         case QEvent::KeyRelease: {
             auto *ke = static_cast<QKeyEvent *>(event);
-            const SDL_Scancode sc = qtKeyToSDLScancode(ke->key());
+            // 组合键（Ctrl+…）保留给编辑器快捷键（Ctrl+S 保存等），不转发给游戏
+            if (ke->modifiers() & Qt::ControlModifier)
+                return false;
+            const SDL_Scancode sc = sdlScancodeForQtKey(ke->key());
             if (sc == SDL_SCANCODE_UNKNOWN) return false;
             SDL_Event ev{};
             ev.type = (event->type() == QEvent::KeyPress) ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;

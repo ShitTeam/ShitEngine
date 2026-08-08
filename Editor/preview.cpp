@@ -7,6 +7,9 @@
 #include <ShitEngine/Core/EngineContext.h>
 #include <ShitEngine/Core/Log.h>
 #include <ShitEngine/Plugin/PluginManager.h>
+#include <ShitEngine/Scene/SceneSerializer.h>
+
+#include <nlohmann/json.hpp>
 
 EnginePreview::EnginePreview(QObject *parent)
     : QObject(parent)
@@ -96,6 +99,106 @@ Shit::Scene *EnginePreview::getScene()
     return Shit::SceneManager::GetCurrentScene();
 }
 
+bool EnginePreview::loadProjectConfig(const QString &configPath)
+{
+    if (!m_running || !m_context) return false;
+    Shit::EngineContext::setCurrent(m_context.get());
+
+    clearSceneObjects();
+    if (m_plugins) m_plugins->UnloadAll();
+    m_plugins = std::make_unique<Shit::PluginManager>();
+
+    if (!QFile::exists(configPath)) {
+        ST_CORE_INFO("[Preview] 无插件配置文件（仅卸载旧插件）: {}", configPath.toStdString());
+        return true;
+    }
+    m_plugins->LoadFromConfig(configPath.toStdString());
+    m_plugins->RegisterAllTypes();
+    return true;
+}
+
+void EnginePreview::unloadPlugins()
+{
+    if (!m_running || !m_context) return;
+    Shit::EngineContext::setCurrent(m_context.get());
+
+    clearSceneObjects();
+    if (m_plugins) m_plugins->UnloadAll();
+    m_plugins = std::make_unique<Shit::PluginManager>();
+}
+
+void EnginePreview::clearSceneObjects()
+{
+    auto *scene = Shit::SceneManager::GetCurrentScene();
+    if (!scene) return;
+    // 先收集再删（removeGameObject 当场 erase，不能边遍历边删）
+    std::vector<Shit::GameObject *> all;
+    for (auto &go : scene->getGameObjects()) {
+        if (go->getName() != "scene_camera")
+            all.push_back(go.get());
+    }
+    for (auto *go : all)
+        scene->removeGameObject(go);
+}
+
+bool EnginePreview::reloadProjectPlugins(const QString &configPath,
+                                         const std::function<bool()> &onDllReplaced)
+{
+    if (!m_running || !m_context) return false;
+    Shit::EngineContext::setCurrent(m_context.get());
+
+    auto *scene = Shit::SceneManager::GetCurrentScene();
+    if (!scene) return false;
+
+    // 1) 场景全量快照（含编辑器相机：恢复后编辑视点不丢）
+    nlohmann::json snapshot;
+    try {
+        snapshot = Shit::SceneSerializer::toJson(scene);
+    } catch (const std::exception &e) {
+        ST_CORE_ERROR("[Preview] 热重载快照失败: {}", e.what());
+        return false;
+    }
+
+    // 2) 销毁场景对象（组件析构调用旧 DLL 代码，必须在 FreeLibrary 前完成）
+    clearSceneObjects();
+
+    // 3) 卸载旧插件 → 释放 DLL 文件锁
+    if (m_plugins) m_plugins->UnloadAll();
+    m_plugins = std::make_unique<Shit::PluginManager>();
+
+    // 4) 文件替换回调（复制新 DLL 覆盖 bin/；此时旧 DLL 已无锁）
+    if (onDllReplaced && !onDllReplaced()) {
+        ST_CORE_ERROR("[Preview] 热重载：DLL 替换失败，已恢复原场景（未加载新插件）");
+        try {
+            Shit::SceneSerializer::fromJson(snapshot, scene);
+        } catch (const std::exception &e) {
+            ST_CORE_ERROR("[Preview] 热重载失败后场景恢复又失败: {}", e.what());
+        }
+        refreshCameras();
+        return false;
+    }
+
+    // 5) 加载新 DLL + 注册反射类型
+    if (!QFile::exists(configPath)) {
+        ST_CORE_WARN("[Preview] 热重载：项目配置不存在，仅卸载插件: {}", configPath.toStdString());
+        return true;
+    }
+    m_plugins->LoadFromConfig(configPath.toStdString());
+    m_plugins->RegisterAllTypes();
+
+    // 6) 从快照恢复场景（相机兜底：快照内含相机，不会新增）
+    try {
+        Shit::SceneSerializer::fromJson(snapshot, scene);
+    } catch (const std::exception &e) {
+        ST_CORE_ERROR("[Preview] 热重载场景恢复失败: {}", e.what());
+        return false;
+    }
+
+    refreshCameras();
+    ST_CORE_INFO("[Preview] 热重载完成：插件已替换，场景已恢复（{} 个对象）", scene->getGameObjects().size());
+    return true;
+}
+
 void EnginePreview::setPlaying(bool playing)
 {
     if (!m_context) return;
@@ -153,4 +256,10 @@ void EnginePreview::tick()
         emit sceneFrameReady(image.copy());
     }
     Shit::Renderer::EndOffscreen();
+
+    // 收尾复位：编辑 pass 结束后把 game_camera 恢复为启用。否则保存场景时若恰好
+    // 处于禁用态（双 pass 竞态），会被序列化成禁用相机，下次加载触发兜底，
+    // 甚至新建第二个 game_camera 导致对象渲染双份。编辑器相机不入库，无需复位。
+    m_gameCam->setEnabled(true);
+    m_editorCam->setEnabled(false);
 }

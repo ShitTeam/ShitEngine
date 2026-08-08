@@ -11,13 +11,17 @@ class QWheelEvent;
 class QDragEnterEvent;
 class QDragMoveEvent;
 class QDropEvent;
+class QResizeEvent;
+class QToolButton;
+class QButtonGroup;
 
 namespace Shit { class Scene; class GameObject; class CameraComponent; }
 
 /// 场景视口：显示引擎离屏渲染结果，支持场景视图编辑器交互：
 ///   - 点击拾取（logicalClicked）
 ///   - 中键拖拽平移编辑器相机，滚轮缩放
-///   - 选中对象上的 Gizmo（移动/旋转/缩放三模式，Q/W/E 或工具栏切换）
+///   - 选中对象上的 Gizmo（移动/旋转/缩放三模式）
+///   - 视图内左上角工具条切换 Gizmo 模式（Unity 风格；Q/W/E 快捷键另行注册）
 class Viewport : public QWidget
 {
     Q_OBJECT
@@ -36,9 +40,12 @@ public:
     /// 设置选中对象（在其上绘制 Gizmo）
     void setSelectedObject(Shit::GameObject *object);
 
-    /// 切换 Gizmo 模式（移动/旋转/缩放）
-    void setGizmoMode(GizmoMode mode) { m_gizmoMode = mode; update(); }
+    /// 切换 Gizmo 模式（移动/旋转/缩放；同步视图内工具条选中态）
+    void setGizmoMode(GizmoMode mode) { m_gizmoMode = mode; syncGizmoBar(); update(); }
     GizmoMode gizmoMode() const { return m_gizmoMode; }
+
+    /// 是否显示视图内 Gizmo 工具条（运行视口为 false——运行态无编辑，按钮徒增干扰）
+    void setGizmoBarVisible(bool visible) { if (m_gizmoBar) m_gizmoBar->setVisible(visible); }
 
     /// 控件坐标 → 逻辑像素坐标（播放态输入转发等外部使用）
     QPointF mapToLogical(const QPoint &pos) const { return widgetToLogical(pos); }
@@ -55,6 +62,7 @@ signals:
 
 protected:
     void paintEvent(QPaintEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
@@ -75,7 +83,7 @@ private:
     /// 点到线段距离（Gizmo 手柄命中判定）
     static float distToSegment(const QPointF &p, const QPointF &a, const QPointF &b);
 
-    enum class DragMode { None, GizmoX, GizmoY, Rotate, ScaleX, ScaleY, Pan };
+    enum class DragMode { None, GizmoX, GizmoY, Move, Rotate, ScaleX, ScaleY, Pan };
     DragMode m_drag = DragMode::None;
     QPoint m_dragStartWidget;       ///< 拖动起点（控件坐标）
     float m_dragStartPosX = 0.0f;   ///< 对象拖动前世界位置
@@ -92,6 +100,17 @@ private:
     Shit::Scene *m_editScene = nullptr;
     Shit::GameObject *m_selected = nullptr;
     GizmoMode m_gizmoMode = GizmoMode::Move;
+
+    // P14：视图内 Gizmo 工具条（左上角，Unity 风格）
+    QWidget *m_gizmoBar = nullptr;
+    QButtonGroup *m_gizmoBarGroup = nullptr;
+    QToolButton *m_gizmoMoveBtn = nullptr;
+    QToolButton *m_gizmoRotateBtn = nullptr;
+    QToolButton *m_gizmoScaleBtn = nullptr;
+
+    /// 构建左上角工具条（构造时调用）；setGizmoMode 同步按钮选中态
+    void setupGizmoBar();
+    void syncGizmoBar();
 };
 
 #endif // VIEWPORT_H

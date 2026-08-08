@@ -1,5 +1,8 @@
 <RCC>
     <qresource prefix="/">
         <file>resources/logo.png</file>
+        <file>templates/scripts/CMakeLists.txt.in</file>
+        <file>templates/scripts/plugin_export.cpp.in</file>
+        <file>templates/scripts/Behaviors.h.in</file>
     </qresource>
 </RCC>

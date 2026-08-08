@@ -41,6 +41,10 @@ build_prefab/
 CLAUDE.md
 AGENTS.md
 
+# P14 项目系统：规划/设计文档不入库（Editor/plans/），.shitengine 为项目私有状态目录
+Editor/plans/
+.shitengine/
+
 # 调试残留（ReflectionScanner 开发期临时文件）
 test_marker.h
 test_regex.cpp

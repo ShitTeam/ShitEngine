@@ -24,13 +24,15 @@ signals:
     /// 双击 .scene 文件请求打开
     void sceneOpenRequested(const QString &path);
 
+public slots:
+    /// 切换到指定目录（P14：打开项目时绑定项目 Assets/；仍可手动浏览其它目录）
+    void applyProjectDir(const QString &dir);
+
 private slots:
     void browse();
     void onDirEdited();
 
 private:
-    void applyProjectDir(const QString &dir);
-
     QLineEdit *m_dirEdit = nullptr;
     QTreeView *m_view = nullptr;
     QFileSystemModel *m_model = nullptr;

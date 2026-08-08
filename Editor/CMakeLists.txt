@@ -33,6 +33,18 @@ set(PROJECT_SOURCES
         undostack.h
         assetsdock.cpp
         assetsdock.h
+        project.cpp
+        project.h
+        projectwizard.cpp
+        projectwizard.h
+        projectsettingsdialog.cpp
+        projectsettingsdialog.h
+        idefinder.cpp
+        idefinder.h
+        keys.cpp
+        keys.h
+        scriptbuilder.cpp
+        scriptbuilder.h
         resources.qrc
 )
 

@@ -1,0 +1,40 @@
+// {{PROJECT_NAME}} 插件入口（ShitEngine 插件 ABI v2）
+// 引擎 / 编辑器通过 LoadLibrary + GetProcAddress 调用以下导出函数：
+// 插件 = 脚本库：只注册反射类型（自定义 Behavior / 组件类），场景完全来自 .scene 文件。
+//
+// 由 ShitEngine 编辑器项目系统生成；改动后点「Build Scripts」重新编译即可热加载。
+
+#include <ShitEngine.h>
+
+// 插件反射类型注册（由 ReflectionScanner 自动扫描生成）
+#include "reflection/ReflectionRegisterAll.h"
+
+// 跨平台导出宏：Windows 用 __declspec(dllexport)，Linux/macOS 用 visibility 属性
+#if defined(_WIN32)
+    #define SHIT_PLUGIN_EXPORT __declspec(dllexport)
+#else
+    #define SHIT_PLUGIN_EXPORT __attribute__((visibility("default")))
+#endif
+
+// ── 插件 ABI 版本（须与引擎 PluginManager::kAbiVersion 一致）──
+extern "C" SHIT_PLUGIN_EXPORT
+int GetPluginABIVersion() {
+    return Shit::PluginManager::kAbiVersion;
+}
+
+// ── 插件元信息 ──────────────────────────────────────────
+extern "C" SHIT_PLUGIN_EXPORT
+const char* GetPluginName() {
+    return "{{PLUGIN_NAME}}";
+}
+
+extern "C" SHIT_PLUGIN_EXPORT
+const char* GetPluginVersion() {
+    return "{{PLUGIN_VERSION}}";
+}
+
+// ── 注册插件反射类型（在 Game::Init() 之后由 PluginManager 调用）──
+extern "C" SHIT_PLUGIN_EXPORT
+void RegisterPluginTypes() {
+    RegisterAllReflectedTypes();
+}

@@ -9,7 +9,27 @@
 
 ### 新增
 
-- **产品化打磨（P13，纯编辑器）**：
+- **打开代码编辑器（P16，编辑器）**：
+  - 「编辑 → 打开代码…」（`Ctrl+Shift+O`）：用项目设置中配置的 IDE 打开项目根目录
+  - IDE 在「文件 → 项目设置… → 通用 → 代码编辑器」下拉中选择：自动探测本机已安装的 Visual Studio Code / Visual Studio（vswhere 查询 + 常见路径回退）/ CLion（Toolbox 与传统安装）/ Qt Creator，也可「浏览…」手动指定任意 exe（存 `config.json` 的 `editor.ideExe`；未配置时菜单给出引导提示）
+  - 新建项目（含脚本工程）模板补根 `CMakeLists.txt`（`project(name)` + `add_subdirectory(Scripts)`）：CLion / Visual Studio 打开项目根目录即得完整 CMake 工程；不影响现有构建流程
+- **项目设置页（P15，引擎 + 编辑器）**：
+  - 编辑器「文件 → 项目设置…」由单字段 SDK 输入框升级为设置对话框（`Editor/projectsettingsdialog.*`）：**通用页**（项目名称 / SDK 目录 / 启动场景下拉选择，写 config.json 的 `scene` 字段）+ **输入页**（动作与轴的按键映射编辑：点击键名按钮进入「按下任意键」捕获窗，支持多键与鼠标键、行内增删、重复键冲突警告后确认保存）
+  - 输入映射持久化到项目 `config.json` 的 `inputMappings` 段（与引擎 `settings.json` 同构）；引擎 `Config::init()` 合并读取同目录 `config.json` 的 `inputMappings`（覆盖 settings.json）——独立 Runtime 与编辑器播放共用同一套按键映射；无 config.json 行为不变
+  - 编辑器即时生效：打开项目 / 进入播放 / 保存设置时 `Config::loadFromJson` + `Input::InitMappings()` 热重编译（播放中改键立即生效）；新建项目模板默认附带映射（Jump=Space、Sprint=Left Shift、Horizontal=A/D、Vertical=S/W）
+  - 键码工具收敛到 `Editor/keys.*`（Qt→SDL 映射自 `mainwindow` 迁出，显示名 / 转发名 / 存储名统一）
+- **项目系统（P14，引擎 + 编辑器）**：
+  - 编辑器「文件 → 新建项目…」向导（名称/位置/SDK 目录/脚本工程选项）与「打开项目…」（含最近项目列表、启动自动恢复上次项目）；项目配置 `config.json`（`engine.sdkDir` / `plugins` / `scene`，相对路径）
+  - 项目私有状态迁移到 `<项目>/.shitengine/state.ini`（Qt IniFormat）：Dock 布局 / 窗口几何 / 最近场景随项目走，无项目回退全局注册表（`lastProjectDir`/`lastSdkDir`/`recentProjects` 仍全局）
+  - C++ 脚本工程生成（`Editor/templates/`）：`Scripts/CMakeLists.txt`（`find_package(ShitEngine CONFIG)` + 反射扫描）与 `plugin_export.cpp`/`Behaviors.h` 骨架；「构建脚本」`Ctrl+B` → 异步 `cmake` 配置 + 编译（SDK 编译器自动探测：MSVC → VS 2022/2026 生成器候选逐个尝试，MinGW → Ninja），DLL 输出到项目 `bin/`
+  - 热重载（`EnginePreview::reloadProjectPlugins`）：场景 JSON 快照 → 销毁对象（旧 DLL 代码析构完）→ 卸载插件 → 重载 DLL → 注册 → 快照恢复；编辑器现场不清空，Ctrl+B 循环开发无需重启
+  - 修复构建覆盖失败（LNK1104-1 文件占用）：脚本工程产物输出到 `build/out/`，构建成功后 `reloadProjectPlugins` 先卸旧 DLL（释放文件锁）→ 回调替换 `bin/` → 再加载新 DLL；构建失败不影响已加载的旧插件
+  - 修复移动 Gizmo 无法拖拽（P11 遗留）：`viewport` 的 Move 模式命中检测缺失（`DragMode::GizmoX/GizmoY` 从未赋值）——补 X/Y 轴手柄与中心方块整体拖（`DragMode::Move`）
+  - 修复运行视图对象渲染双份：编辑器双 pass 渲染轮流改相机 `enabled`，保存恰好落在禁用态 → `game_camera` 被序列化为禁用 → 下次加载 `ensureDefaultCamera` 兜底新建重复相机 → 同画面渲染两遍。修复：tick 收尾把 `game_camera` 复位为启用；`SceneSerializer` 兜底时若存在同名 `game_camera` 相机则**启用复用**而非新建（旧文件自动自愈）
+  - **运行态（Unity 式三态，引擎+编辑器）**：「▶ 运行」先编译脚本（项目含脚本工程且已配 SDK 时）并热加载，完成后进入播放；运行中可自由修改属性/场景（不记录撤销）；「⏸ 暂停/继续」仅冻结/恢复逻辑（画面保持）；「■ 停止」恢复**运行前快照**——运行期的对象/属性改动全部回退（保留编辑器相机）；**每次进入运行从头开始**：`Time::ResetTotalTime()`（时钟归零）、`BehaviorSystem::resetAllBehaviors()`（onStart 运行第一帧重新执行）、`Input::ResetState()`（键鼠快照清空，防卡键）；运行中触发换场景/新建/构建/切换项目/退出等会自动先停止（`openScenePath`/`openProjectPath`/`newScene`/`onBuildScripts` 单点防护）；关于对话框补充运行态说明
+  - 引擎 `PluginManager`：config 中的相对 DLL 路径改为以 config.json **所在目录**为基准解析（编辑器 CWD 不可控；Runtime 同目录语义不受影响）
+  - 引擎 SDK 完备：`cmake --install` 产物自包含（引擎/依赖 DLL、头文件、`ShitEngineConfig.cmake`、`ReflectionScanner.exe` + `libclang.dll` + libclang resource、`ShitEngineToolsConfig.cmake`）；`ReflectionScanSetup.cmake` 适配 SDK 模式（`REFLECTION_SCANNER_EXE`/`REFLECTION_CLANG_RESOURCE_DIR` 变量）；多配置生成器无 `CMAKE_BUILD_TYPE` 时按 bin/ 探测自动采用 `-d` 后缀
+  - **产品化打磨（P13，纯编辑器）**：
   - 窗口图标（程序化生成）、`mainwindow.ui` 模板残留清理
   - `Del` 快捷键删除对象（树焦点生效、重命名编辑中豁免）；工具栏增补撤销/重做
   - Dock 布局持久化：退出自动记忆（`saveState`/`saveGeometry`），「视图 → 恢复默认布局」

@@ -3,14 +3,19 @@
 #include <ShitEngine.h>
 #include <ShitEngine/Core/EngineContext.h>
 
+#include <QButtonGroup>
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
 #include <QDropEvent>
 #include <QFileInfo>
+#include <QHBoxLayout>
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QResizeEvent>
+#include <QToolButton>
 #include <QUrl>
+#include <QVBoxLayout>
 #include <QWheelEvent>
 
 #include <algorithm>
@@ -56,6 +61,70 @@ Viewport::Viewport(QWidget *parent)
     setObjectName("viewport");
     setMinimumSize(320, 240);
     setAcceptDrops(true);   // P10：接受资源面板拖入的图片文件
+    setupGizmoBar();        // P14：左上角 Gizmo 工具条（Unity 风格，内联于场景视口）
+}
+
+void Viewport::setupGizmoBar()
+{
+    m_gizmoBar = new QWidget(this);
+    m_gizmoBar->setObjectName("gizmoBar");
+    m_gizmoBar->setStyleSheet(QStringLiteral(
+        "#gizmoBar { background: rgba(16, 18, 24, 200); border: 1px solid rgba(120, 130, 150, 90);"
+        "  border-radius: 4px; }"
+        "QToolButton { border: none; color: #c8d0dc; padding: 4px 10px; font-size: 12px;"
+        "  border-radius: 3px; }"
+        "QToolButton:hover { background: rgba(255, 255, 255, 30); }"
+        "QToolButton:checked { background: #2d6cdf; color: white; }"));
+
+    auto addBarButton = [this](const QString &text, const QString &tip) {
+auto *btn = new QToolButton(m_gizmoBar);
+        btn->setText(text);
+        btn->setToolTip(tip);
+        btn->setCheckable(true);
+        btn->setAutoRaise(true);
+        btn->setCursor(Qt::PointingHandCursor);
+        return btn;
+    };
+    m_gizmoMoveBtn = addBarButton(tr("移动"), tr("移动工具（Q）"));
+    m_gizmoRotateBtn = addBarButton(tr("旋转"), tr("旋转工具（W）"));
+    m_gizmoScaleBtn = addBarButton(tr("缩放"), tr("缩放工具（E）"));
+
+    m_gizmoBarGroup = new QButtonGroup(this);
+    m_gizmoBarGroup->setExclusive(true);
+    m_gizmoBarGroup->addButton(m_gizmoMoveBtn, 0);
+    m_gizmoBarGroup->addButton(m_gizmoRotateBtn, 1);
+    m_gizmoBarGroup->addButton(m_gizmoScaleBtn, 2);
+
+    connect(m_gizmoMoveBtn, &QToolButton::clicked, this, [this] { setGizmoMode(GizmoMode::Move); });
+    connect(m_gizmoRotateBtn, &QToolButton::clicked, this, [this] { setGizmoMode(GizmoMode::Rotate); });
+    connect(m_gizmoScaleBtn, &QToolButton::clicked, this, [this] { setGizmoMode(GizmoMode::Scale); });
+
+    auto *layout = new QHBoxLayout(m_gizmoBar);
+    layout->setContentsMargins(3, 3, 3, 3);
+    layout->setSpacing(2);
+    layout->addWidget(m_gizmoMoveBtn);
+    layout->addWidget(m_gizmoRotateBtn);
+    layout->addWidget(m_gizmoScaleBtn);
+
+    setGizmoMode(GizmoMode::Move);   // 初始选中（同步按钮态）
+    m_gizmoBar->adjustSize();
+    m_gizmoBar->move(QPoint(8, 8));
+}
+
+void Viewport::syncGizmoBar()
+{
+    if (!m_gizmoBarGroup) return;
+    switch (m_gizmoMode) {
+        case GizmoMode::Move:  m_gizmoBarGroup->button(0)->setChecked(true); break;
+        case GizmoMode::Rotate: m_gizmoBarGroup->button(1)->setChecked(true); break;
+        case GizmoMode::Scale: m_gizmoBarGroup->button(2)->setChecked(true); break;
+    }
+}
+
+void Viewport::resizeEvent(QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+    if (m_gizmoBar) m_gizmoBar->move(QPoint(8, 8));   // 固定左上角
 }
 
 void Viewport::setFrame(const QImage &frame)
@@ -254,6 +323,39 @@ if (event->button() == Qt::LeftButton && m_selected && !m_frame.isNull()
                     QWidget::mousePressEvent(event);
                     return;
                 }
+            } else {
+                // Move：X/Y 轴手柄单轴拖；中心方块整体拖（P11 遗留：此分支此前缺失）
+                const QPointF px(p.x() + len, p.y());
+                const QPointF py(p.x(), p.y() + len);
+                const float sx = transform->getPosition().x;
+                const float sy = transform->getPosition().y;
+                if (QRectF(px.x() - 6.0, px.y() - 6.0, 12.0, 12.0).contains(m)) {
+                    m_drag = DragMode::GizmoX;
+                    m_dragStartWidget = pos;
+                    m_dragStartPosX = sx;
+                    m_dragStartPosY = sy;
+                    emit gizmoDragStarted();
+                    QWidget::mousePressEvent(event);
+                    return;
+                }
+                if (QRectF(py.x() - 6.0, py.y() - 6.0, 12.0, 12.0).contains(m)) {
+                    m_drag = DragMode::GizmoY;
+                    m_dragStartWidget = pos;
+                    m_dragStartPosX = sx;
+                    m_dragStartPosY = sy;
+                    emit gizmoDragStarted();
+                    QWidget::mousePressEvent(event);
+                    return;
+                }
+                if (QRectF(p.x() - 6.0, p.y() - 6.0, 12.0, 12.0).contains(m)) {
+                    m_drag = DragMode::Move;
+                    m_dragStartWidget = pos;
+                    m_dragStartPosX = sx;
+                    m_dragStartPosY = sy;
+                    emit gizmoDragStarted();
+                    QWidget::mousePressEvent(event);
+                    return;
+                }
             }
         }
         // 未命中 Gizmo → 拾取
@@ -288,6 +390,18 @@ void Viewport::mouseMoveEvent(QMouseEvent *event)
             const float nx = (m_drag == DragMode::GizmoX) ? m_dragStartPosX + worldDx : m_dragStartPosX;
             const float ny = (m_drag == DragMode::GizmoY) ? m_dragStartPosY + worldDy : m_dragStartPosY;
             // Ctrl：10px 网格吸附
+            if (event->modifiers() & Qt::ControlModifier) {
+                transform->setPosition({ std::round(nx / 10.0f) * 10.0f, std::round(ny / 10.0f) * 10.0f });
+            } else {
+                transform->setPosition({ nx, ny });
+            }
+            update();
+        }
+    } else if (m_drag == DragMode::Move) {
+        // 中心方块：整体拖动（X+Y），Ctrl 10px 网格吸附
+        if (auto *transform = m_selected ? m_selected->getComponent<Shit::TransformComponent>() : nullptr) {
+            const float nx = m_dragStartPosX + worldDx;
+            const float ny = m_dragStartPosY + worldDy;
             if (event->modifiers() & Qt::ControlModifier) {
                 transform->setPosition({ std::round(nx / 10.0f) * 10.0f, std::round(ny / 10.0f) * 10.0f });
             } else {
@@ -337,6 +451,7 @@ void Viewport::mouseReleaseEvent(QMouseEvent *event)
 {
     // 只有 Gizmo 拖拽（对象变换已写回）才算编辑；相机平移/缩放不入库，不置 dirty
     const bool wasGizmoDrag = (m_drag == DragMode::GizmoX || m_drag == DragMode::GizmoY
+                            || m_drag == DragMode::Move
                             || m_drag == DragMode::Rotate || m_drag == DragMode::ScaleX
                             || m_drag == DragMode::ScaleY);
     m_drag = DragMode::None;

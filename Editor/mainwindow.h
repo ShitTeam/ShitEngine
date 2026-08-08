@@ -7,6 +7,10 @@
 
 #include <nlohmann/json.hpp>
 
+#include <vector>
+
+#include "project.h"
+#include "scriptbuilder.h"
 #include "undostack.h"
 
 QT_BEGIN_NAMESPACE
@@ -35,6 +39,8 @@ public:
     bool isDirty() const { return m_dirty; }
     /// 是否处于运行态播放（播放中编辑不记录撤销）
     bool isPlaying() const { return m_playAction && m_playAction->isChecked(); }
+    /// 当前是否有打开的项目（无项目时编辑功能禁用）
+    bool hasProject() const { return m_project.isValid(); }
 
 protected:
     /// 关闭前未保存提示（保存/不保存/取消）
@@ -51,9 +57,19 @@ private slots:
     void redo();                         ///< 重做（Ctrl+Shift+Z）
     void about();
     void resetDockLayout();              ///< 恢复出厂默认 Dock 布局（P13）
-    void setPlaying(bool playing);       ///< 播放/停止（▶/⏹）
+    void saveLayoutAsDefault();          ///< 把当前 Dock 布局存为默认（P17）
+    void setPlaying(bool playing);       ///< ▶ 运行 / ■ 停止（Unity 式：停止恢复运行前快照）
+    void onPauseToggled(bool paused);    ///< ⏸ 暂停/继续（仅运行态可用）
     void pickSceneAt(float x, float y);  ///< 场景视图点击拾取
     void onViewportAssetDropped(const QString &path, float logicalX, float logicalY); ///< 资源图拖入视口 → 建精灵
+
+    // P14 项目
+    void newProject();                   ///< 新建项目向导
+    void openProject();                  ///< 选择项目目录打开
+    void closeProject();                 ///< 关闭当前项目（回到无项目态）
+    void onProjectSettings();            ///< 项目设置（SDK 目录等）
+    void openIde();                      ///< 用项目设置中配置的 IDE 打开项目（P16）
+    void onBuildScripts();               ///< 构建脚本工程（Ctrl+B）→ 成功后热重载
 
 private:
     void createDocks();
@@ -81,6 +97,23 @@ private:
     void updateUndoActions();                           ///< 撤销/重做菜单项可用性
     // ------------------------
 
+    // ---- P14 项目 ----
+    bool openProjectPath(const QString &path, bool silent = false); ///< 打开项目目录（成功 true）
+    void enterProject(const Project &project);          ///< 切换到项目态（状态/插件/场景/布局）
+    void closeProjectInternal();                        ///< 关闭项目（已过未保存提示）
+    QSettings *stateSettings() const;                   ///< 项目级 .shitengine/state.ini；无项目回退全局
+    void saveProjectState();                            ///< 布局/几何 → stateSettings()
+    QStringList recentProjects() const;                 ///< 最近项目（全局，剔除已删目录）
+    void addRecentProject(const QString &path);         ///< 记录最近项目（去重前插，超限截断）
+    void updateRecentProjectsMenu();                    ///< 重建"最近项目"子菜单
+    void updateProjectMenus();                          ///< 无项目时禁用编辑相关菜单/工具
+    void applyInputMappingsToEngine();                  ///< 项目 inputMappings → 引擎热编译（P15）
+    void resetToEmptyScene();                           ///< 清空场景（保留 scene_camera/game_camera）
+    void onBuildFinished(bool success);                 ///< 构建结束：成功后触发插件热重载
+    void enterPlayMode();                               ///< 进入运行态（引擎跑逻辑、暂停按钮启用）
+    void exitPlayMode();                                ///< 停止运行：恢复运行前快照（Unity 语义）
+    // ------------------------
+
     Ui::MainWindow *ui;
 
     Viewport *m_sceneViewport;
@@ -89,17 +122,39 @@ private:
     Inspector *m_inspector;
     LogWidget *m_log;
     EnginePreview *m_preview;   ///< 单一引擎预览（共享场景，双视图同源）
-    QAction *m_playAction = nullptr;   ///< 播放/停止动作（createToolbar 创建；须默认初始化——createMenus 的 updateUndoActions 会先读 isPlaying()）
+
+    // P14 项目
+    Project m_project;              ///< 当前项目（isValid() 假 = 无项目态）
+    QSettings *m_projectSettings = nullptr;  ///< 项目级状态（.shitengine/state.ini，IniFormat）
+    QMenu *m_recentProjectsMenu = nullptr;
+    QAction *m_newSceneAction = nullptr;
+    QAction *m_openSceneAction = nullptr;
+    QAction *m_saveSceneAction = nullptr;
+    QAction *m_saveSceneAsAction = nullptr;
+    QAction *m_closeProjectAction = nullptr;
+    QAction *m_projectSettingsAction = nullptr;
+    QAction *m_openIdeAction = nullptr;  ///< 打开代码（Ctrl+Shift+O；IDE 经项目设置配置）
+    QAction *m_buildAction = nullptr;    ///< 构建脚本（Ctrl+B）
+    ScriptBuilder *m_scriptBuilder = nullptr;   ///< 脚本工程 cmake 编译管线（P14）
+
+    QAction *m_playAction = nullptr;   ///< ▶ 运行 / ■ 停止（createToolbar 创建；须默认初始化——createMenus 的 updateUndoActions 会先读 isPlaying()）
+    QAction *m_pauseAction = nullptr;  ///< ⏸ 暂停/继续（仅运行态启用）
     QAction *m_undoAction = nullptr;
     QAction *m_redoAction = nullptr;
-    QActionGroup *m_gizmoGroup = nullptr;   ///< Gizmo 模式互斥组（移动/旋转/缩放，Q/W/E）
+    std::vector<QAction *> m_gizmoShortcutActions;   ///< Gizmo 三模式窗口快捷键（Q/W/E，不可见；运行态禁用防抢游戏键）
     QMenu *m_recentMenu = nullptr;
     AssetsDock *m_assets = nullptr;
 
     bool m_dirty = false;       ///< 未保存修改标记（标题栏 *）
     QString m_scenePath;        ///< 当前场景文件路径（空 = 尚未保存过）
-    QSettings m_settings;       ///< 最近场景等编辑器状态持久化
+    QSettings m_settings;       ///< 全局编辑器状态（注册表：最近项目 / lastProjectDir / lastSdkDir）
     UndoStack m_undo;           ///< 场景快照型撤销/重做栈（P9）
     nlohmann::json m_savedSnapshot;   ///< 最后保存/打开/新建时的场景快照（dirty 对比基准）
+
+    // ---- P14 运行态（Unity 式）----
+    nlohmann::json m_runSnapshot;           ///< 进入运行前的场景快照（停止时恢复）
+    bool m_hasRunSnapshot = false;          ///< 是否有待恢复的运行前快照
+    bool m_playPendingBuild = false;        ///< 点运行后正等待脚本构建完成再进入
+    // ----------------------------------
 };
 #endif // MAINWINDOW_H

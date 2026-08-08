@@ -1,0 +1,58 @@
+# {{PROJECT_NAME}} 脚本工程（ShitEngine 插件 DLL）——由 ShitEngine 编辑器项目系统生成。
+# 本文件为模板渲染产物（占位 {{...}} 已填充）；重新编辑后由编辑器「Build Scripts」编译。
+
+cmake_minimum_required(VERSION 3.21)
+project({{PROJECT_NAME}}Scripts LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# ── 引擎 SDK（独立安装目录）——可在命令行覆盖：-DSHITENGINE_SDK_DIR=... ──
+if(NOT DEFINED SHITENGINE_SDK_DIR)
+    set(SHITENGINE_SDK_DIR "{{SDK_DIR}}")
+endif()
+find_package(ShitEngine CONFIG REQUIRED
+    PATHS "${SHITENGINE_SDK_DIR}"
+    NO_DEFAULT_PATH)
+
+# ── 反射扫描（SDK 附带工具：ReflectionScanSetup.cmake + ReflectionScanner.exe）──
+include("${ShitEngine_DIR}/tools/ReflectionScanSetup.cmake")
+
+add_library({{SCRIPT_DLL_NAME}} SHARED
+    src/plugin_export.cpp
+    src/Behaviors.h
+)
+
+target_link_libraries({{SCRIPT_DLL_NAME}} PRIVATE ShitEngine::ShitEngine)
+
+# 产出固定名 {{SCRIPT_DLL_NAME}}.dll（Debug 也不带 -d 后缀）。
+# 输出到 build/out/（构建临时目录）——编辑器会把编辑器进程占用的旧 DLL 释放后
+# 再把新 DLL 复制到项目 bin/（config.json 的 plugins path 指向 bin/）。
+# VS/Ninja Multi-Config 下 RUNTIME_OUTPUT_DIRECTORY 会追加 <Config> 子目录，
+# 因此逐配置显式指到统一输出目录。
+set_target_properties({{SCRIPT_DLL_NAME}} PROPERTIES
+    PREFIX ""
+    DEBUG_POSTFIX ""
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/../build/out"
+    RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_SOURCE_DIR}/../build/out"
+    RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_SOURCE_DIR}/../build/out"
+    RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO "${CMAKE_SOURCE_DIR}/../build/out"
+    RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL "${CMAKE_SOURCE_DIR}/../build/out"
+)
+
+target_include_directories({{SCRIPT_DLL_NAME}} PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/src"
+    "${CMAKE_CURRENT_SOURCE_DIR}/generated")
+
+# 反射扫描：src/*.h → generated/reflection/（首次编译自动生成，之后增量）
+setup_reflection_scan(scripts
+    "${CMAKE_CURRENT_SOURCE_DIR}/src"
+    "${CMAKE_CURRENT_SOURCE_DIR}/generated/reflection"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src"
+    "${ShitEngine_INCLUDE_DIR}")
+add_dependencies({{SCRIPT_DLL_NAME}} reflect-scripts)
+
+# MSVC 下 /utf-8（spdlog 与中文注释需要）
+if(MSVC)
+    target_compile_options({{SCRIPT_DLL_NAME}} PRIVATE /utf-8)
+endif()
