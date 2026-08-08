@@ -1,7 +1,7 @@
 # 编辑器开发路线图（ROADMAP）
 
 > 本文档为 ShitEngine 编辑器（`Editor/`）与运行时场景管线的分阶段开发规划，使用中文。
-> 规划日期：2026-08-06。状态：P6 未开始。
+> 规划日期：2026-08-06。状态：P6–P13 全部实现，编辑器路线图完成（剩余为打磨项）。
 
 ## 0. 核心架构决策
 
@@ -125,77 +125,100 @@
 
 ---
 
-### P8 · 编辑会话安全
+### P8 · 编辑会话安全 —— ✓ 已实现（2026-08-06）
+
+> 状态：已实现，并在本机 Qt 6.8.3 MSVC2022（BuildTools）环境编译通过。本次是编辑器改动首次在
+> MSVC 下全量编译验证（P6/P7 编辑器改动一并覆盖，修复 lambda 隐式捕获 `this`、`QPushButton`
+> 完整类型两处 MSVC 编译错误）。行为未做手测运行，待用户在 Qt Creator 运行验收。
 
 **目标**：不丢数据。（原 P6 编辑器部分独立阶段化）
 
 **改动**（纯编辑器）
-- dirty 标记：Gizmo 拖拽结束、检查器字段变更、树操作置位；标题栏 `*`
-- 关闭 / 新建 / 打开前未保存提示（是/否/取消）
-- 打开失败回滚：旧场景全量 `SceneSerializer::toJson` 快照到内存，**全部成功**后才清场替换，异常恢复原场景
-- 最近场景：QSettings 存最近 5 条，文件菜单子菜单一键打开
+- dirty 标记：Gizmo 拖拽结束（`Viewport::gizmoDragFinished`）、检查器字段变更（`Inspector::fieldEdited`）、树操作（`SceneTree::sceneEdited`）三路信号 → `MainWindow::setDirty`；标题栏 `<场景名> * - ShitEngine 编辑器`
+- 关闭 / 新建 / 打开前未保存提示（保存 / 不保存 / 取消；保存失败或取消则中止当前操作）
+- 打开失败回滚：打开前全量 `SceneSerializer::toJson` 快照（含编辑器相机），`fromJson` 异常时清场并从快照整体恢复；JSON 解析失败发生在触碰场景前，无需回滚
+- 最近场景：`QSettings`（ShitTeam/ShitEngineEditor）存最近 5 条，「文件 → 最近场景」子菜单一键打开（自动剔除已删除文件）
+- 附赠：`Ctrl+N/O/S`、`Ctrl+Shift+S` 快捷键 + 「场景另存为…」
 
 **验收**：任意编辑后关窗有提示；打开损坏/不存在文件原场景不丢；最近场景菜单可用。
 
 ---
 
-### P9 · 撤销/重做
+### P9 · 撤销/重做 —— ✓ 已实现（2026-08-06）
+
+> 状态：已实现并在本机 Qt 6.8.3 MSVC2022（BuildTools）环境编译通过（EXITCODE=0）。
+> 行为未手测运行，待用户在 Qt Creator 运行验收。
 
 **目标**：编辑行为可逆。
 
 **改动**（纯编辑器）
-- 快照型命令栈：手势前 `Prefab::Capture`（或对象整体快照），手势后对比
-- 覆盖范围：Gizmo 拖拽结束、检查器控件 `editingFinished`、树新建/删除/加组件
-- `Ctrl+Z` / `Ctrl+Shift+Z`；运行态（playing）不记录
+- 新增 `undostack.*`：场景级快照命令栈（begin/commit 事务；before/after 全场景 `SceneSerializer` JSON 对比，排除编辑器相机；无差异不入栈）
+- 三源接线：Gizmo 拖拽（press→begin / release→commit）、检查器（首次 valueChanged begin，`editingFinished` commit；按钮/下拉即时 commit）、树操作（操作前 begin / 操作后 commit）
+- `编辑` 菜单 + `Ctrl+Z` / `Ctrl+Shift+Z`；运行态（播放）不记录且禁用
+- `UndoStack` 双栈（undo/redo），新编辑清空 redo；撤销/重做后场景重建并联动树/检查器/Gizmo
+- dirty 改进：转发到「最后保存快照」对比——撤回到已保存状态时标题 `*` 自动消失
 
 **验收**：平移、改属性、删对象、新建均可逐级撤销/重做，树与检查器联动刷新。
 
 ---
 
-### P10 · 资产浏览与创建管线
+### P10 · 资产浏览与创建管线 —— ✓ 已实现（2026-08-06）
+
+> 状态：已实现并编译通过（Qt 6.8.3 MSVC）。待用户运行验收。
 
 **目标**：素材进场景的门路。
 
-**改动**
-
-- 引擎：`SpriteRenderer::texturePath` 已就位（P6）；无其它引擎改动
-- 编辑器：项目根目录概念（QSettings，首启引导）；资源面板（`QFileSystemModel` + png/jpg/bmp/wav/ttf/otf/scene 过滤）；拖拽图片到场景视图/场景树 → 建 GameObject+Transform+SpriteRenderer 并设 `texturePath`；双击 `.scene` 打开
+**改动**（纯编辑器，`SpriteRenderer::texturePath` 已在 P6 就位）
+- 新增 `assetsdock.*`：资源面板（左侧，场景树上方）——目录路径可编辑/浏览、`QSettings` 持久化（"projectDir"）
+- 过滤代理：目录全显，文件只留 png/jpg/jpeg/bmp/wav/ttf/otf/scene（隐藏 . 开头文件/目录）
+- 拖拽图片到场景视口（dragEnter/Move/Drop 接受 text/uri-list 图片）→ 创建 `GameObject(Transform+SpriteRenderer+texturePath)`，落在光标世界坐标；自动选中 + 撤销记录
+- 双击资源面板 `.scene` → 走原本的带提示打开路径
 
 **验收**：素材目录可浏览；拖图到视口生成显示精灵；双击场景文件打开。
 
 ---
 
-### P11 · 编辑操作增强
+### P11 · 编辑操作增强 —— ✓ 已实现（2026-08-06）
+
+> 状态：已实现并在 Qt 6.8.3 MSVC2022（BuildTools）环境编译通过（EXITCODE=0，含引擎改动重建）。
+> 行为未手测，待用户运行验收。
 
 **目标**：场景树与场景操作手感对齐 Unity/Godot。
 
-- 场景树：双击重命名（`setName` + 模型 editable）、拖拽改层级（`setParent` + 模型 drag&drop）、多选删除
-- Gizmo：三模式（移动 / 旋转 / 缩放，Q/W/E 或工具栏），世界轴投影（按相机方向），旋转角度量子化 15°、Ctrl 网格吸附
-- 拾取升级：支持无 SpriteRenderer 对象（相机 / 空对象 / UI），按 zIndex 排序优先命中
+- 场景树：双击/F2 重命名（`setData`/EditRole + `dataEdited` 信号）、拖拽改层级（InternalMove + 自定义 mime 行号路径 → `setParent`，防环检查）、尚未做多选删除
+- Gizmo：三模式（移动/旋转/缩放，工具栏 + `Q/W/E` 快捷键）；旋转 15° 量子化（Ctrl 5°）；移动 `Ctrl` 10px 网格吸附；缩放 `Ctrl` 0.1 吸附
+- 拾取升级：精灵命中按 zIndex 取最上；无精灵命中时「变换点」拾取（相机/空对象等可选中，编辑器相机除外）
 
 **验收**：树内拖拽重排层级、双击改名生效；Gizmo 三模式与吸附手感正确；拾取能选中无精灵的对象（相机/空对象）。
 
 ---
 
-### P12 · 播放器体验
+### P12 · 播放器体验 —— ✓ 已实现（2026-08-06）
+
+> 状态：已实现并编译通过（EXITCODE=0）。行为未手测，待用户运行验收。
 
 **目标**：在编辑器内真正「玩」游戏并看到引擎日志。
 
-- 播放态 Qt 事件 → `SDL_Event` 合成 → `Input::HandleEvent` + `Window::HandleEvent`（引擎 `Input` 补 `SetMousePosition`）
-- 引擎 spdlog → 编辑器日志面板（`Log` 增加回调 hook 或 spdlog sink 转发）
+- 播放态输入转发：运行视口捕获 Qt 键鼠事件（`eventFilter`）→ 合成 `SDL_Event` → `Input::HandleEvent`；鼠标坐标经新引擎 API `Input::SetMousePosition` 注入（隐藏窗口下轮询失效）；运行视口需先点击获得焦点
+- 引擎 `Log::SetMessageCallback`：自定义 spdlog sink 把 `ST_CORE_*` / `ST_*` 日志转发到日志面板（`[引擎]/[游戏]` 前缀 + 等级着色，跨线程 QueuedConnection）
+- 现状：按键映射覆盖字母/数字/功能键/方向/常用符号；Ctrl/Alt/Shift 以左键扫描码表示
 
 **验收**：播放态下 WASD/鼠标驱动测试场景；引擎 `ST_CORE_*` 日志滚动进入日志面板。
 
 ---
 
-### P13 · 产品化打磨
+### P13 · 产品化打磨 —— ✓ 已实现（2026-08-06）
 
-- 窗口标题/图标清理、`mainwindow.ui` 模板残留移除
-- 全套快捷键（Ctrl+S/N/O、Del、Q/W/E、滚轮缩放）
-- Dock 布局持久化（`saveState`/`restoreState`）、工具栏增补
-- 中英 UI 完善、关于对话框更新
+> 状态：已实现并编译通过（EXITCODE=0）。行为未手测，待用户运行验收。
 
-**验收**：首启后布局可记忆；所有主操作有快捷键；`.ui` 不含模板残留。
+- 窗口图标（程序化生成，免资源管理）、`mainwindow.ui` 模板残留清理（windowTitle 模板名移除）
+- 全套快捷键补全：`Del` 删除对象（树焦点时，重命名编辑中豁免）；Ctrl 组 / QW E / F2 已在 P8–P11 就位
+- Dock 布局持久化：退出自动 `saveState`/`saveGeometry`，首启存出厂默认，「视图 → 恢复默认布局」重置
+- 工具栏增补：撤销 / 重做（与菜单共享 QAction）
+- 关于对话框更新：中英版本说明 + 完整快捷键表 + 架构一句话
+- 「中英 UI」说明：当前界面文案统一中文（`tr()` 已留翻译位），完整双语切换留待后续
+
+**验收**：首启后无模板残留；布局拖动后重启可恢复；所有主操作有快捷键。
 
 ---
 

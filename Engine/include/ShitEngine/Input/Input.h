@@ -62,6 +62,8 @@ namespace Shit {
 		void initMappings(); ///< 从 Config 预编译动作/轴绑定（Config::Init 之后调用）
 		void update();       ///< 帧末：current → previous
 		void handleEvent(const SDL_Event& event);
+		/// 注入鼠标逻辑坐标（编辑器进程内嵌时由宿主转发 Qt 事件坐标）
+		void setMousePosition(const Vector2& position);
 
 		// --- 静态门面 ---
 		static Input& GetInstance();
@@ -84,6 +86,7 @@ namespace Shit {
 		static void InitMappings() { GetInstance().initMappings(); }
 		static void Update() { GetInstance().update(); }
 		static void HandleEvent(const SDL_Event& event) { GetInstance().handleEvent(event); }
+		static void SetMousePosition(const Vector2& position) { GetInstance().setMousePosition(position); } ///< 编辑器注入逻辑坐标（隐藏窗口下 SDL 轮询不到真实鼠标）
 
 	private:
 		friend class EngineContext;
@@ -132,6 +135,8 @@ namespace Shit {
 		std::array<bool, static_cast<int>(MouseButton::Count)> m_currentMouseButtons{};
 		std::array<bool, static_cast<int>(MouseButton::Count)> m_previousMouseButtons{};
 		Vector2 m_mouseScroll{ 0.0f, 0.0f };
+		Vector2 m_injectedMousePosition{ 0.0f, 0.0f };  ///< 宿主注入的鼠标逻辑坐标（编辑器播放态）
+		bool m_hasInjectedMousePosition = false;
 
 		// 预编译映射
 		std::unordered_map<std::string, CompiledAction> m_actions;

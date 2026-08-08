@@ -9,6 +9,38 @@
 
 ### 新增
 
+- **产品化打磨（P13，纯编辑器）**：
+  - 窗口图标（程序化生成）、`mainwindow.ui` 模板残留清理
+  - `Del` 快捷键删除对象（树焦点生效、重命名编辑中豁免）；工具栏增补撤销/重做
+  - Dock 布局持久化：退出自动记忆（`saveState`/`saveGeometry`），「视图 → 恢复默认布局」
+  - 关于对话框更新（版本信息 + 全套快捷键表）
+- **编辑操作增强（P11，引擎+编辑器）**：
+  - 场景树：双击/F2 重命名、拖拽改层级（InternalMove，防环；`setParent` 即时生效并记入撤销）
+  - Gizmo 三模式：移动/旋转/缩放（工具栏 + `Q/W/E` 快捷键）；旋转 15° 量子化（Ctrl 5°）、移动 Ctrl 10px 网格吸附、缩放 Ctrl 0.1 吸附
+  - 拾取升级：精灵按 zIndex 取最上优先；无精灵时「变换点」拾取支持相机/空对象（编辑器相机除外）
+- **播放器体验（P12，引擎+编辑器）**：
+  - 引擎 `Input::SetMousePosition` — 编辑器播放态注入鼠标逻辑坐标（隐藏窗口下 SDL 轮询失效）
+  - 引擎 `Log::SetMessageCallback` — spdlog 自定义 sink 转发 `ST_CORE_*`/`ST_*` 日志
+  - 播放态运行视口 Qt 键鼠事件合成 `SDL_Event` → `Input::HandleEvent`（WASD/鼠标/滚轮可驱动游戏）
+  - 日志面板实时滚动引擎日志（`[引擎]/[游戏]` 前缀 + warn/error 着色，跨线程 QueuedConnection）
+- **撤销/重做（P9，纯编辑器）** — 场景级快照命令栈 `UndoStack`（`Editor/undostack.*`）：
+  - 编辑手势事务化：Gizmo 拖拽（press→begin / release→commit）、检查器字段（首次变更 begin，`editingFinished`/按钮/下拉 commit）、场景树操作（操作前/后）→ before/after 全场景 `SceneSerializer` JSON 对比，无差异不入栈
+  - 「编辑 → 撤销/重做」+ `Ctrl+Z` / `Ctrl+Shift+Z`；运行态（播放）不记录且禁用
+  - 撤销/重做后整体重建场景并联动场景树/检查器/Gizmo；dirty 与「最后保存快照」对比——撤回到保存态时标题栏 `*` 自动消失
+- **编辑器布局与默认场景（P9/P10 收尾）**：
+  - 删除默认测试场景：启动即空场景（仅 `game_camera` + `scene_camera` 双相机），移除临时棋盘格贴图与 `PreviewMover` 行为
+  - 场景树隐藏 `scene_camera`（编辑器相机不列入层级）
+  - Dock 全独立：场景视口 / 运行视口 / 检查器均为独立 `QDockWidget`（可拖动、停靠、浮动，对齐 Unity 面板习惯），中央改空占位；资源面板移至底部与日志并排
+- **资源浏览与创建管线（P10，纯编辑器）** — 新增 `Editor/assetsdock.*` 资源面板：
+  - 目录树过滤 png/jpg/jpeg/bmp/wav/ttf/otf/scene，路径 `QSettings` 持久化，可编辑/浏览切换
+  - 拖拽图片到场景视口 → 在光标世界坐标创建 `GameObject(Transform + SpriteRenderer(texturePath))` 精灵，自动选中并记入撤销
+  - 双击资源面板 `.scene` → 带未保存提示打开
+- **编辑会话安全（P8，纯编辑器）** — 不丢数据：
+  - dirty 标记：Gizmo 拖拽结束 / 检查器字段变更 / 场景树操作 → 置脏，标题栏 `<场景名> *`
+  - 关闭 / 新建 / 打开前未保存提示（保存 / 不保存 / 取消，保存失败或取消则中止）
+  - 打开失败回滚：打开前全量 `SceneSerializer::toJson` 快照，`fromJson` 异常时清场并从快照整体恢复原场景
+  - 最近场景：「文件 → 最近场景」子菜单（`QSettings` 持久化 5 条，自动剔除已删除文件）
+  - 快捷键 `Ctrl+N/O/S`、`Ctrl+Shift+S` 与「场景另存为…」
 - **场景数据驱动（P6）** — `.scene` 文件成为场景唯一来源（编辑 / 运行 / 切关共用）：
   - `SceneSerializer`（`Scene/SceneSerializer.h`）全场景序列化：对象 + 层级（v2 格式，`parent` 下标引用，兼容 v1 平铺）+ 组件（复用 Prefab）；加载后无相机自动补 `game_camera`
   - `SceneManager::LoadSceneFromFile(path)` — 从 .scene 文件加载 / 切换场景（启动、关卡切换统一入口）

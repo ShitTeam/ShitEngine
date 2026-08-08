@@ -1,6 +1,9 @@
 ﻿#include "ShitEngine/Core/pch.h"
 #include "ShitEngine/Core/Log.h"
 
+#include <spdlog/sinks/base_sink.h>
+#include <mutex>
+
 #ifdef _WIN32
 	#ifndef NOMINMAX
 		#define NOMINMAX
@@ -14,6 +17,34 @@
 namespace Shit {
 	std::shared_ptr<spdlog::logger> Log::s_CoreLogger;
 	std::shared_ptr<spdlog::logger> Log::s_ClientLogger;
+	Log::MessageCallback Log::s_messageCallback;
+
+	/// 把日志消息转发给外部回调（编辑器日志面板接入）
+	class CallbackSink final : public spdlog::sinks::base_sink<std::mutex> {
+	public:
+		explicit CallbackSink(bool isCore) : m_isCore(isCore) {}
+
+	protected:
+		void sink_it_(const spdlog::details::log_msg& msg) override {
+			const auto& cb = Log::GetMessageCallback();
+			if (!cb) return;
+			cb(m_isCore, static_cast<int>(msg.level),
+			   std::string(msg.payload.data(), msg.payload.size()));
+		}
+		void flush_() override {}
+
+	private:
+		bool m_isCore = false;
+	};
+
+	static void attachLoggerSink(const std::shared_ptr<spdlog::logger>& logger, bool isCore) {
+		if (!logger) return;
+		logger->sinks().push_back(std::make_shared<CallbackSink>(isCore)); // Init 期（单线程）追加安全
+	}
+
+	void Log::SetMessageCallback(MessageCallback cb) {
+		s_messageCallback = std::move(cb);
+	}
 
 	bool Log::Init() {
 #ifdef _WIN32
@@ -42,6 +73,10 @@ namespace Shit {
 				if (!s_ClientLogger) s_ClientLogger = spdlog::stdout_color_mt("App");
 				if (s_ClientLogger) s_ClientLogger->set_level(spdlog::level::trace);
 			}
+
+			// 转发 sink：仅在首次创建时追加一次（重试/复用既有 logger 时幂等）
+			if (s_CoreLogger)     attachLoggerSink(s_CoreLogger, true);
+			if (s_ClientLogger)   attachLoggerSink(s_ClientLogger, false);
 		}
 		catch(const spdlog::spdlog_ex& e){
 			std::cout << "日志初始化失败：" << e.what() << '\n';

@@ -36,6 +36,10 @@ public:
 signals:
     /// 诊断：每次重建时报告渲染了 n 个组件 / n 个字段（供日志定位）
     void buildInfo(int components, int fields);
+    /// 任一字段被编辑（控件写入引擎值 → 会话 dirty）
+    void fieldEdited();
+    /// 一次字段编辑结束（数值/文本控件 editingFinished，或按钮/下拉即时提交 → 撤销提交点）
+    void fieldCommitted();
 
 private:
     /// 为单个字段生成一行编辑控件

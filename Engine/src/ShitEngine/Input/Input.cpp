@@ -62,6 +62,9 @@ namespace Shit {
 	}
 
 	Vector2 Input::getMousePosition() const {
+		// 编辑器播放态：宿主注入的坐标优先（隐藏窗口下 SDL 拿不到真实鼠标）
+		if (m_hasInjectedMousePosition) return m_injectedMousePosition;
+
 		float windowX = 0.0f, windowY = 0.0f;
 		SDL_GetMouseState(&windowX, &windowY);
 
@@ -78,6 +81,11 @@ namespace Shit {
 
 	Vector2 Input::getMouseScroll() const {
 		return m_mouseScroll;
+	}
+
+	void Input::setMousePosition(const Vector2& position) {
+		m_injectedMousePosition = position;
+		m_hasInjectedMousePosition = true;
 	}
 
 	// =========================================================================

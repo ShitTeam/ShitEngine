@@ -146,9 +146,11 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
         box->setSingleStep(m && m->step > 0.0f ? m->step : 0.1f);
         box->setDecimals(3);
         box->setValue(*reinterpret_cast<float *>(field.GetFieldPtr(obj)));
-        connect(box, &QDoubleSpinBox::valueChanged, [obj, field](double v) {
+        connect(box, &QDoubleSpinBox::valueChanged, this, [this, obj, field](double v) {
             *reinterpret_cast<float *>(field.GetFieldPtr(obj)) = static_cast<float>(v);
+            emit fieldEdited();
         });
+        connect(box, &QDoubleSpinBox::editingFinished, this, [this] { emit fieldCommitted(); });
         m_form->addRow(name, box);
         m_readbacks.push_back([box, obj, field] {
             box->blockSignals(true);
@@ -160,9 +162,11 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
         auto *box = new QSpinBox(m_content);
         box->setRange(std::numeric_limits<int>::min(), std::numeric_limits<int>::max());
         box->setValue(*reinterpret_cast<int *>(field.GetFieldPtr(obj)));
-        connect(box, &QSpinBox::valueChanged, [obj, field](int v) {
+        connect(box, &QSpinBox::valueChanged, this, [this, obj, field](int v) {
             *reinterpret_cast<int *>(field.GetFieldPtr(obj)) = v;
+            emit fieldEdited();
         });
+        connect(box, &QSpinBox::editingFinished, this, [this] { emit fieldCommitted(); });
         m_form->addRow(name, box);
         m_readbacks.push_back([box, obj, field] {
             box->blockSignals(true);
@@ -173,8 +177,10 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
     else if (typeNameOf(field) == "bool") {
         auto *check = new QCheckBox(m_content);
         check->setChecked(*reinterpret_cast<bool *>(field.GetFieldPtr(obj)));
-        connect(check, &QCheckBox::toggled, [obj, field](bool on) {
+        connect(check, &QCheckBox::toggled, this, [this, obj, field](bool on) {
             *reinterpret_cast<bool *>(field.GetFieldPtr(obj)) = on;
+            emit fieldEdited();
+            emit fieldCommitted();
         });
         m_form->addRow(name, check);
         m_readbacks.push_back([check, obj, field] {
@@ -187,12 +193,16 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
         auto *p = reinterpret_cast<Shit::Vector2 *>(field.GetFieldPtr(obj));
         auto *xBox = makeSpin(p->x);
         auto *yBox = makeSpin(p->y);
-        connect(xBox, &QDoubleSpinBox::valueChanged, [obj, field](double v) {
+        connect(xBox, &QDoubleSpinBox::valueChanged, this, [this, obj, field](double v) {
             reinterpret_cast<Shit::Vector2 *>(field.GetFieldPtr(obj))->x = static_cast<float>(v);
+            emit fieldEdited();
         });
-        connect(yBox, &QDoubleSpinBox::valueChanged, [obj, field](double v) {
+        connect(yBox, &QDoubleSpinBox::valueChanged, this, [this, obj, field](double v) {
             reinterpret_cast<Shit::Vector2 *>(field.GetFieldPtr(obj))->y = static_cast<float>(v);
+            emit fieldEdited();
         });
+        connect(xBox, &QDoubleSpinBox::editingFinished, this, [this] { emit fieldCommitted(); });
+        connect(yBox, &QDoubleSpinBox::editingFinished, this, [this] { emit fieldCommitted(); });
         auto *row = new QWidget(m_content);
         auto *layout = new QHBoxLayout(row);
         layout->setContentsMargins(0, 0, 0, 0);
@@ -212,9 +222,11 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
     else if (typeNameOf(field) == "std::string") {
         auto *p = reinterpret_cast<std::string *>(field.GetFieldPtr(obj));
         auto *edit = new QLineEdit(QString::fromStdString(*p), m_content);
-        connect(edit, &QLineEdit::textChanged, [obj, field](const QString &text) {
+        connect(edit, &QLineEdit::textChanged, this, [this, obj, field](const QString &text) {
             *reinterpret_cast<std::string *>(field.GetFieldPtr(obj)) = text.toStdString();
+            emit fieldEdited();
         });
+        connect(edit, &QLineEdit::editingFinished, this, [this] { emit fieldCommitted(); });
         m_form->addRow(name, edit);
         m_readbacks.push_back([edit, obj, field] {
             edit->blockSignals(true);
@@ -235,8 +247,10 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
                 if (enumType->enumValues[i].value == cur) sel = static_cast<int>(i);
             }
             combo->setCurrentIndex(sel);
-            connect(combo, &QComboBox::currentIndexChanged, [obj, field, combo]() {
+            connect(combo, &QComboBox::currentIndexChanged, this, [this, obj, field, combo]() {
                 *reinterpret_cast<int *>(field.GetFieldPtr(obj)) = combo->currentData().toInt();
+                emit fieldEdited();
+                emit fieldCommitted();
             });
             m_form->addRow(name, combo);
             m_readbacks.push_back([combo, obj, field] {

@@ -29,6 +29,11 @@ set(PROJECT_SOURCES
         logwidget.h
         preview.cpp
         preview.h
+        undostack.cpp
+        undostack.h
+        assetsdock.cpp
+        assetsdock.h
+        resources.qrc
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)

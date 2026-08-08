@@ -26,6 +26,10 @@ public:
 signals:
     /// 选中某个对象（供属性检查器联动）
     void objectSelected(Shit::GameObject *object);
+    /// 场景结构将被修改（新建/删除对象、添加组件发生前 → 撤销 begin）
+    void sceneActionStarted();
+    /// 场景结构被修改（新建/删除对象、添加组件 → 会话 dirty / 撤销提交）
+    void sceneEdited();
 
 protected:
     void contextMenuEvent(QContextMenuEvent *event) override;

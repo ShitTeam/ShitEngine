@@ -28,6 +28,9 @@ public:
     /// 预览的当前场景（共享，编辑器交互/场景树/序列化都用它）
     Shit::Scene *getScene();
 
+    /// 预览引擎上下文（播放态输入转发需要 setCurrent）
+    Shit::EngineContext *context() const { return m_context.get(); }
+
     /// 设置运行状态：true=引擎逻辑运行，false=暂停（画面静止）
     void setPlaying(bool playing);
 
@@ -36,6 +39,8 @@ signals:
     void sceneFrameReady(const QImage &image);
     /// 运行视图帧（游戏相机，居中）
     void gameFrameReady(const QImage &image);
+    /// 引擎 spdlog 日志转发（isCore=引擎/用户日志；level=spdlog 等级；message=文本）
+    void engineLogMessage(bool isCore, int level, const QString &message);
 
 private slots:
     void tick();
@@ -43,8 +48,6 @@ private slots:
 private:
     /// 按名重新定位编辑器/游戏相机（场景加载/编辑后相机可能重建）
     void refreshCameras();
-    /// 运行时生成一张棋盘格 BMP（测试场景用，避免依赖仓库资产）
-    QString writeTestBmp() const;
 
     QTimer m_timer;
     std::unique_ptr<Shit::EngineContext> m_context;

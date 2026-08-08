@@ -1,33 +1,12 @@
 #include "preview.h"
 
 #include <QCoreApplication>
-#include <QDataStream>
-#include <QDir>
 #include <QFile>
-#include <QStandardPaths>
 
 #include <ShitEngine.h>
 #include <ShitEngine/Core/EngineContext.h>
+#include <ShitEngine/Core/Log.h>
 #include <ShitEngine/Plugin/PluginManager.h>
-
-namespace {
-
-/// 测试场景：让精灵在屏幕上往返移动（验证 BehaviorSystem 在编辑器里也被驱动）
-class PreviewMover : public Shit::Behavior
-{
-public:
-    void onUpdate() override
-    {
-        auto *transform = getOwner()->getComponent<Shit::TransformComponent>();
-        if (!transform) return;
-        Shit::Vector2 pos = transform->getPosition();
-        pos.x += 80.0f * Shit::Time::GetDeltaTime();
-        if (pos.x > 300.0f) pos.x = -300.0f;
-        transform->setPosition(pos);
-    }
-};
-
-} // namespace
 
 EnginePreview::EnginePreview(QObject *parent)
     : QObject(parent)
@@ -49,6 +28,11 @@ bool EnginePreview::start()
     Shit::Window::SetHidden(true); // 离屏渲染：隐藏窗口，渲染照常进行
     if (!Shit::Game::Init()) return false;
 
+    // P12：引擎 spdlog → 编辑器日志面板（队列连接，兼容任意线程抵达）
+    Shit::Log::SetMessageCallback([this](bool isCore, int level, const std::string &message) {
+        emit engineLogMessage(isCore, level, QString::fromStdString(message));
+    });
+
     // 加载插件（脚本库：注册自定义行为/组件类型 → 编辑器可实例化/序列化）。
     // 配置文件与 exe 同目录（与 Runtime 一致），缺失时忽略，不阻塞编辑器启动。
     m_plugins = std::make_unique<Shit::PluginManager>();
@@ -58,16 +42,9 @@ bool EnginePreview::start()
         m_plugins->RegisterAllTypes();
     }
 
-    // 构建共享场景：玩家 + 编辑器相机（满窗）+ 游戏相机（居中）
+    // 构建共享场景：默认空场景，仅两个相机（无测试对象/行为）
     auto scene = std::make_unique<Shit::Scene>("preview");
     scene->init();
-
-    auto *player = scene->createGameObject("player");
-    auto *pt = player->addComponent<Shit::TransformComponent>();
-    pt->setScale({ 4.0f, 4.0f });            // 放大精灵，便于场景视口内点击/拖动
-    pt->setPosition({ -128.0f, -128.0f });
-    player->addComponent<Shit::SpriteRenderer>()->setTexturePath(writeTestBmp().toStdString());
-    player->addComponent<PreviewMover>();
 
     auto *editorGo = scene->createGameObject("scene_camera");
     editorGo->addComponent<Shit::TransformComponent>();
@@ -77,7 +54,7 @@ bool EnginePreview::start()
     auto *gameGo = scene->createGameObject("game_camera");
     gameGo->addComponent<Shit::TransformComponent>();
     m_gameCam = gameGo->addComponent<Shit::CameraComponent>();
-    m_gameCam->setZoom(5.0f);
+    m_gameCam->setZoom(1.0f);
 
     Shit::SceneManager::LoadScene(std::move(scene));
     m_scene = Shit::SceneManager::GetCurrentScene();
@@ -97,6 +74,7 @@ void EnginePreview::stop()
 {
     if (!m_running) return;
     m_timer.stop();
+    Shit::Log::SetMessageCallback(nullptr);   // 先解除日志转发（回调捕获 this，避免悬垂）
     if (m_context) {
         Shit::EngineContext::setCurrent(m_context.get());
         // 先卸载插件（其反射类型 factory 在 DLL 内），再销毁引擎
@@ -175,43 +153,4 @@ void EnginePreview::tick()
         emit sceneFrameReady(image.copy());
     }
     Shit::Renderer::EndOffscreen();
-}
-
-QString EnginePreview::writeTestBmp() const
-{
-    // 生成 64x64 棋盘格 BMP（SDL3_image 原生支持 BMP，无需依赖仓库资产）
-    const int w = 64, h = 64;
-    const int rowBytes = ((w * 3 + 3) / 4) * 4;
-    const int imageSize = rowBytes * h;
-    const int fileSize = 54 + imageSize;
-
-    QByteArray data;
-    QDataStream ds(&data, QIODevice::WriteOnly);
-    ds.setByteOrder(QDataStream::LittleEndian);
-    ds.writeRawData("BM", 2);
-    ds << quint32(fileSize) << quint32(0) << quint32(54);       // 文件头
-    ds << quint32(40) << quint32(w) << quint32(h);              // 信息头
-    ds << quint16(1) << quint16(24);                            // 平面数 + 位深
-    ds << quint32(0) << quint32(imageSize) << quint32(0) << quint32(0) << quint32(0) << quint32(0);
-
-    // 像素（自底向上，BGR），每 8 像素换色 → 棋盘格
-    for (int y = h - 1; y >= 0; --y) {
-        for (int x = 0; x < w; ++x) {
-            const bool even = ((x / 8) + (y / 8)) % 2 == 0;
-            ds << quint8(even ? 255 : 40)   // B
-               << quint8(even ? 120 : 80)   // G
-               << quint8(even ? 60 : 140);  // R
-        }
-        for (int pad = 0; pad < rowBytes - w * 3; ++pad)
-            ds << quint8(0);
-    }
-
-    QString path = QStandardPaths::writableLocation(QStandardPaths::TempLocation)
-                   + "/shitengine_preview.bmp";
-    QFile file(path);
-    if (file.open(QIODevice::WriteOnly)) {
-        file.write(data);
-        file.close();
-    }
-    return path;
 }

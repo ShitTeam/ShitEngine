@@ -3,8 +3,14 @@
 #include <ShitEngine.h>
 #include <ShitEngine/Core/EngineContext.h>
 
+#include <QDragEnterEvent>
+#include <QDragMoveEvent>
+#include <QDropEvent>
+#include <QFileInfo>
+#include <QMimeData>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QUrl>
 #include <QWheelEvent>
 
 #include <algorithm>
@@ -27,6 +33,21 @@ float distToSegmentSq(const QPointF &p, const QPointF &a, const QPointF &b)
     return dx * dx + dy * dy;
 }
 
+/// MIME 的 URL 列表中第一个图片文件路径；无则返回 false
+bool firstImageFile(const QMimeData *mime, QString &path)
+{
+    if (!mime || !mime->hasUrls()) return false;
+    static const QStringList kImages = { "png", "jpg", "jpeg", "bmp" };
+    for (const QUrl &url : mime->urls()) {
+        const QString p = url.toLocalFile();
+        if (kImages.contains(QFileInfo(p).suffix().toLower())) {
+            path = p;
+            return true;
+        }
+    }
+    return false;
+}
+
 } // namespace
 
 Viewport::Viewport(QWidget *parent)
@@ -34,6 +55,7 @@ Viewport::Viewport(QWidget *parent)
 {
     setObjectName("viewport");
     setMinimumSize(320, 240);
+    setAcceptDrops(true);   // P10：接受资源面板拖入的图片文件
 }
 
 void Viewport::setFrame(const QImage &frame)
@@ -117,11 +139,46 @@ void Viewport::drawGizmo(QPainter &painter)
     const QPoint p = logicalToWidget(sp.x, sp.y);
     const int len = 30;
 
-    // 中心方块 + X(Y)轴手柄
+    painter.setRenderHint(QPainter::Antialiasing, true);
+
+    if (m_gizmoMode == GizmoMode::Rotate) {
+        // 旋转：圆环 + 中心方块 + 当前角度指针
+        painter.setBrush(Qt::NoBrush);
+        painter.setPen(QPen(QColor(255, 190, 90), 2));
+        painter.drawEllipse(QPointF(p), 40, 40);
+        painter.setBrush(Qt::white);
+        painter.setPen(Qt::NoPen);
+        painter.drawRect(p.x() - 3, p.y() - 3, 6, 6);
+        const float rad = transform->getRotation() * 3.14159265f / 180.0f;
+        const QPointF tip(p.x() + 40.0f * std::cos(rad), p.y() + 40.0f * std::sin(rad));
+        painter.setPen(QPen(QColor(255, 190, 90), 2));
+        painter.drawLine(p, tip.toPoint());
+        return;
+    }
+
+    if (m_gizmoMode == GizmoMode::Scale) {
+        // 缩放：中心方块 + X(红)/Y(绿) 轴端方块（可分别拖拽）
+        painter.setBrush(Qt::white);
+        painter.setPen(Qt::NoPen);
+        painter.drawRect(p.x() - 3, p.y() - 3, 6, 6);
+        painter.setPen(QPen(QColor(255, 90, 90), 2));
+        painter.drawLine(p, p + QPoint(len, 0));
+        painter.setBrush(QColor(255, 90, 90));
+        painter.setPen(Qt::NoPen);
+        painter.drawRect(p.x() + len - 5, p.y() - 5, 10, 10);
+        painter.setPen(QPen(QColor(90, 255, 90), 2));
+        painter.drawLine(p, p + QPoint(0, len));
+        painter.setBrush(QColor(90, 255, 90));
+        painter.setPen(Qt::NoPen);
+        painter.drawRect(p.x() - 5, p.y() + len - 5, 10, 10);
+        return;
+    }
+
+    // Move：中心方块 + X(Y)轴手柄
     painter.setBrush(Qt::white);
+    painter.setPen(Qt::NoPen);
     painter.drawRect(p.x() - 3, p.y() - 3, 6, 6);
 
-    painter.setRenderHint(QPainter::Antialiasing, true);
     painter.setPen(QPen(QColor(255, 90, 90), 2));   // X 轴（红）
     painter.drawLine(p, p + QPoint(len, 0));
     painter.drawLine(p + QPoint(len, 0), p + QPoint(len - 6, -4));
@@ -151,32 +208,52 @@ void Viewport::mousePressEvent(QMouseEvent *event)
         return;
     }
 
-    if (event->button() == Qt::LeftButton && m_selected && !m_frame.isNull()
+if (event->button() == Qt::LeftButton && m_selected && !m_frame.isNull()
         && m_drawRect.contains(pos)) {
-        // Gizmo 手柄命中检测
+        // Gizmo 手柄命中检测（按模式分派）
         auto *camera = editorCamera();
         auto *transform = m_selected->getComponent<Shit::TransformComponent>();
         if (camera && transform) {
             const Shit::Vector2 sp = camera->worldToScreen(transform->getPosition());
             const QPointF p = logicalToWidget(sp.x, sp.y);
-            const QPointF px(p.x() + 30, p.y());
-            const QPointF py(p.x(), p.y() + 30);
             const QPointF m(pos.x(), pos.y());
-            if (distToSegmentSq(m, p, px) < 64.0f) {      // 8px 命中半径
-                m_drag = DragMode::GizmoX;
-                m_dragStartWidget = pos;
-                m_dragStartPosX = transform->getPosition().x;
-                m_dragStartPosY = transform->getPosition().y;
-                QWidget::mousePressEvent(event);
-                return;
-            }
-            if (distToSegmentSq(m, p, py) < 64.0f) {
-                m_drag = DragMode::GizmoY;
-                m_dragStartWidget = pos;
-                m_dragStartPosX = transform->getPosition().x;
-                m_dragStartPosY = transform->getPosition().y;
-                QWidget::mousePressEvent(event);
-                return;
+            const int len = 30;
+
+            if (m_gizmoMode == GizmoMode::Rotate) {
+                // 旋转：圆环内 20~60px 命中
+                const QPointF d = m - p;
+                const float dist = std::hypot(d.x(), d.y());
+                if (dist >= 20.0f && dist <= 60.0f) {
+                    m_drag = DragMode::Rotate;
+                    m_dragStartWidget = pos;
+                    m_dragStartRotation = transform->getRotation();
+                    m_dragStartSnapped = std::atan2(d.y(), d.x()) * 180.0f / 3.14159265f;
+                    emit gizmoDragStarted();
+                    QWidget::mousePressEvent(event);
+                    return;
+                }
+            } else if (m_gizmoMode == GizmoMode::Scale) {
+                // 缩放：X/Y 端方块命中
+                const QPointF px(p.x() + len, p.y());
+                const QPointF py(p.x(), p.y() + len);
+                if (QRectF(px.x() - 6.0, px.y() - 6.0, 12.0, 12.0).contains(m)) {
+                    m_drag = DragMode::ScaleX;
+                    m_dragStartWidget = pos;
+                    m_dragStartScaleX = transform->getScale().x;
+                    m_dragStartScaleY = transform->getScale().y;
+                    emit gizmoDragStarted();
+                    QWidget::mousePressEvent(event);
+                    return;
+                }
+                if (QRectF(py.x() - 6.0, py.y() - 6.0, 12.0, 12.0).contains(m)) {
+                    m_drag = DragMode::ScaleY;
+                    m_dragStartWidget = pos;
+                    m_dragStartScaleX = transform->getScale().x;
+                    m_dragStartScaleY = transform->getScale().y;
+                    emit gizmoDragStarted();
+                    QWidget::mousePressEvent(event);
+                    return;
+                }
             }
         }
         // 未命中 Gizmo → 拾取
@@ -210,7 +287,41 @@ void Viewport::mouseMoveEvent(QMouseEvent *event)
         if (auto *transform = m_selected ? m_selected->getComponent<Shit::TransformComponent>() : nullptr) {
             const float nx = (m_drag == DragMode::GizmoX) ? m_dragStartPosX + worldDx : m_dragStartPosX;
             const float ny = (m_drag == DragMode::GizmoY) ? m_dragStartPosY + worldDy : m_dragStartPosY;
-            transform->setPosition({ nx, ny });
+            // Ctrl：10px 网格吸附
+            if (event->modifiers() & Qt::ControlModifier) {
+                transform->setPosition({ std::round(nx / 10.0f) * 10.0f, std::round(ny / 10.0f) * 10.0f });
+            } else {
+                transform->setPosition({ nx, ny });
+            }
+            update();
+        }
+    } else if (m_drag == DragMode::Rotate) {
+        if (auto *transform = m_selected ? m_selected->getComponent<Shit::TransformComponent>() : nullptr) {
+            // 以对象屏幕位置为中心计算当前角度
+            const Shit::Vector2 sp = camera->worldToScreen(transform->getPosition());
+            const QPoint c = logicalToWidget(sp.x, sp.y);
+            const float cur = std::atan2(static_cast<float>(event->pos().y() - c.y()),
+                                         static_cast<float>(event->pos().x() - c.x()))
+                              * 180.0f / 3.14159265f;
+            const float step = (event->modifiers() & Qt::ControlModifier) ? 5.0f : 15.0f; // 15° 量子化，Ctrl 5°
+            const float snapped = std::round(cur / step) * step;
+            float delta = snapped - m_dragStartSnapped;      // 相对起始角的增量（wrap ±180）
+            if (delta > 180.0f) delta -= 360.0f;
+            else if (delta < -180.0f) delta += 360.0f;
+            transform->setRotation(m_dragStartRotation + delta);
+            update();
+        }
+    } else if (m_drag == DragMode::ScaleX || m_drag == DragMode::ScaleY) {
+        if (auto *transform = m_selected ? m_selected->getComponent<Shit::TransformComponent>() : nullptr) {
+            // 拖轴端方块：位移 → 线性缩放因子（每 50 世界单位 × 2 上下）
+            const float base = (m_drag == DragMode::ScaleX) ? worldDx : worldDy;
+            float factor = 1.0f + base / 50.0f;
+            if (factor < 0.05f) factor = 0.05f;
+            if (event->modifiers() & Qt::ControlModifier) factor = std::round(factor / 0.1f) * 0.1f;
+            Shit::Vector2 s = transform->getScale();
+            if (m_drag == DragMode::ScaleX) s.x = m_dragStartScaleX * factor;
+            else s.y = m_dragStartScaleY * factor;
+            transform->setScale(s);
             update();
         }
     } else if (m_drag == DragMode::Pan) {
@@ -224,7 +335,13 @@ void Viewport::mouseMoveEvent(QMouseEvent *event)
 
 void Viewport::mouseReleaseEvent(QMouseEvent *event)
 {
+    // 只有 Gizmo 拖拽（对象变换已写回）才算编辑；相机平移/缩放不入库，不置 dirty
+    const bool wasGizmoDrag = (m_drag == DragMode::GizmoX || m_drag == DragMode::GizmoY
+                            || m_drag == DragMode::Rotate || m_drag == DragMode::ScaleX
+                            || m_drag == DragMode::ScaleY);
     m_drag = DragMode::None;
+    if (wasGizmoDrag)
+        emit gizmoDragFinished();
     QWidget::mouseReleaseEvent(event);
 }
 
@@ -238,4 +355,43 @@ void Viewport::wheelEvent(QWheelEvent *event)
         return;
     }
     QWidget::wheelEvent(event);
+}
+
+void Viewport::dragEnterEvent(QDragEnterEvent *event)
+{
+    QString path;
+    if (firstImageFile(event->mimeData(), path)) {
+        event->acceptProposedAction();
+        return;
+    }
+    event->ignore();
+}
+
+void Viewport::dragMoveEvent(QDragMoveEvent *event)
+{
+    QString path;
+    if (firstImageFile(event->mimeData(), path)) {
+        event->acceptProposedAction();
+        return;
+    }
+    event->ignore();
+}
+
+void Viewport::dropEvent(QDropEvent *event)
+{
+    QString path;
+    if (!firstImageFile(event->mimeData(), path)) {
+        event->ignore();
+        return;
+    }
+
+    // 落点（控件坐标）→ 逻辑像素坐标（与拾取同变换）
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    const QPoint pos = event->position().toPoint();
+#else
+    const QPoint pos = event->pos();
+#endif
+    const QPointF logical = widgetToLogical(pos);
+    event->acceptProposedAction();
+    emit assetDropped(path, static_cast<float>(logical.x()), static_cast<float>(logical.y()));
 }

@@ -3,6 +3,8 @@
 #include <memory>
 #include <utility>
 #include <cstdlib>
+#include <functional>
+#include <string>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -39,9 +41,18 @@ namespace Shit {
 		inline static std::shared_ptr<spdlog::logger>& GetCoreLogger() { return s_CoreLogger; }
 		inline static std::shared_ptr<spdlog::logger>& GetClientLogger() { return s_ClientLogger; }
 
+		// --- 日志转发（编辑器日志面板接入） ---
+		/// 日志消息回调：isCore = 引擎日志（Shit）/ 用户日志（App）；level = spdlog 等级；message = 文本
+		using MessageCallback = std::function<void(bool isCore, int level, const std::string& message)>;
+		/// 注册全局日志转发回调（Init 前/后均可；重新注册替换旧回调；传 nullptr 解除转发）
+		static void SetMessageCallback(MessageCallback cb);
+		/// 当前回调（供引擎内部 sink 读取）
+		static const MessageCallback& GetMessageCallback() { return s_messageCallback; }
+
 	private:
 		static std::shared_ptr<spdlog::logger> s_CoreLogger;
 		static std::shared_ptr<spdlog::logger> s_ClientLogger;
+		static MessageCallback s_messageCallback;
 	};
 }
 

@@ -44,11 +44,33 @@ SceneTree::SceneTree(QWidget *parent)
     m_view->setSelectionMode(QAbstractItemView::SingleSelection);
     m_view->setSelectionBehavior(QAbstractItemView::SelectRows);
 
+    // P11：双击/F2 重命名 + 拖拽改层级
+    m_view->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::EditKeyPressed);
+    m_view->setDragEnabled(true);
+    m_view->setAcceptDrops(true);
+    m_view->setDropIndicatorShown(true);
+    m_view->setDragDropMode(QAbstractItemView::InternalMove);
+    m_view->setDefaultDropAction(Qt::MoveAction);
+
     // 选中 → objectSelected，供属性检查器联动
     connect(m_view->selectionModel(), &QItemSelectionModel::currentChanged,
             this, [this](const QModelIndex &current) {
                 emit objectSelected(m_model->gameObjectAt(current));
             });
+
+    // P11 撤销接线：按下（含进入编辑/发起拖拽）→ begin；模型编辑完成（重命名/改层级）→ 提交
+    connect(m_view, &QTreeView::pressed, this, [this] { emit sceneActionStarted(); });
+    connect(m_view, &QTreeView::doubleClicked, this, [this](const QModelIndex &) {
+        emit sceneActionStarted();
+    });
+    connect(m_model, &SceneTreeModel::dataEdited, this, [this] { emit sceneEdited(); });
+
+    // P13：Del 删除选中对象（树获焦时生效；重命名编辑中豁免）
+    auto *deleteAction = new QAction(tr("删除对象"), this);
+    deleteAction->setShortcut(QKeySequence::Delete);
+    deleteAction->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+    addAction(deleteAction);
+    connect(deleteAction, &QAction::triggered, this, &SceneTree::deleteObject);
 }
 
 void SceneTree::setScene(Shit::Scene *scene)
@@ -100,10 +122,12 @@ void SceneTree::contextMenuEvent(QContextMenuEvent *event)
 void SceneTree::createObject()
 {
     if (!m_scene) return;
+    emit sceneActionStarted();   // 撤销 begin（须在修改前）
     auto *go = m_scene->createGameObject("New Object");
     go->addComponent<Shit::TransformComponent>();
     m_model->setScene(m_scene);   // 刷新层级
     selectObject(go);
+    emit sceneEdited();
 }
 
 void SceneTree::deleteObject()
@@ -112,8 +136,12 @@ void SceneTree::deleteObject()
     const QModelIndex idx = m_view->selectionModel()->currentIndex();
     Shit::GameObject *go = m_model->gameObjectAt(idx);
     if (go) {
+        emit sceneActionStarted();   // 撤销 begin（须在修改前）
         m_scene->removeGameObject(go);
-        m_model->setScene(m_scene);   // 刷新层级（对象在帧末销毁）
+        // 用 setScene 而非 m_model->setScene：自动重新选中第一项 → 触发 objectSelected，
+        // 检查器/视口及时换绑新对象（否则其持有被删对象指针，下一帧渲染即悬垂崩溃）
+        setScene(m_scene);
+        emit sceneEdited();
     }
 }
 
@@ -139,9 +167,11 @@ QMenu *SceneTree::buildAddComponentMenu(Shit::GameObject *target)
 void SceneTree::addComponent(const Shit::TypeInfo *type, Shit::GameObject *target)
 {
     if (!type || !target) return;
+    emit sceneActionStarted();   // 撤销 begin（须在修改前）
     void *raw = type->Create();   // factory 堆分配（非抽象）
     if (!raw) return;
     auto *comp = static_cast<Shit::Component *>(raw);
     target->addComponentInstance(comp);
     emit objectSelected(target);   // 刷新检查器显示新组件
+    emit sceneEdited();
 }

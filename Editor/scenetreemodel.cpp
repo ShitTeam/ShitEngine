@@ -3,6 +3,15 @@
 #include <ShitEngine.h>
 #include <ShitEngine/Core/EngineContext.h>
 
+#include <QDataStream>
+#include <QIODevice>
+#include <QMimeData>
+
+namespace {
+/// 拖拽传输场景对象路径的自定义 MIME 类型
+const char kObjectPathMime[] = "application/x-shitengine-objectpath";
+} // namespace
+
 SceneTreeModel::SceneTreeModel(QObject *parent)
     : QAbstractItemModel(parent)
 {
@@ -58,9 +67,104 @@ QVariant SceneTreeModel::data(const QModelIndex &index, int role) const
     if (!index.isValid()) return {};
     auto *obj = gameObjectAt(index);
     if (!obj) return {};
-    if (role == Qt::DisplayRole)
+    if (role == Qt::DisplayRole || role == Qt::EditRole)
         return QString::fromStdString(obj->getName());
     return {};
+}
+
+bool SceneTreeModel::setData(const QModelIndex &index, const QVariant &value, int role)
+{
+    if (role != Qt::EditRole || !index.isValid()) return false;
+    auto *obj = gameObjectAt(index);
+    if (!obj) return false;
+    obj->setName(value.toString().toStdString());
+    emit dataChanged(index, index, { Qt::DisplayRole, Qt::EditRole });
+    emit dataEdited();
+    return true;
+}
+
+Qt::ItemFlags SceneTreeModel::flags(const QModelIndex &index) const
+{
+    Qt::ItemFlags f = QAbstractItemModel::flags(index);
+    if (!index.isValid()) return f;
+    return f | Qt::ItemIsEditable | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled;
+}
+
+Qt::DropActions SceneTreeModel::supportedDropActions() const
+{
+    return Qt::MoveAction;
+}
+
+QStringList SceneTreeModel::mimeTypes() const
+{
+    return { QString::fromLatin1(kObjectPathMime) };
+}
+
+QByteArray SceneTreeModel::encodePath(const QModelIndex &index)
+{
+    QByteArray bytes;
+    QDataStream stream(&bytes, QIODevice::WriteOnly);
+    QList<int> rows;                   // 自根节点到目标路径（行号序列）
+    QModelIndex cur = index;
+    while (cur.isValid()) {
+        rows.prepend(cur.row());
+        cur = cur.parent();
+    }
+    stream << rows;
+    return bytes;
+}
+
+QMimeData *SceneTreeModel::mimeData(const QModelIndexList &indexes) const
+{
+    if (indexes.isEmpty()) return nullptr;
+    auto *mime = new QMimeData;
+    mime->setData(QString::fromLatin1(kObjectPathMime), encodePath(indexes.first()));
+    return mime;
+}
+
+Shit::GameObject *SceneTreeModel::objectFromPath(const QByteArray &path) const
+{
+    QDataStream stream(path);
+    QList<int> rows;
+    stream >> rows;
+    if (stream.status() != QDataStream::Ok) return nullptr;
+
+    QModelIndex cur;
+    Shit::GameObject *obj = nullptr;
+    for (const int row : rows) {
+        const QModelIndex child = index(row, 0, cur);
+        if (!child.isValid()) return nullptr;
+        obj = gameObjectAt(child);
+        cur = child;
+    }
+    return obj;
+}
+
+bool SceneTreeModel::dropMimeData(const QMimeData *data, Qt::DropAction action,
+                                  int row, int column, const QModelIndex &parent)
+{
+    Q_UNUSED(row);
+    Q_UNUSED(column);
+    if (action == Qt::IgnoreAction) return true;
+    if (!m_scene || !data || !data->hasFormat(QString::fromLatin1(kObjectPathMime)))
+        return false;
+
+    Shit::GameObject *source = objectFromPath(data->data(QString::fromLatin1(kObjectPathMime)));
+    if (!source) return false;
+    Shit::GameObject *target = gameObjectAt(parent);   // parent 无效 = 拖到根
+    if (target == source) return false;
+
+    // 防环：target 是 source 自身或其子孙时拒绝
+    for (Shit::GameObject *p = target; p; p = p->getParent())
+        if (p == source) return false;
+    // 已在同一父下 → 无变化
+    if (source->getParent() == target) return false;
+
+    source->setParent(target);
+    beginResetModel();
+    endResetModel();                 // 层级已变，整体刷新
+    emit dataEdited();
+    return true;
 }
 
 Shit::GameObject *SceneTreeModel::gameObjectAt(const QModelIndex &index) const
@@ -101,7 +205,8 @@ std::vector<Shit::GameObject *> SceneTreeModel::topLevelObjects() const
 {
     std::vector<Shit::GameObject *> roots;
     for (auto &go : m_scene->getGameObjects())
-        if (go && !go->getParent())
+        // 编辑器相机（scene_camera）是编辑基础设施，不出现在场景树
+        if (go && !go->getParent() && go->getName() != "scene_camera")
             roots.push_back(go.get());
     return roots;
 }
