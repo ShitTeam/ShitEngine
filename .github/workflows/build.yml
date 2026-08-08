@@ -19,6 +19,8 @@ jobs:
               curl -L -o ninja.zip https://github.com/ninja-build/ninja/releases/download/v1.12.1/ninja-win.zip
               7z x ninja.zip -oninja > nul
               echo "${{ github.workspace }}/ninja" >> $env:GITHUB_PATH
+              # SDK 工具链（ReflectionScanner）依赖 libClang
+              choco install llvm -y --no-progress
 
           - os: windows-latest
             cc: cl
@@ -28,6 +30,8 @@ jobs:
               curl -L -o ninja.zip https://github.com/ninja-build/ninja/releases/download/v1.12.1/ninja-win.zip
               7z x ninja.zip -oninja > nul
               echo "${{ github.workspace }}/ninja" >> $env:GITHUB_PATH
+              # SDK 工具链（ReflectionScanner）依赖 libClang
+              choco install llvm -y --no-progress
 
           - os: ubuntu-latest
             cc: gcc
@@ -90,11 +94,18 @@ jobs:
           if [ "$RUNNER_OS" = "Linux" ]; then
             LINUX_FLAGS="-DSDL_X11_XCURSOR=OFF -DSDL_X11_XFIXES=OFF"
           fi
+          # Windows：BUILD_TOOLS=ON 产出完整 SDK（ReflectionScanner + libclang.dll +
+          # clang-resource + tools/*.cmake + ShitEngineToolsConfig.cmake）
+          TOOLS_ARGS=()
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            TOOLS_ARGS+=(-DBUILD_TOOLS=ON "-DLIBCLANG_PREFIX=C:/Program Files/LLVM")
+          fi
           cmake -B build/release -G Ninja \
             -DCMAKE_C_COMPILER=${{ matrix.cc }} \
             -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_EXAMPLES=ON \
+            "${TOOLS_ARGS[@]}" \
             $LINUX_FLAGS
       - name: Build Release
         run: cmake --build build/release --parallel
@@ -109,11 +120,16 @@ jobs:
           if [ "$RUNNER_OS" = "Linux" ]; then
             LINUX_FLAGS="-DSDL_X11_XCURSOR=OFF -DSDL_X11_XFIXES=OFF"
           fi
+          TOOLS_ARGS=()
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            TOOLS_ARGS+=(-DBUILD_TOOLS=ON "-DLIBCLANG_PREFIX=C:/Program Files/LLVM")
+          fi
           cmake -B build/debug -G Ninja \
             -DCMAKE_C_COMPILER=${{ matrix.cc }} \
             -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
             -DCMAKE_BUILD_TYPE=Debug \
             -DBUILD_EXAMPLES=ON \
+            "${TOOLS_ARGS[@]}" \
             $LINUX_FLAGS
       - name: Build Debug
         run: cmake --build build/debug --parallel
@@ -140,6 +156,18 @@ jobs:
             find build/release/lib -name "*.dylib" -exec cp -n {} install/lib/ \;
             find build/release/_deps -name "*.dylib" -exec cp -n {} install/lib/ \;
           fi
+
+      # SDK 完整性自检（Windows 应包含反射扫描工具链）
+      - name: Verify SDK tools
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          for f in bin/ReflectionScanner.exe bin/libclang.dll \
+                   lib/ShitEngine/ShitEngineToolsConfig.cmake \
+                   lib/ShitEngine/tools/ReflectionScanSetup.cmake; do
+            if [ -f "install/$f" ]; then echo "OK   $f"; else echo "MISS $f"; fi
+          done
+          [ -d install/lib/ShitEngine/clang-resource ] && echo "OK   lib/ShitEngine/clang-resource/"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
