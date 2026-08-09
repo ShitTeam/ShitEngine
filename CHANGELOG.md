@@ -9,6 +9,11 @@
 
 ### 新增
 
+- **导出游戏（P18，引擎 + 编辑器）**：
+  - 「文件 → 导出游戏…」：一键把项目装配为**绿色免安装游戏目录**（`<游戏名>.exe` + 引擎/SDL 运行库 + 项目脚本 DLL + 场景 + Assets + config.json），双击即玩
+  - Runtime 硬化：`ShitRuntime` 启动时 chdir 到 exe 所在目录（Windows/POSIX）——导出包任意位置运行，不再依赖调用方 CWD；`Runtime/CMakeLists.txt` 新增 install 规则，SDK 自此携带 `ShitRuntime.exe`（导出从 SDK bin/ 取运行库，与仓库解耦）
+  - 场景资源路径改写：导出时深度遍历场景 JSON，绝对路径资源复制进包并改写为 `Assets/…` 相对路径；项目根内相对路径按同相对位置带出——解决编辑器拖入资源存绝对路径导致运行包缺图的问题
+  - 导出 config.json 自动生成（scene / plugins / inputMappings），输入映射随包带走（引擎本就合并读取 config.json）
 - **打开代码编辑器（P16，编辑器）**：
   - 「编辑 → 打开代码…」（`Ctrl+Shift+O`）：用项目设置中配置的 IDE 打开项目根目录
   - IDE 在「文件 → 项目设置… → 通用 → 代码编辑器」下拉中选择：自动探测本机已安装的 Visual Studio Code / Visual Studio（vswhere 查询 + 常见路径回退）/ CLion（Toolbox 与传统安装）/ Qt Creator，也可「浏览…」手动指定任意 exe（存 `config.json` 的 `editor.ideExe`；未配置时菜单给出引导提示）

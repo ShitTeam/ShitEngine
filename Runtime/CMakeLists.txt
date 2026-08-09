@@ -33,3 +33,7 @@ add_custom_command(TARGET ShitRuntime POST_BUILD
         "$<TARGET_FILE_DIR:ShitRuntime>/resource"
     COMMENT "Copying config and resources to output directory"
 )
+
+# P18：SDK 自包含运行时 —— 编辑器「导出游戏」从 SDK bin/ 取 ShitRuntime.exe
+include(GNUInstallDirs)
+install(TARGETS ShitRuntime RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

@@ -42,6 +42,7 @@
 #include "project.h"
 #include "projectwizard.h"
 #include "projectsettingsdialog.h"
+#include "exportdialog.h"
 #include "idefinder.h"
 #include "keys.h"
 
@@ -276,6 +277,8 @@ void MainWindow::createMenus()
     m_saveSceneAsAction->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_S));
     fileMenu->addSeparator();
     m_projectSettingsAction = fileMenu->addAction(tr("项目设置…"), this, &MainWindow::onProjectSettings);
+    m_exportGameAction = fileMenu->addAction(tr("导出游戏…"), this, &MainWindow::onExportGame);
+    m_exportGameAction->setToolTip(tr("把当前项目导出为可独立运行的游戏目录（绿色免安装）"));
     fileMenu->addSeparator();
     fileMenu->addAction(tr("退出"), this, &QWidget::close);
 
@@ -1077,6 +1080,13 @@ void MainWindow::onProjectSettings()
         : tr("项目设置已更新：输入映射已生效，SDK 目录 %1").arg(sdk));
 }
 
+void MainWindow::onExportGame()
+{
+    if (!hasProject()) return;
+    ExportDialog dialog(m_project, this);
+    dialog.exec();
+}
+
 void MainWindow::openIde()
 {
     if (!hasProject()) return;
@@ -1210,6 +1220,7 @@ void MainWindow::updateProjectMenus()
     if (m_saveSceneAsAction) m_saveSceneAsAction->setEnabled(enabled);
     if (m_closeProjectAction) m_closeProjectAction->setEnabled(enabled);
     if (m_projectSettingsAction) m_projectSettingsAction->setEnabled(enabled);
+    if (m_exportGameAction) m_exportGameAction->setEnabled(enabled);
     if (m_openIdeAction) m_openIdeAction->setEnabled(enabled);
     if (m_buildAction) m_buildAction->setEnabled(enabled);
     if (m_playAction) m_playAction->setEnabled(enabled);

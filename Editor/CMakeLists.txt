@@ -39,6 +39,10 @@ set(PROJECT_SOURCES
         projectwizard.h
         projectsettingsdialog.cpp
         projectsettingsdialog.h
+        exportdialog.cpp
+        exportdialog.h
+        gameexporter.cpp
+        gameexporter.h
         idefinder.cpp
         idefinder.h
         keys.cpp

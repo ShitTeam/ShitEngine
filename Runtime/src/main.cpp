@@ -12,7 +12,39 @@
         #define WIN32_LEAN_AND_MEAN
     #endif
     #include <Windows.h>
+    #include <filesystem>
+#else
+    #include <unistd.h>
 #endif
+
+/// 把进程 CWD 切到 exe 所在目录（P18 导出游戏：
+/// 引擎所有加载——场景/纹理/字体/插件/config.json——相对 CWD；
+/// 切目录后游戏包任意位置双击/启动均可运行，不受调用方 CWD 影响）。
+/// 仓库内从 bin/ 启动的旧方式 CWD 本就等于 exe 目录，行为不变。
+static void chdirToExecutableDir() {
+#ifdef _WIN32
+    wchar_t buf[MAX_PATH] = {};
+    const DWORD len = GetModuleFileNameW(nullptr, buf, MAX_PATH);
+    if (len > 0) {
+        const std::filesystem::path exe(buf);
+        SetCurrentDirectoryW(exe.parent_path().c_str());
+    }
+#else
+    // Linux: /proc/self/exe；macOS 同路径可用（Mach-O 也支持）
+    char buf[4096] = {};
+    const ssize_t len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+    if (len > 0) {
+        buf[len] = '\0';
+        std::string path(buf);
+        const size_t slash = path.find_last_of('/');
+        if (slash != std::string::npos) {
+            path.resize(slash);   // 去文件名 → exe 目录
+            if (path.empty()) path = "/";
+            chdir(path.c_str());
+        }
+    }
+#endif
+}
 
 /// 空场景 + 默认相机（无 scene 配置时兜底；相机兜底由 SceneSerializer::fromJson 统一处理）
 static std::unique_ptr<Shit::Scene> createEmptyScene() {
@@ -28,6 +60,7 @@ int main() {
 #ifdef _WIN32
     SetConsoleOutputCP(65001);
 #endif
+    chdirToExecutableDir();   // 游戏包任意位置运行：CWD → exe 所在目录（P18）
     // 1. 初始化引擎（日志 / 配置 / 反射内置类型 / SDL / 窗口 / 渲染器 ...）
     if (!Shit::Game::Init()) {
         ST_CORE_ERROR("Game initialization failed");

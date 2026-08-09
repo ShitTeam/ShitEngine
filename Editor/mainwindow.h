@@ -68,6 +68,7 @@ private slots:
     void openProject();                  ///< 选择项目目录打开
     void closeProject();                 ///< 关闭当前项目（回到无项目态）
     void onProjectSettings();            ///< 项目设置（SDK 目录等）
+    void onExportGame();                 ///< 导出游戏（P18）：装配绿色免安装游戏包
     void openIde();                      ///< 用项目设置中配置的 IDE 打开项目（P16）
     void onBuildScripts();               ///< 构建脚本工程（Ctrl+B）→ 成功后热重载
 
@@ -133,6 +134,7 @@ private:
     QAction *m_saveSceneAsAction = nullptr;
     QAction *m_closeProjectAction = nullptr;
     QAction *m_projectSettingsAction = nullptr;
+    QAction *m_exportGameAction = nullptr; ///< 导出游戏（P18）
     QAction *m_openIdeAction = nullptr;  ///< 打开代码（Ctrl+Shift+O；IDE 经项目设置配置）
     QAction *m_buildAction = nullptr;    ///< 构建脚本（Ctrl+B）
     ScriptBuilder *m_scriptBuilder = nullptr;   ///< 脚本工程 cmake 编译管线（P14）
