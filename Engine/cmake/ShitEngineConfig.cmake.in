@@ -3,24 +3,37 @@
 set_and_check(ShitEngine_INCLUDE_DIR "@PACKAGE_CMAKE_INSTALL_INCLUDEDIR@")
 set_and_check(ShitEngine_LIB_DIR     "@PACKAGE_CMAKE_INSTALL_LIBDIR@")
 
+# 规范化为绝对路径（去掉 lib/.. 段）——CMake 的 if(EXISTS) 不解析 `..`，
+# 含 ../bin 拼接会误判 DLL 不存在，导致 -d 探测/并存警告全部失效
+get_filename_component(_BIN_DIR "${ShitEngine_LIB_DIR}/../bin" ABSOLUTE)
+set(_LIB_DIR "${ShitEngine_LIB_DIR}")
+set(_INC_DIR "${ShitEngine_INCLUDE_DIR}")
+
 # ============================================================
 # Debug/Release 文件名后缀：Debug 版本带 -d 后缀
 # ============================================================
 if(CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
     set(_SE_SUFFIX "-d")
-else()
+elseif(CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "MinSizeRel")
+    # 显式 Release：尊重用户选择，不做后缀回退（运行时一致性由用户保证）
     set(_SE_SUFFIX "")
-endif()
-
-set(_BIN_DIR "${ShitEngine_LIB_DIR}/../bin")
-set(_LIB_DIR "${ShitEngine_LIB_DIR}")
-set(_INC_DIR "${ShitEngine_INCLUDE_DIR}")
-
-# P14 SDK：多配置生成器（VS/Ninja Multi-Config）无 CMAKE_BUILD_TYPE；
-# 且当前 SDK 仅安装 Debug(-d) 运行库 —— 探测 bin/ 下实际 DLL 形态，自动回退 -d。
-if(_SE_SUFFIX STREQUAL "" AND EXISTS "${_BIN_DIR}/ShitEngine-d.dll" AND NOT EXISTS "${_BIN_DIR}/ShitEngine.dll")
-    set(_SE_SUFFIX "-d")
-    message(STATUS "ShitEngine: SDK 仅含 Debug 运行库（ShitEngine-d.dll），统一使用 -d 后缀")
+else()
+    # 未显式指定构建类型（多配置生成器 / 未传 CMAKE_BUILD_TYPE）：
+    # 按 SDK bin/ 实际安装的 DLL 形态探测，并给「双版本并存」明确的警告——
+    # 插件 DLL 的导入名必须与运行时引擎一致，并存且不判定时默认选 -d 匹配插件/编辑器生态。
+    set(_SE_SUFFIX "")
+    if(EXISTS "${_BIN_DIR}/ShitEngine-d.dll")
+        if(NOT EXISTS "${_BIN_DIR}/ShitEngine.dll")
+            set(_SE_SUFFIX "-d")
+            message(STATUS "ShitEngine: SDK 仅含 Debug 运行库（ShitEngine-d.dll），统一使用 -d 后缀")
+        else()
+            set(_SE_SUFFIX "-d")
+            message(WARNING
+                "ShitEngine: SDK 同时含有 ShitEngine.dll 与 ShitEngine-d.dll，且未指定构建类型。\n"
+                "  已默认选用 Debug（-d）以匹配插件/编辑器运行时；如需 Release 请显式设置 "
+                "CMAKE_BUILD_TYPE=Release，并移除 SDK 中另一版本避免混淆。")
+        endif()
+    endif()
 endif()
 
 # ============================================================
