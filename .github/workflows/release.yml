@@ -139,16 +139,22 @@ jobs:
           windeployqt.exe --no-translations --no-system-d3d-compiler \
             --no-opengl-sw --no-compiler-runtime "${{ github.workspace }}/install/bin/Editor.exe"
 
-      # 冒烟：真实启动 SDK 里的 Editor.exe（验证 Qt 运行库与插件完整）
+      # 冒烟：真实启动 SDK 里的 Editor.exe（验证 Qt 运行库与插件完整）。
+      # runner 无交互式图形会话 → Qt offscreen + SDL dummy 软件渲染（本地已验证该组合可正常运行）
       - name: Smoke test Editor (MSVC)
         if: matrix.editor-qt != ''
         shell: bash
         run: |
           cd "${{ github.workspace }}/install/bin"
-          ./Editor.exe & sleep 10
+          export QT_QPA_PLATFORM=offscreen
+          export SDL_VIDEO_DRIVER=dummy
+          export SDL_RENDER_DRIVER=software
+          ./Editor.exe > editor_smoke.log 2>&1 &
+          sleep 12
           if tasklist //FI "IMAGENAME eq Editor.exe" | grep -q Editor; then
             echo "Editor SMOKE OK"; taskkill //F //IM Editor.exe > /dev/null 2>&1 || true
           else
+            echo "=== Editor output ==="; cat editor_smoke.log || true
             echo "Editor SMOKE FAILED"; exit 1
           fi
 
