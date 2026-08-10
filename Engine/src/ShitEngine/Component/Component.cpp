@@ -28,3 +28,5 @@ uint64_t GenerateComponentUuid() {
 }
 
 Component::Component() : m_uuid(GenerateComponentUuid()) {}
+
+} // namespace Shit
