@@ -26,6 +26,7 @@ void ensureDefaultCamera(Scene* scene) {
 	if (!scene) return;
 
 	for (auto& go : scene->getGameObjects()) {
+		if (go->getName() == "scene_camera") continue;   // 编辑器相机（约定名）不算场景相机，不参与兜底判定
 		if (auto* cam = go->getComponent<CameraComponent>(); cam && cam->isEnabled()) {
 			return;  // 已有可用相机
 		}

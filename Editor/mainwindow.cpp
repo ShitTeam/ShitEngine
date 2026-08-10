@@ -590,6 +590,10 @@ void MainWindow::syncSceneSelection()
     m_lastScene = scene;
     m_lastSceneGeneration = scene->getGeneration();
 
+    // 场景内容已变（含整体替换）：视口也用当前场景，避免持有已销毁场景的 m_editScene
+    m_sceneViewport->setEditScene(scene);
+    m_sceneViewport->setSelectedObject(nullptr);   // 重建前先清（旧选中可能已失效）
+
     // 场景内容已变：重建场景树。选中对象若仍存活则恢复选中（并重绑检查器——
     // 组件可能被增删，旧读回指针可能已失效）；否则视为删除，清空检查器/Gizmo。
     Shit::GameObject *sel = m_sceneTree->selectedObject();   // 仅地址比较，可能已失效
@@ -1372,10 +1376,14 @@ void MainWindow::pickSceneAt(float x, float y)
     Shit::Scene *scene = m_preview ? m_preview->getScene() : nullptr;
     if (!scene) { m_log->appendMessage(tr("pick: 无场景"), Qt::red); return; }
 
-    // 找到场景视图用的相机（编辑器相机）
+    // 找到场景视图用的相机：优先约定名 scene_camera（编辑器相机，场景视图视角）；
+    // 缺失时回退场景中任一相机（旧场景兼容）。
     Shit::CameraComponent *camera = nullptr;
     for (auto &go : scene->getGameObjects()) {
-        if (auto *cam = go->getComponent<Shit::CameraComponent>()) { camera = cam; break; }
+        auto *cam = go->getComponent<Shit::CameraComponent>();
+        if (!cam) continue;
+        if (go->getName() == "scene_camera") { camera = cam; break; }
+        if (!camera) camera = cam;
     }
     if (!camera) { m_log->appendMessage(tr("pick: 未找到相机"), Qt::red); return; }
 

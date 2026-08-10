@@ -208,6 +208,7 @@ void EnginePreview::setPlaying(bool playing)
 
 void EnginePreview::refreshCameras()
 {
+    Shit::CameraComponent *prev = m_gameCam;   // 保存上一帧选择的游戏相机（清零前取，延续逻辑才生效）
     m_editorCam = nullptr;
     m_gameCam = nullptr;
     if (!m_scene) return;
@@ -224,7 +225,6 @@ void EnginePreview::refreshCameras()
     // 用户相机若仍在场景则延续（避免 tick 双 pass 切换 enabled 造成选择抖动）；
     // 否则取 priority 最小的相机（与 RenderSystem 渲染顺序一致），无用户相机时
     // 兜底编辑器相机，保证运行视口画面不断流。
-    Shit::CameraComponent *prev = m_gameCam;
     if (prev && prev->getOwner()
             && prev->getOwner()->getName() != "scene_camera"
             && m_scene->containsGameObject(prev->getOwner())
@@ -286,6 +286,9 @@ void EnginePreview::tick()
     if (m_gameCam) m_gameCam->setEnabled(true);
     Shit::Renderer::BeginOffscreen();
     Shit::SceneManager::Update();
+    // 播放中游戏逻辑可能 LoadScene 整体替换场景（旧场景销毁）——立即重取 m_scene，
+    // 否则下方 refreshCameras/渲染会解引用已释放的 Scene（UAF）。
+    m_scene = Shit::SceneManager::GetCurrentScene();
     // 播放中 ensureCameras()/游戏逻辑创建的对象此刻才入容器；游戏逻辑也可能在
     // update 中销毁相机 → 每个 pass 后重新定位，既让新建的相机立即可用，也防
     // 本帧缓存指针在 pass 间变成悬垂。
@@ -300,25 +303,25 @@ void EnginePreview::tick()
     // 其余相机（游戏相机/分屏相机）渲染期间暂时禁用——否则它们的内容会叠加进
     // 编辑帧，多相机分屏时场景视图被各视口内容淹没（Unity 场景视图同样只看
     // 编辑器视角；游戏侧多相机 viewport 在运行视图 pass 照常全部渲染）。
-    std::vector<Shit::CameraComponent *> userCams;
+    std::vector<std::pair<Shit::GameObject *, Shit::CameraComponent *>> userCams;
     if (m_scene) {
         for (auto &go : m_scene->getGameObjects()) {
             if (go->getName() == "scene_camera") continue;
             if (auto *cam = go->getComponent<Shit::CameraComponent>())
-                userCams.push_back(cam);
+                userCams.emplace_back(go.get(), cam);
         }
     }
     if (m_editorCam) m_editorCam->setEnabled(true);
-    for (auto *cam : userCams) cam->setEnabled(false);
+    for (auto &[owner, cam] : userCams) cam->setEnabled(false);
     if (m_scene) {
         if (auto *renderSystem = m_scene->getSystem<Shit::RenderSystem>())
             renderSystem->update();
     }
-    // 恢复其余相机：渲染回调可能重入销毁对象，逐个校验仍在场景才恢复
-    for (auto *cam : userCams) {
+    // 恢复其余相机：渲染回调可能重入销毁对象。先以地址比对 owner 仍在场景再解引用，
+    // 避免对已释放的 cam 调 getOwner()（悬垂 UAF）。
+    for (auto &[owner, cam] : userCams) {
         if (!m_scene) break;
-        auto *owner = cam->getOwner();
-        if (owner && m_scene->containsGameObject(owner)
+        if (m_scene->containsGameObject(owner)
             && owner->getComponent<Shit::CameraComponent>() == cam)
             cam->setEnabled(true);
     }
