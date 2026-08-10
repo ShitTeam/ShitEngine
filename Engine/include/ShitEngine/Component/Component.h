@@ -2,9 +2,14 @@
 #include "../Core/Config.h"
 #include "../Reflection/Macros.h"
 
+#include <cstdint>
+
 namespace Shit {
 	class GameObject; // 前向声明
 	class System;     // 前向声明（friend：系统销毁时重置认领组件的注册状态）
+
+	/// @brief 生成随机组件 UUID（64 位；0 保留为空引用，永不返回 0）
+	SHIT_API uint64_t GenerateComponentUuid();
 
 	/**
 	 * @brief 组件基类
@@ -44,6 +49,11 @@ virtual void onCreate() {}   // 组件创建时（有 owner，但可能尚未挂
 		GameObject* getOwner() const { return m_owner; }
 		bool isRegistered() const { return m_isRegistered; }
 
+		/// @brief 组件持久 ID（随 .scene 序列化，是 ComponentRef<T> 引用字段的寻址依据）
+		uint64_t getUuid() const { return m_uuid; }
+		/// @brief 直接设置组件 ID（仅引擎反序列化/索引维护使用；正常流程由构造函数随机分配）
+		void setUuid(uint64_t uuid) { m_uuid = uuid; }
+
 	private:
 		// 只允许 GameObject 设置
 		inline void setOwner(GameObject* owner) { m_owner = owner; }
@@ -58,5 +68,7 @@ virtual void onCreate() {}   // 组件创建时（有 owner，但可能尚未挂
 		GameObject* m_owner = nullptr; // 组件的拥有者
 		SHIT_META(({.displayName = "Registered", .readOnly = true}))
 		bool m_isRegistered = false;
+		SHIT_META(Disable)
+		uint64_t m_uuid = 0; ///< 持久 ID（构造时随机分配；0 仅在序列化前尚未赋值时短暂存在）
 	};
 }

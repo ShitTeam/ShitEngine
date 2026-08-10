@@ -893,6 +893,9 @@ void MainWindow::exitPlayMode()
     m_gameViewport->releaseKeyboard();   // 释放键盘捕获（编辑器快捷键恢复）
     for (QAction *a : m_gizmoShortcutActions) a->setEnabled(true);   // 恢复 Gizmo 快捷键
     if (m_preview) m_preview->setPlaying(false);   // 引擎逻辑冻结
+    // 停止时清键鼠残留/注入坐标：进入时已有 ResetState，退出也要清，否则编辑态
+    // Input::GetMousePosition 一直返回播放期最后一次注入值（陈旧坐标）
+    Shit::Input::ResetState();
     // 恢复运行前快照：运行期间的属性/对象改动全部回退（保留编辑器相机）
     if (m_hasRunSnapshot && !m_runSnapshot.empty())
         applySnapshot(m_runSnapshot);

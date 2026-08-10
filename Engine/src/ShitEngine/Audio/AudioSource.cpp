@@ -29,6 +29,9 @@ namespace Shit {
 			ST_CORE_WARN("[AudioSource] audioPath 为空，无法播放");
 			return;
 		}
+		// 停掉旧句柄再新建：否则循环轨道永不结束、AudioPlayer 只收 isFinished 的，
+		// 反复 play() 会让 m_tracks 里的轨道只增不减（泄漏）。
+		if (m_track) m_track->stop();
 		m_track = Shit::AudioPlayer::Play(m_audioPath, "default");
 		if (m_track) {
 			m_track->setLooping(m_loop ? -1 : 0);

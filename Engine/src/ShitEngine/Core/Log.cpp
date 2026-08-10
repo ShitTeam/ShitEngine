@@ -39,6 +39,11 @@ namespace Shit {
 
 	static void attachLoggerSink(const std::shared_ptr<spdlog::logger>& logger, bool isCore) {
 		if (!logger) return;
+		// 幂等：已挂过 CallbackSink 则不再追加。否则部分失败（core 建好、client 抛异常）
+		// 后重试 Init 会重复挂 sink → 编辑器日志面板每条日志显示多次
+		for (const auto& sink : logger->sinks()) {
+			if (dynamic_cast<CallbackSink*>(sink.get())) return;
+		}
 		logger->sinks().push_back(std::make_shared<CallbackSink>(isCore)); // Init 期（单线程）追加安全
 	}
 
