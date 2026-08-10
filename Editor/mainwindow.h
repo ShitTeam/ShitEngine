@@ -7,6 +7,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include <cstdint>
 #include <vector>
 
 #include "project.h"
@@ -26,6 +27,8 @@ class Inspector;
 class LogWidget;
 class EnginePreview;
 class AssetsDock;
+
+namespace Shit { class Scene; }   ///< 播放中场景同步成员用（仅指针，不要求完整类型）
 
 class MainWindow : public QMainWindow
 {
@@ -60,6 +63,7 @@ private slots:
     void saveLayoutAsDefault();          ///< 把当前 Dock 布局存为默认（P17）
     void setPlaying(bool playing);       ///< ▶ 运行 / ■ 停止（Unity 式：停止恢复运行前快照）
     void onPauseToggled(bool paused);    ///< ⏸ 暂停/继续（仅运行态可用）
+    void onSceneFrameReady(const QImage &frame);  ///< 场景视图帧：同步树/选中态 + 检查器回读
     void pickSceneAt(float x, float y);  ///< 场景视图点击拾取
     void onViewportAssetDropped(const QString &path, float logicalX, float logicalY); ///< 资源图拖入视口 → 建精灵
 
@@ -157,6 +161,12 @@ private:
     nlohmann::json m_runSnapshot;           ///< 进入运行前的场景快照（停止时恢复）
     bool m_hasRunSnapshot = false;          ///< 是否有待恢复的运行前快照
     bool m_playPendingBuild = false;        ///< 点运行后正等待脚本构建完成再进入
+    // ----------------------------------
+
+    // ---- 播放中场景同步（防悬垂）----
+    Shit::Scene *m_lastScene = nullptr;     ///< 上次已同步的场景（比地址判断是否整体替换）
+    uint64_t m_lastSceneGeneration = 0;     ///< 上次已同步的场景结构代数
+    void syncSceneSelection();              ///< 场景结构变化 → 重建树/校验选中态/重绑检查器
     // ----------------------------------
 };
 #endif // MAINWINDOW_H

@@ -73,11 +73,13 @@ SceneTree::SceneTree(QWidget *parent)
     connect(deleteAction, &QAction::triggered, this, &SceneTree::deleteObject);
 }
 
-void SceneTree::setScene(Shit::Scene *scene)
+void SceneTree::setScene(Shit::Scene *scene, bool autoSelect)
 {
     m_scene = scene;
     m_model->setScene(scene);
     m_view->expandAll();
+
+    if (!autoSelect) return;
 
     // 自动选中第一项，触发 objectSelected → 检查器
     if (m_model->rowCount({}) > 0) {
@@ -85,6 +87,11 @@ void SceneTree::setScene(Shit::Scene *scene)
         m_view->selectionModel()->setCurrentIndex(first,
             QItemSelectionModel::Select | QItemSelectionModel::Rows);
     }
+}
+
+Shit::GameObject *SceneTree::selectedObject() const
+{
+    return m_model->gameObjectAt(m_view->selectionModel()->currentIndex());
 }
 
 void SceneTree::selectObject(Shit::GameObject *object)
@@ -135,14 +142,22 @@ void SceneTree::deleteObject()
     if (!m_scene) return;
     const QModelIndex idx = m_view->selectionModel()->currentIndex();
     Shit::GameObject *go = m_model->gameObjectAt(idx);
-    if (go) {
-        emit sceneActionStarted();   // 撤销 begin（须在修改前）
-        m_scene->removeGameObject(go);
-        // 用 setScene 而非 m_model->setScene：自动重新选中第一项 → 触发 objectSelected，
-        // 检查器/视口及时换绑新对象（否则其持有被删对象指针，下一帧渲染即悬垂崩溃）
-        setScene(m_scene);
-        emit sceneEdited();
+    if (!go) return;
+
+    // 相机是编辑/运行基础设施：删除会导致预览 tick 失能、保存后无法恢复
+    //（scene_camera 不入库、game_camera 删除后需重启），直接拒绝
+    const std::string name = go->getName();
+    if (name == "scene_camera" || name == "game_camera") {
+        emit sceneDeleteBlocked(QString::fromStdString(name) + tr(" 是相机基础设施，不能删除"));
+        return;
     }
+
+    emit sceneActionStarted();   // 撤销 begin（须在修改前）
+    m_scene->removeGameObject(go);
+    // 用 setScene 而非 m_model->setScene：自动重新选中第一项 → 触发 objectSelected，
+    // 检查器/视口及时换绑新对象（否则其持有被删对象指针，下一帧渲染即悬垂崩溃）
+    setScene(m_scene);
+    emit sceneEdited();
 }
 
 QMenu *SceneTree::buildAddComponentMenu(Shit::GameObject *target)

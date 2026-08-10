@@ -1,6 +1,7 @@
 #include "logwidget.h"
 
 #include <QPlainTextEdit>
+#include <QTextCharFormat>
 #include <QTextCursor>
 #include <QVBoxLayout>
 
@@ -20,9 +21,10 @@ void LogWidget::appendMessage(const QString &text, const QColor &color)
 {
     QTextCursor cursor = m_text->textCursor();
     cursor.movePosition(QTextCursor::End);
-    cursor.insertText(text + "\n");
+    QTextCharFormat format;
     if (color.isValid())
-        cursor.select(QTextCursor::LineUnderCursor);
+        format.setForeground(color);   // 错误红/警告橙等区分级别
+    cursor.insertText(text + "\n", format);
     m_text->ensureCursorVisible();
 }
 

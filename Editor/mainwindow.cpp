@@ -128,9 +128,10 @@ MainWindow::MainWindow(QWidget *parent)
 
     // 单一引擎预览：共享场景，双视口同源（编辑一处，双视图同步）
     m_preview = new EnginePreview(this);
-    connect(m_preview, &EnginePreview::sceneFrameReady, m_sceneViewport, &Viewport::setFrame);
+    connect(m_preview, &EnginePreview::sceneFrameReady, this, &MainWindow::onSceneFrameReady);
     connect(m_preview, &EnginePreview::gameFrameReady, m_gameViewport, &Viewport::setFrame);
-    connect(m_preview, &EnginePreview::sceneFrameReady, m_inspector, &Inspector::refresh); // 每帧回读引擎值
+    connect(m_sceneTree, &SceneTree::sceneDeleteBlocked, this,
+            [this](const QString &reason) { m_log->appendMessage(reason, Qt::red); });
 
     // P3：场景树选中 → 属性检查器 + 场景视图 Gizmo
     connect(m_sceneTree, &SceneTree::objectSelected, this, [this](Shit::GameObject *obj) {
@@ -161,6 +162,11 @@ MainWindow::MainWindow(QWidget *parent)
         // 场景树绑定共享场景（自动选中第一项 → 检查器 + Gizmo）
         m_sceneTree->setScene(m_preview->getScene());
         m_sceneViewport->setEditScene(m_preview->getScene()); // 编辑器交互（平移/缩放/Gizmo）
+        // 场景同步基准：初始绑定视为已同步（首次 tick 不无谓重建）
+        if (Shit::Scene *sc = m_preview->getScene(); sc) {
+            m_lastScene = sc;
+            m_lastSceneGeneration = sc->getGeneration();
+        }
         setPlaying(m_playAction->isChecked());   // 默认停止态：暂停预览逻辑
 
         // P14：启动时自动恢复上次打开的项目（静默；项目损坏/被删则忽略，不影响启动）
@@ -553,6 +559,48 @@ void MainWindow::onViewportAssetDropped(const QString &path, float logicalX, flo
     m_sceneTree->selectObject(go);  // 选中新精灵 → 检查器 + Gizmo
     m_log->appendMessage(QString("已从资源创建精灵: %1 @(%2, %3)")
         .arg(base).arg(world.x, 0, 'f', 1).arg(world.y, 0, 'f', 1));
+}
+
+void MainWindow::onSceneFrameReady(const QImage &frame)
+{
+    m_sceneViewport->setFrame(frame);
+    // 先同步场景树/选中态（可能重建检查器绑定），再每帧回读引擎值：
+    // 若播放中游戏逻辑销毁了选中对象，syncSceneSelection 已清空检查器，
+    // refresh() 不会触碰已释放的组件内存
+    syncSceneSelection();
+    m_inspector->refresh();
+}
+
+void MainWindow::syncSceneSelection()
+{
+    Shit::Scene *scene = m_preview ? m_preview->getScene() : nullptr;
+    if (!scene) {
+        m_inspector->setGameObject(nullptr);
+        m_sceneViewport->setSelectedObject(nullptr);
+        m_lastScene = nullptr;
+        m_lastSceneGeneration = 0;
+        return;
+    }
+
+    // 场景未变（同一场景 + 代数未增）→ 选中态依然有效，无需处理。
+    // 代数在任何对象增删/组件增删/改名/改父/销毁时递增（场景整体替换则指针不同）
+    if (scene == m_lastScene && scene->getGeneration() == m_lastSceneGeneration)
+        return;
+    m_lastScene = scene;
+    m_lastSceneGeneration = scene->getGeneration();
+
+    // 场景内容已变：重建场景树。选中对象若仍存活则恢复选中（并重绑检查器——
+    // 组件可能被增删，旧读回指针可能已失效）；否则视为删除，清空检查器/Gizmo。
+    Shit::GameObject *sel = m_sceneTree->selectedObject();   // 仅地址比较，可能已失效
+    const bool keep = sel && scene->containsGameObject(sel);
+
+    m_sceneTree->setScene(scene, /*autoSelect=*/false);
+    if (keep) {
+        m_sceneTree->selectObject(sel);            // 触发 objectSelected → 检查器/Gizmo 重新绑定
+    } else {
+        m_inspector->setGameObject(nullptr);       // 清空检查器（防回读已释放组件）
+        m_sceneViewport->setSelectedObject(nullptr);
+    }
 }
 
 bool MainWindow::saveScene()
@@ -1070,10 +1118,12 @@ void MainWindow::onProjectSettings()
     ProjectSettingsDialog dialog(m_project, this);
     if (dialog.exec() != QDialog::Accepted) return;
 
-    const QString sdk = m_project.sdkDir();
     dialog.applyToProject();                 // 写回 SDK / 启动场景 / inputMappings
     m_project.saveConfig();
-    m_settings.setValue("lastSdkDir", sdk);   // 全局记忆：下次新建项目向导预填
+    // 全局记忆须在 applyToProject 之后取值：否则记住的是修改前的旧 SDK 目录，
+    // 「新建项目」向导会预填过期路径
+    const QString sdk = m_project.sdkDir();
+    m_settings.setValue("lastSdkDir", sdk);
     applyInputMappingsToEngine();             // 输入映射立即生效（播放中也热更新）
     m_log->appendMessage(sdk.isEmpty()
         ? tr("项目设置已更新（输入映射已生效）")

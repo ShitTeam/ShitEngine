@@ -199,6 +199,11 @@ void Viewport::paintEvent(QPaintEvent *event)
 void Viewport::drawGizmo(QPainter &painter)
 {
     if (!m_selected || !m_editScene) return;
+    // 播放中游戏逻辑可能销毁了选中的对象：不在场景中 → 视为未选中（防悬垂解引用）
+    if (!m_editScene->containsGameObject(m_selected)) {
+        m_selected = nullptr;
+        return;
+    }
     auto *camera = editorCamera();
     auto *transform = m_selected->getComponent<Shit::TransformComponent>();
     if (!camera || !transform) return;

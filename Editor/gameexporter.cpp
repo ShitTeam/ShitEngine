@@ -130,7 +130,22 @@ void rewriteResourcePaths(json &node, const QString &projectRoot, const QString 
                 return;
             }
             case Resolved::RelativeExisting: {
+                const QString cleaned = QDir::cleanPath(value);
                 const QString abs = QDir(projectRoot).absoluteFilePath(value);
+                if (cleaned == ".." || cleaned.startsWith("../")) {
+                    // 相对路径逃逸项目根（如 ../xxx.png）：按绝对路径分支处理——
+                    // 直接按原值复制会写进"导出包之外"（且运行时相对 exe 目录同样落空），
+                    // 收进包内 Assets/ 并改写字段，保证产物自包含
+                    const QString src = QFileInfo(abs).absoluteFilePath();
+                    const QString dst = QStringLiteral("Assets/%1").arg(QFileInfo(src).fileName());
+                    const QString dstAbs = outDir + "/" + dst;
+                    if (!QFileInfo::exists(dstAbs)) {
+                        QDir().mkpath(QFileInfo(dstAbs).absolutePath());
+                        QFile::copy(src, dstAbs);
+                    }
+                    node = dst.toStdString();
+                    return;
+                }
                 const QString dstAbs = outDir + "/" + value;
                 if (QFileInfo(abs).isFile() && !QFileInfo::exists(dstAbs)) {
                     QDir().mkpath(QFileInfo(dstAbs).absolutePath());

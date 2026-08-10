@@ -68,6 +68,8 @@ private slots:
 private:
     /// 按名重新定位编辑器/游戏相机（场景加载/编辑后相机可能重建）
     void refreshCameras();
+    /// 缺失的相机补齐（播放中游戏逻辑/误删导致相机消失时自愈，避免 tick 提前返回冻结）
+    void ensureCameras();
     /// 清空场景全部对象（保留编辑器相机 scene_camera；组件析构调用 DLL 代码）
     void clearSceneObjects();
 

@@ -80,6 +80,7 @@ void EnginePreview::stop()
     Shit::Log::SetMessageCallback(nullptr);   // 先解除日志转发（回调捕获 this，避免悬垂）
     if (m_context) {
         Shit::EngineContext::setCurrent(m_context.get());
+        Shit::Game::SetIsRunning(false);   // 复位运行态标记，避免残留影响后续初始化
         // 先卸载插件（其反射类型 factory 在 DLL 内），再销毁引擎
         if (m_plugins) m_plugins->UnloadAll();
         Shit::Game::Destroy();
@@ -204,6 +205,9 @@ void EnginePreview::setPlaying(bool playing)
     if (!m_context) return;
     Shit::EngineContext::setCurrent(m_context.get());
     Shit::Game::SetPaused(!playing);
+    // 播放 = 引擎运行态：Scene 增删走延时路径（与 Runtime 一致），
+    // 游戏逻辑在迭代中删除对象安全；停止播放时复位回编辑态语义
+    Shit::Game::SetIsRunning(playing);
 }
 
 void EnginePreview::refreshCameras()
@@ -219,12 +223,37 @@ void EnginePreview::refreshCameras()
     }
 }
 
+void EnginePreview::ensureCameras()
+{
+    if (!m_scene) return;
+    // 按名补齐缺失的相机（初值对齐 start()：仅设 zoom，其余默认）
+    if (!m_editorCam) {
+        auto *go = m_scene->createGameObject("scene_camera");
+        go->addComponent<Shit::TransformComponent>();
+        m_editorCam = go->addComponent<Shit::CameraComponent>();
+        if (m_editorCam) m_editorCam->setZoom(1.0f);
+    }
+    if (!m_gameCam) {
+        auto *go = m_scene->createGameObject("game_camera");
+        go->addComponent<Shit::TransformComponent>();
+        m_gameCam = go->addComponent<Shit::CameraComponent>();
+        if (m_gameCam) m_gameCam->setZoom(1.0f);
+    }
+}
+
 void EnginePreview::tick()
 {
     if (!m_context) return;
     Shit::EngineContext::setCurrent(m_context.get());
 
+    // 场景指针每帧跟随 SceneManager：播放中游戏代码 LoadScene 会整体替换场景
+    //（旧场景销毁），若仍持有旧指针，refreshCameras/渲染会解引用已释放内存。
+    m_scene = Shit::SceneManager::GetCurrentScene();
     refreshCameras();   // 每帧按名定位（场景加载/编辑后相机可能重建，防悬空指针）
+    if (!m_editorCam || !m_gameCam) {
+        ensureCameras();        // 相机被（误）删/未建：自愈补齐，保证循环继续
+        refreshCameras();
+    }
     if (!m_editorCam || !m_gameCam) return;
 
     Shit::Time::Update();

@@ -17,11 +17,15 @@ class SceneTree : public QWidget
 public:
     explicit SceneTree(QWidget *parent = nullptr);
 
-    /// 绑定场景并填充层级（nullptr 清空），自动选中第一项
-    void setScene(Shit::Scene *scene);
+    /// 绑定场景并填充层级（nullptr 清空）。autoSelect=true 时自动选中第一项
+    /// （打开/新建场景等初次绑定用）；false 供播放中每帧结构同步（保留/恢复选中态）
+    void setScene(Shit::Scene *scene, bool autoSelect = true);
 
     /// 程序化选中对象（供视口拾取联动），会触发 objectSelected
     void selectObject(Shit::GameObject *object);
+
+    /// 当前选中对象（无选中/索引失效时返回 nullptr；仅地址比较，调用方需自行校验存活）
+    Shit::GameObject *selectedObject() const;
 
 signals:
     /// 选中某个对象（供属性检查器联动）
@@ -30,6 +34,8 @@ signals:
     void sceneActionStarted();
     /// 场景结构被修改（新建/删除对象、添加组件 → 会话 dirty / 撤销提交）
     void sceneEdited();
+    /// 删除被拒绝（如编辑器/游戏相机是基础设施，不允许删除）
+    void sceneDeleteBlocked(const QString &reason);
 
 protected:
     void contextMenuEvent(QContextMenuEvent *event) override;
