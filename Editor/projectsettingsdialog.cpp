@@ -232,7 +232,9 @@ void ProjectSettingsDialog::buildGeneralTab(QWidget *page)
     sdkRow->addWidget(browseBtn);
     form->addRow(tr("引擎 SDK 目录"), sdkRow);
 
-    // 启动场景：下拉扫描 项目 Scenes/ 下的 .scene
+    // 启动场景：下拉扫描 项目 Scenes/ 下的 .scene；若当前启动场景不在该目录
+    //（如场景文件放项目根目录），追加「（当前场景）」兜底项并选中——
+    // 否则保存设置会静默清空 scene 字段，下次启动丢启动场景
     m_sceneCombo = new QComboBox(page);
     m_sceneCombo->addItem(tr("（未设置）"), QString());
     const QString currentScene = m_project.scenePath();
@@ -242,6 +244,10 @@ void ProjectSettingsDialog::buildGeneralTab(QWidget *page)
     for (const QFileInfo &info : scenes) {
         m_sceneCombo->addItem(info.fileName(), info.filePath());
         if (info.filePath() == currentScene) currentIndex = m_sceneCombo->count() - 1;
+    }
+    if (currentIndex == 0 && !currentScene.isEmpty()) {
+        m_sceneCombo->addItem(tr("（当前）%1").arg(QFileInfo(currentScene).fileName()), currentScene);
+        currentIndex = m_sceneCombo->count() - 1;
     }
     m_sceneCombo->setCurrentIndex(currentIndex);
     form->addRow(tr("启动场景"), m_sceneCombo);

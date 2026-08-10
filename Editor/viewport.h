@@ -80,6 +80,8 @@ private:
     Shit::CameraComponent *editorCamera() const;
     /// 绘制选中对象的移动 Gizmo
     void drawGizmo(QPainter &painter);
+    /// 绘制碰撞体调试轮廓（刚体类型着色；视图内工具条「碰撞体」开关）
+    void drawPhysicsDebug(QPainter &painter);
     /// 点到线段距离（Gizmo 手柄命中判定）
     static float distToSegment(const QPointF &p, const QPointF &a, const QPointF &b);
 
@@ -107,6 +109,8 @@ private:
     QToolButton *m_gizmoMoveBtn = nullptr;
     QToolButton *m_gizmoRotateBtn = nullptr;
     QToolButton *m_gizmoScaleBtn = nullptr;
+    QToolButton *m_colliderToggleBtn = nullptr;   ///< 碰撞体轮廓显示开关（不属互斥组）
+    bool m_showColliders = true;
 
     /// 构建左上角工具条（构造时调用）；setGizmoMode 同步按钮选中态
     void setupGizmoBar();

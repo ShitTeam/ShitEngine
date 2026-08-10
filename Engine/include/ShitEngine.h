@@ -15,6 +15,7 @@
 
 // Audio
 #include "ShitEngine/Audio/AudioPlayer.h"
+#include "ShitEngine/Audio/AudioSource.h"
 
 // Math
 #include "ShitEngine/Math.h"

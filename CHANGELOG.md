@@ -9,6 +9,13 @@
 
 ### 修复
 
+- **示例 Player 控制器反射化（示例）**：`Examples/src/Player.h` 是 P6 迁移前的遗留类，未加 `SHIT_REFLECT` 宏——扫描器不登记，检查器加不了、`.scene` 序列化不了（组件在编辑器里"不存在"）。补齐反射标记与 `speed` 字段元数据，Player 成为可编辑/可序列化的标准行为组件
+- **项目设置保存丢失启动场景（P15 遗留，编辑器）**：设置对话框「启动场景」下拉只列 `<项目>/Scenes/` 目录下的 `.scene`——场景文件不在该目录（如放项目根目录）时下拉无匹配项，保存设置即 `setScenePath("")` **静默清除** config.json 的 `scene` 字段，下次启动项目退回空场景。修复：下拉追加「（当前）场景名」兜底项并默认选中——当前启动场景总能被保存
+- **刚体暂缺 Transform 告警降噪（引擎）**：`.scene` 组件顺序不定导致的"缺少 TransformComponent"是自愈补建的正常瞬态，由 WARN 降为 DEBUG——每次场景加载不再刷 6 条告警（永久缺 Transform 的异常对象由补建循环静默跳过，不刷屏）
+- **数据驱动场景物理系统丢失（P7 回归，引擎）**：P7 把示例从 C++ 搭建迁移为 `.scene` 数据驱动后，`PhysicsSystem2D` 从未被注册进场景（旧 `PhysicsTestScene.cpp` 的 `registerSystem<Shit::PhysicsSystem2D>()` 随搭建代码删除；`Scene::init` 只注册 Behavior/Render/UI 三系统）——Runtime 与编辑器的所有 `.scene` 场景**静默无物理**（刚体不落、重力无效）。修复（三层自愈，与引擎"补挂/补扫"机制一致）：
+  - `RigidBody2D::onAttach` 未被任何系统认领时自动 `registerSystem<PhysicsSystem2D>()` 并重试认领——首个刚体挂载即拉起物理世界（Runtime / 编辑器实时加组件 / 撤销重做重建场景统一生效）
+  - `onComponentAttached` 先注册进 `m_bodies` 再建体；`PhysicsSystem2D::update` 每帧补建"已注册但未建体"的刚体——`.scene` 组件顺序不定（Transform 在刚体之后反序列化）时不再永久丢失
+  - 物理 API（`applyForce/applyImpulse/setLinearVelocity/setTransform/setBodyType`）调用前 `ensureBody()` 自愈建体——`onStart`（BehaviorSystem 先于物理系统执行）里调物理 API 不再静默落空
 - **编辑器播放期悬垂指针崩溃（引擎 + 编辑器）**：播放中游戏逻辑销毁/新建对象（行为 `onUpdate` 里 `removeGameObject`、子弹回收、`LoadScene` 切关等）后，场景树行、视口 Gizmo、检查器仍持有已释放的 `GameObject*/Component*`，下一帧渲染/回读即 use-after-free 崩溃。修复：
   - 场景结构引入**代数（generation）**：任何对象增删/组件增删/改名/改父递增（`Scene::getGeneration/bumpGeneration`，`GameObject` 为友元）；新增 `Scene::containsGameObject` 供编辑器校验旧选中指针
   - 编辑器每帧 `onSceneFrameReady` 同步：场景指针或代数变化 → 重建场景树（不自动选中）→ 选中对象仍存活则恢复选中并重绑检查器/Gizmo，已被销毁则清空选中态；`SceneTree::setScene` 增加 `autoSelect` 参数、新增 `selectedObject()`
@@ -27,6 +34,13 @@
 
 ### 新增
 
+- **碰撞回调（P19 玩法回路，引擎 + 示例）**：`Behavior` 新增 `onCollisionEnter/onCollisionStay/onCollisionExit(GameObject* other)` 虚方法，由 `PhysicsSystem2D` 在物理步进后按**接触对**驱动（Box2D Begin/End 接触事件 → 刚体对解析 → 定向派发给涉及对象上已启动的 Behavior）：
+  - Enter/Stay/Exit 语义基于规范化刚体对集合（`a < b`）判定：新接触 → Enter；上一帧在集合、本帧仍在 → Stay（每帧一次）；结束 → Exit；接触重建/休眠唤醒不重复 Enter
+  - 派发安全：回调前逐对校验刚体仍注册、对象仍在场景；`invokeCollisionCallbacks` 逐轮重扫（回调内销毁对象/移除组件不悬垂）；刚体/碰撞体销毁时同步清理接触集合（End 事件 shape 已失效无法自行解析，`destroyRigidBody`/碰撞体卸下兜底清除，防残留泄漏）
+  - 碰撞体创建形状时开启 `enableContactEvents`（Box2D 默认关闭，否则无 Begin/End 事件）
+  - 示例 `Examples/src/CoinDemo.h`：`BallDemo`（滚动小球打印接触对象）+ `CoinPickup`（金币被碰 → 音效 + 计数 + 销毁自己），配套演示场景 `Examples/scenes/CoinCollect.scene`
+- **AudioSource 组件（P19，引擎）**：挂在对象上的音频播放组件（`Audio/AudioSource.h`，继承 Behavior）：反射字段 `AudioPath / Loop / Volume / PlayOnStart` 可序列化进 `.scene` 并由检查器编辑；`play()/stop()/pause()` 运行时控制，`onStart` 按 PlayOnStart 自动播放（全局暂停/编辑态不自动出声）；播放句柄持 `shared_ptr<AudioTrack>` 不悬垂
+- **物理调试绘制（P19，编辑器）**：场景/运行视口按相机投影绘制碰撞体轮廓（动态绿 / 运动学黄 / 静态蓝灰 / 无刚体暗灰，随对象旋转），视口内工具条新增「碰撞体」开关（默认开启）——摆物理场景无需盲调
 - **导出游戏（P18，引擎 + 编辑器）**：
   - 「文件 → 导出游戏…」：一键把项目装配为**绿色免安装游戏目录**（`<游戏名>.exe` + 引擎/SDL 运行库 + 项目脚本 DLL + 场景 + Assets + config.json），双击即玩
   - Runtime 硬化：`ShitRuntime` 启动时 chdir 到 exe 所在目录（Windows/POSIX）——导出包任意位置运行，不再依赖调用方 CWD；`Runtime/CMakeLists.txt` 新增 install 规则，SDK 自此携带 `ShitRuntime.exe`（导出从 SDK bin/ 取运行库，与仓库解耦）

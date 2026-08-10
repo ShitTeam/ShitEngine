@@ -75,6 +75,10 @@ namespace Shit {
 	private:
 		friend class PhysicsSystem2D;
 
+		/// @brief 物理体未创建时补建（物理 API 自愈：组件顺序不定/Transform 后置挂载时
+		/// onStart 里调用物理 API 不落空）。幂等。
+		void ensureBody();
+
 		// b2BodyId = {int32_t index1; uint16_t world0; uint16_t generation;}
 		SHIT_META(Disable)
 		int32_t m_bodyIndex = 0;

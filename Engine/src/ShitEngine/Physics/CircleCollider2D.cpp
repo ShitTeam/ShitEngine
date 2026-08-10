@@ -30,6 +30,7 @@ namespace Shit {
 		if (!rigidBody || !rigidBody->hasValidBody()) return;
 
 		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		shapeDef.enableContactEvents = true;  // 产生 Begin/End 接触事件 → onCollisionEnter/Stay/Exit
 		shapeDef.material.friction = m_friction;
 		shapeDef.material.restitution = m_restitution;
 		shapeDef.density = m_density;

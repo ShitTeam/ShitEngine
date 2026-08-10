@@ -4,6 +4,7 @@
 add_library(ExamplePlugin SHARED
     "src/plugin_export.cpp"
     "src/Behaviors.h"
+    "src/CoinDemo.h"
     "src/ReflectionBehavior.h"
     "src/Player.cpp"
     "src/Player.h"

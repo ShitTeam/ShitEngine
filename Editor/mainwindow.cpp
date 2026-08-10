@@ -412,6 +412,7 @@ bool MainWindow::openScenePath(const QString &path)
         statusBar()->showMessage(tr("打开场景完成"));
         return true;
     } catch (const std::exception &e) {
+        ST_CORE_WARN("[openScenePath] 异常: {}（{}）", e.what(), path.toStdString());
         if (backup) {
             rollbackScene(*backup);
             m_log->appendMessage(tr("打开场景失败: %1 —— 已回滚到原场景").arg(e.what()), Qt::red);

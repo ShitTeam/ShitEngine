@@ -36,6 +36,7 @@ namespace Shit {
 		b2Polygon box = b2MakeBox(m_size.x * 0.5f, m_size.y * 0.5f);
 
 		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		shapeDef.enableContactEvents = true;  // 产生 Begin/End 接触事件 → onCollisionEnter/Stay/Exit
 		shapeDef.material.friction = m_friction;
 		shapeDef.material.restitution = m_restitution;
 		shapeDef.density = m_density;

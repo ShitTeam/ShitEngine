@@ -25,6 +25,11 @@ namespace Shit {
 	void Behavior::onStart() {}
 	void Behavior::onUpdate() {}
 
+	// 碰撞回调默认空实现：子类按需覆写
+	void Behavior::onCollisionEnter(GameObject*) {}
+	void Behavior::onCollisionStay(GameObject*) {}
+	void Behavior::onCollisionExit(GameObject*) {}
+
 	void Behavior::onDetach() {
 		Component::onDetach();
 

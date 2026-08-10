@@ -6,6 +6,9 @@
 #include "GravityConfig.gen.h"
 #include "ButtonClickDemo.gen.h"
 #include "InputLineDemo.gen.h"
+#include "BallDemo.gen.h"
+#include "CoinPickup.gen.h"
+#include "Player.gen.h"
 #include "ReflectionTestBehavior.gen.h"
 #include "TestPlayer.gen.h"
 #include "TestEnemy.gen.h"
@@ -15,6 +18,9 @@ inline void RegisterAllReflectedTypes() {
     Register_GravityConfig();
     Register_ButtonClickDemo();
     Register_InputLineDemo();
+    Register_BallDemo();
+    Register_CoinPickup();
+    Register_Player();
     Register_ReflectionTestBehavior();
     Register_TestPlayer();
     Register_TestEnemy();

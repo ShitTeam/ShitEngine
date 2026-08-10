@@ -3,11 +3,13 @@
 #include "ShitEngine/Physics/RigidBody2D.h"
 #include "ShitEngine/Physics/BoxCollider2D.h"
 #include "ShitEngine/Physics/CircleCollider2D.h"
+#include "ShitEngine/Component/Behavior.h"
 #include "ShitEngine/Component/TransformComponent.h"
 #include "ShitEngine/GameObject/GameObject.h"
 #include "ShitEngine/Core/Game.h"
 #include "ShitEngine/Core/Time.h"
 #include "ShitEngine/Core/Log.h"
+#include "ShitEngine/Scene/Scene.h"
 
 #include "PhysicsInternal.h"
 
@@ -47,6 +49,17 @@ namespace Shit {
 		if (Shit::Game::IsPaused()) return;  // 全局暂停：冻结物理模拟
 
 		b2WorldId worldId = Internal::MakeWorldId(m_worldIndex, m_worldGeneration);
+
+		// 补建物理体：认领时 Transform 尚未挂载的刚体（.scene 组件顺序不定）在就绪后
+		// 创建——仅当 Transform 已存在才重试，避免永久缺 Transform 的对象每帧告警
+		for (auto* body : m_bodies) {
+			if (!body || body->m_bodyValid) continue;
+			auto* owner = body->getOwner();
+			if (owner && owner->getComponent<TransformComponent>()) {
+				createRigidBody(body);
+			}
+		}
+
 		// 使用固定时间步长保证物理稳定性，避免低帧率导致穿透
 		constexpr float FIXED_TIME_STEP = 1.0f / 60.0f;
 		constexpr int MAX_SUB_STEPS = 3;
@@ -82,6 +95,57 @@ namespace Shit {
 			// Transform 的旋转以「度」为单位（与编辑器/SDL 渲染约定一致）
 			transform->setRotation(glm::degrees(angle));
 		}
+
+		// --- 接触事件 → 对象级碰撞回调（onCollisionEnter/Stay/Exit） ---
+		// Box2D 在步进时缓冲 Begin/End 接触事件（形状级）。语义：
+		//   Enter — 本帧新开始的接触（集合中不存在）
+		//   Stay  — 上一帧已在集合、本帧仍在集合的对（每帧一次）
+		//   Exit  — 本帧结束的接触（end 事件；形状可能已销毁导致解析失败，
+		//            由 destroyRigidBody / 碰撞体卸下时的清理兜底）
+		b2ContactEvents contactEvents = b2World_GetContactEvents(worldId);
+
+		std::unordered_set<ContactPair, ContactPairHash> prevActive = m_activeContacts; // 本帧处理前集合（上一帧状态）
+		std::vector<ContactPair> entered;
+		std::vector<ContactPair> exited;
+		for (int i = 0; i < contactEvents.beginCount; ++i) {
+			const b2ContactBeginTouchEvent& ev = contactEvents.beginEvents[i];
+			if (!b2Shape_IsValid(ev.shapeIdA) || !b2Shape_IsValid(ev.shapeIdB)) continue;
+			b2BodyId bodyA = b2Shape_GetBody(ev.shapeIdA);
+			b2BodyId bodyB = b2Shape_GetBody(ev.shapeIdB);
+			RigidBody2D* a = findRigidBody(bodyA.index1, bodyA.world0, bodyA.generation);
+			RigidBody2D* b = findRigidBody(bodyB.index1, bodyB.world0, bodyB.generation);
+			if (!a || !b) continue;
+			ContactPair pair = makeContactPair(a, b);
+			if (m_activeContacts.insert(pair).second) {
+				entered.push_back(pair);
+			}
+			// 已在集合中（接触重建/休眠唤醒）：不重复 Enter，Stay 语义已覆盖
+		}
+		for (int i = 0; i < contactEvents.endCount; ++i) {
+			const b2ContactEndTouchEvent& ev = contactEvents.endEvents[i];
+			if (!b2Shape_IsValid(ev.shapeIdA) || !b2Shape_IsValid(ev.shapeIdB)) continue;
+			b2BodyId bodyA = b2Shape_GetBody(ev.shapeIdA);
+			b2BodyId bodyB = b2Shape_GetBody(ev.shapeIdB);
+			RigidBody2D* a = findRigidBody(bodyA.index1, bodyA.world0, bodyA.generation);
+			RigidBody2D* b = findRigidBody(bodyB.index1, bodyB.world0, bodyB.generation);
+			if (!a || !b) continue;
+			ContactPair pair = makeContactPair(a, b);
+			if (m_activeContacts.erase(pair)) {
+				exited.push_back(pair);
+			}
+		}
+
+		// Stay：上一帧在集合、本帧事件处理后仍在集合的对
+		std::vector<ContactPair> stayed;
+		for (const ContactPair& pair : m_activeContacts) {
+			if (prevActive.count(pair)) stayed.push_back(pair);
+		}
+
+		// 派发（先 Enter 后 Stay 再 Exit）。回调可能销毁对象（播放态走延时删除，
+		// 编辑态立即删除）——派发函数内逐对校验刚体仍注册、对象仍在场景。
+		for (const ContactPair& pair : entered) dispatchContact(pair, CollisionPhase::Enter);
+		for (const ContactPair& pair : stayed) dispatchContact(pair, CollisionPhase::Stay);
+		for (const ContactPair& pair : exited) dispatchContact(pair, CollisionPhase::Exit);
 	}
 
 	void PhysicsSystem2D::destroy() {
@@ -99,6 +163,7 @@ namespace Shit {
 				}
 			}
 			m_bodies.clear();
+			m_activeContacts.clear();
 			ST_CORE_INFO("[PhysicsSystem2D] 物理世界已销毁");
 		}
 	}
@@ -139,6 +204,9 @@ namespace Shit {
 
 	bool PhysicsSystem2D::onComponentAttached(Component* component) {
 		if (auto* body = dynamic_cast<RigidBody2D*>(component)) {
+			// 先注册再建体：组件认领时即使 Transform 尚未挂载（.scene 反序列化
+			// 顺序不定）也纳入 m_bodies，由 update() 的补建循环在 Transform 就绪后创建
+			registerRigidBody(body);
 			createRigidBody(body);
 			return true;
 		}
@@ -148,6 +216,15 @@ namespace Shit {
 	void PhysicsSystem2D::onComponentDetached(Component* component) {
 		if (auto* body = dynamic_cast<RigidBody2D*>(component)) {
 			destroyRigidBody(body);
+			return;
+		}
+		// 碰撞体卸下：其形状销毁产生的 End 事件可能无法解析（shape 已失效），
+		// 清空该刚体的全部接触对——下一帧物理重建接触时重新发 Enter，不留残留。
+		if (dynamic_cast<BoxCollider2D*>(component) || dynamic_cast<CircleCollider2D*>(component)) {
+			auto* owner = component->getOwner();
+			if (auto* body = owner ? owner->getComponent<RigidBody2D>() : nullptr) {
+				cleanupContactPairs(body);
+			}
 		}
 	}
 
@@ -157,7 +234,10 @@ namespace Shit {
 		auto* owner = body->getOwner();
 		auto* transform = owner ? owner->getComponent<TransformComponent>() : nullptr;
 		if (!transform) {
-			ST_CORE_WARN("[PhysicsSystem2D] RigidBody2D 缺少 TransformComponent，无法创建物理体");
+			// 正常瞬态：.scene 反序列化组件顺序不定（Transform 在刚体之后），
+			// update() 补建循环/物理 API ensureBody 会在 Transform 就绪后自动创建——
+			// 此处降为 DEBUG 避免每次加载刷告警
+			ST_CORE_DEBUG("[PhysicsSystem2D] RigidBody2D 暂缺 TransformComponent，等待补建");
 			return;
 		}
 
@@ -197,6 +277,8 @@ namespace Shit {
 
 	void PhysicsSystem2D::destroyRigidBody(RigidBody2D* body) {
 		if (!body) return;
+		// 刚体销毁前清接触对：其后 End 事件 shape 已失效无法自行解析
+		cleanupContactPairs(body);
 		unregisterRigidBody(body);
 		if (body->m_bodyValid) {
 			b2BodyId bodyId = Internal::MakeBodyId(body->m_bodyIndex, body->m_bodyWorld0, body->m_bodyGeneration);
@@ -204,6 +286,78 @@ namespace Shit {
 				b2DestroyBody(bodyId);
 			}
 			body->m_bodyValid = false;
+		}
+	}
+
+	PhysicsSystem2D::ContactPair PhysicsSystem2D::makeContactPair(const RigidBody2D* a, const RigidBody2D* b) {
+		if (reinterpret_cast<uintptr_t>(a) < reinterpret_cast<uintptr_t>(b)) {
+			return { a, b };
+		}
+		return { b, a };
+	}
+
+	RigidBody2D* PhysicsSystem2D::findRigidBody(int32_t bodyIndex, uint16_t world0, uint16_t generation) const {
+		for (auto* body : m_bodies) {
+			if (body && body->m_bodyValid
+					&& body->m_bodyIndex == bodyIndex
+					&& body->m_bodyWorld0 == world0
+					&& body->m_bodyGeneration == generation) {
+				return body;
+			}
+		}
+		return nullptr;
+	}
+
+	void PhysicsSystem2D::cleanupContactPairs(const RigidBody2D* body) {
+		for (auto it = m_activeContacts.begin(); it != m_activeContacts.end();) {
+			if (it->a == body || it->b == body) {
+				it = m_activeContacts.erase(it);
+			} else {
+				++it;
+			}
+		}
+	}
+
+	void PhysicsSystem2D::dispatchContact(const ContactPair& pair, CollisionPhase phase) {
+		// 刚体仍注册（指针仅作身份比较，绝不解引用）——销毁中的对象不派发
+		if (std::find(m_bodies.begin(), m_bodies.end(), pair.a) == m_bodies.end()) return;
+		if (std::find(m_bodies.begin(), m_bodies.end(), pair.b) == m_bodies.end()) return;
+
+		GameObject* ga = pair.a->getOwner();
+		GameObject* gb = pair.b->getOwner();
+		if (!ga || !gb) return;
+		// 对象仍在场景：播放态回调内销毁对象走延时路径，下一对派发前校验兜底
+		Scene* scene = getScene();
+		if (!scene || !scene->containsGameObject(ga) || !scene->containsGameObject(gb)) return;
+
+		invokeCollisionCallbacks(ga, gb, phase);
+		invokeCollisionCallbacks(gb, ga, phase);
+	}
+
+	void PhysicsSystem2D::invokeCollisionCallbacks(GameObject* self, GameObject* other, CollisionPhase phase) {
+		Scene* scene = getScene();
+		if (!scene) return;
+
+		// self 上可能挂多个 Behavior；回调可能销毁 self / other / 移除组件（播放态延时、
+		// 编辑态立即）。逐轮重扫：每轮取首个未调用过的已启动行为，调用前校验双方对象存活。
+		std::vector<Behavior*> visited; // 仅作身份比较，解除引用
+		while (scene->containsGameObject(self) && scene->containsGameObject(other)) {
+			Behavior* target = nullptr;
+			self->forEachComponent([&](Component* comp) {
+				if (target) return;
+				auto* behavior = dynamic_cast<Behavior*>(comp);
+				if (behavior && behavior->isStarted()
+						&& std::find(visited.begin(), visited.end(), behavior) == visited.end()) {
+					target = behavior;
+				}
+			});
+			if (!target) break;
+			visited.push_back(target);
+			switch (phase) {
+				case CollisionPhase::Enter: target->onCollisionEnter(other); break;
+				case CollisionPhase::Stay:  target->onCollisionStay(other); break;
+				case CollisionPhase::Exit:  target->onCollisionExit(other); break;
+			}
 		}
 	}
 }

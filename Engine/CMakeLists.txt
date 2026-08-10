@@ -27,6 +27,7 @@ add_library(ShitEngine SHARED
     # Audio
     "src/ShitEngine/Audio/AudioTrack.cpp"
     "src/ShitEngine/Audio/AudioPlayer.cpp"
+    "src/ShitEngine/Audio/AudioSource.cpp"
     # Input
     "src/ShitEngine/Input/Input.cpp"
     # Scene

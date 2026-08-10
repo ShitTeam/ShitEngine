@@ -3,10 +3,12 @@
 #include "../Math.h"
 #include "../System/System.h"
 #include <cstdint>
+#include <unordered_set>
 #include <vector>
 
 namespace Shit {
 	class RigidBody2D;
+	class GameObject;
 
 	/**
 	 * @brief 2D 物理系统
@@ -17,6 +19,9 @@ namespace Shit {
 	 *
 	 * 使用方式：
 	 *   scene->registerSystem<Shit::PhysicsSystem2D>();
+	 *
+	 * 物理步进后按接触事件驱动冲突对象的 Behavior 碰撞回调：
+	 *   onCollisionEnter / onCollisionStay / onCollisionExit(对方 GameObject)。
 	 *
 	 * priority=50，晚于 BehaviorSystem(0) 早于 RenderSystem(100)。
 	 */
@@ -53,8 +58,41 @@ namespace Shit {
 	private:
 		friend class RigidBody2D;
 
+		/// @brief 接触对键（刚体指针规范化排序 a < b）。仅作集合身份比较，绝不解引用。
+		struct ContactPair {
+			const RigidBody2D* a = nullptr;
+			const RigidBody2D* b = nullptr;
+			bool operator==(const ContactPair& o) const { return a == o.a && b == o.b; }
+		};
+		struct ContactPairHash {
+			size_t operator()(const ContactPair& p) const {
+				std::hash<const void*> h;
+				return h(p.a) ^ (h(p.b) << 1);
+			}
+		};
+
+		/// @brief 碰撞回调阶段（对应 Behavior::onCollisionEnter/Stay/Exit）
+		enum class CollisionPhase { Enter, Stay, Exit };
+
+		/// @brief 刚体指针对规范化（a < b），保证 (a,b) 与 (b,a) 视为同一接触对
+		static ContactPair makeContactPair(const RigidBody2D* a, const RigidBody2D* b);
+
+		/// @brief 由 b2BodyId 的三个字段定位已注册的 RigidBody2D
+		RigidBody2D* findRigidBody(int32_t bodyIndex, uint16_t world0, uint16_t generation) const;
+
+		/// @brief 清除接触对集合中所有包含指定刚体的项（刚体/形状销毁时调用，防残留泄漏）
+		void cleanupContactPairs(const RigidBody2D* body);
+
+		/// @brief 把一对接触对象的碰撞回调派发给两个 GameObject 上已启动的 Behavior
+		void dispatchContact(const ContactPair& pair, CollisionPhase phase);
+
+		/// @brief 单个 GameObject 上的碰撞回调（逐轮重扫防回调内增删组件悬垂）
+		void invokeCollisionCallbacks(GameObject* self, GameObject* other, CollisionPhase phase);
+
 		Vector2 m_gravity{ 0.0f, 320.0f };
 		std::vector<RigidBody2D*> m_bodies;
+		// 当前接触中的刚体对集合（进入/持续/结束 基于它判定；元素仅作键，不触碰指针所指对象）
+		std::unordered_set<ContactPair, ContactPairHash> m_activeContacts;
 		float m_accumulator = 0.0f; // 物理固定步长累积器
 
 		// b2WorldId = {uint16_t index1; uint16_t generation;}

@@ -24,6 +24,14 @@ namespace Shit {
 		// 系统未注册时 registerComponent 返回 false → m_isRegistered=false，后续可补挂。
 		if (auto* scene = m_owner ? m_owner->getScene() : nullptr) {
 			m_isRegistered = scene->registerComponent(this);
+			if (!m_isRegistered) {
+				// 自愈：数据驱动场景（.scene 加载 / 编辑器场景编辑）不预注册物理系统
+				//（P6/P7 迁移后场景 init 只带 Behavior/Render/UI 三系统），首个刚体挂载
+				// 时自动补注册 PhysicsSystem2D 并重试认领——Runtime 与编辑器所有路径统一；
+				// 已注册场景里重复挂刚体时 registerSystem 幂等返回现有系统。
+				scene->registerSystem<PhysicsSystem2D>();
+				m_isRegistered = scene->registerComponent(this);
+			}
 		} else {
 			m_isRegistered = false;
 		}
@@ -68,13 +76,27 @@ namespace Shit {
 
 	void RigidBody2D::setBodyType(Type type) {
 		m_type = type;
+		ensureBody();   // 物理 API 自愈：刚体尚未创建（Transform 后置挂载）时补建
 		if (m_bodyValid) {
 			b2BodyId bodyId = Internal::MakeBodyId(m_bodyIndex, m_bodyWorld0, m_bodyGeneration);
 			b2Body_SetType(bodyId, static_cast<b2BodyType>(static_cast<int>(type)));
 		}
 	}
 
+	/// @brief 物理体尚未创建时补建（场景反序列化组件顺序不定：刚体先于 Transform 挂载
+	/// 时，物理系统的每帧补建要等 BehaviorSystem 之后才跑，onStart 里调物理 API 会落空）。
+	/// 幂等：已有效或无场景/无系统时直接返回。
+	void RigidBody2D::ensureBody() {
+		if (m_bodyValid) return;
+		auto* scene = m_owner ? m_owner->getScene() : nullptr;
+		if (!scene) return;
+		if (auto* physics = scene->getSystem<PhysicsSystem2D>()) {
+			physics->createRigidBody(this);
+		}
+	}
+
 	void RigidBody2D::applyForce(const Vector2& force, bool wake) {
+		ensureBody();
 		if (!m_bodyValid) return;
 		b2BodyId bodyId = Internal::MakeBodyId(m_bodyIndex, m_bodyWorld0, m_bodyGeneration);
 		b2Body_ApplyForceToCenter(bodyId, { force.x, force.y }, wake);
@@ -85,18 +107,21 @@ namespace Shit {
 	}
 
 	void RigidBody2D::applyImpulse(const Vector2& impulse, bool wake) {
+		ensureBody();
 		if (!m_bodyValid) return;
 		b2BodyId bodyId = Internal::MakeBodyId(m_bodyIndex, m_bodyWorld0, m_bodyGeneration);
 		b2Body_ApplyLinearImpulseToCenter(bodyId, { impulse.x, impulse.y }, wake);
 	}
 
 	void RigidBody2D::setLinearVelocity(const Vector2& velocity) {
+		ensureBody();
 		if (!m_bodyValid) return;
 		b2BodyId bodyId = Internal::MakeBodyId(m_bodyIndex, m_bodyWorld0, m_bodyGeneration);
 		b2Body_SetLinearVelocity(bodyId, { velocity.x, velocity.y });
 	}
 
 	Vector2 RigidBody2D::getLinearVelocity() const {
+		// const 方法不建体：直接判有效返回（无体时视为静止）
 		if (!m_bodyValid) return { 0, 0 };
 		b2BodyId bodyId = Internal::MakeBodyId(m_bodyIndex, m_bodyWorld0, m_bodyGeneration);
 		b2Vec2 v = b2Body_GetLinearVelocity(bodyId);
@@ -104,6 +129,7 @@ namespace Shit {
 	}
 
 	void RigidBody2D::setTransform(const Vector2& position, float rotationDegrees) {
+		ensureBody();
 		if (!m_bodyValid) return;
 		b2BodyId bodyId = Internal::MakeBodyId(m_bodyIndex, m_bodyWorld0, m_bodyGeneration);
 		// 传送/设置刚体位置与旋转（度→弧度）；同时唤醒，使动态/运动学刚体立即响应

@@ -99,12 +99,22 @@ auto *btn = new QToolButton(m_gizmoBar);
     connect(m_gizmoRotateBtn, &QToolButton::clicked, this, [this] { setGizmoMode(GizmoMode::Rotate); });
     connect(m_gizmoScaleBtn, &QToolButton::clicked, this, [this] { setGizmoMode(GizmoMode::Scale); });
 
+    // 碰撞体轮廓开关（独立于互斥组，默认开启）
+    m_colliderToggleBtn = addBarButton(tr("碰撞体"), tr("显示/隐藏碰撞体轮廓"));
+    m_colliderToggleBtn->setChecked(true);
+    connect(m_colliderToggleBtn, &QToolButton::clicked, this, [this] {
+        m_showColliders = m_colliderToggleBtn->isChecked();
+        update();
+    });
+
     auto *layout = new QHBoxLayout(m_gizmoBar);
     layout->setContentsMargins(3, 3, 3, 3);
     layout->setSpacing(2);
     layout->addWidget(m_gizmoMoveBtn);
     layout->addWidget(m_gizmoRotateBtn);
     layout->addWidget(m_gizmoScaleBtn);
+    layout->addSpacing(6);
+    layout->addWidget(m_colliderToggleBtn);
 
     setGizmoMode(GizmoMode::Move);   // 初始选中（同步按钮态）
     m_gizmoBar->adjustSize();
@@ -194,6 +204,7 @@ void Viewport::paintEvent(QPaintEvent *event)
         // 最近邻缩放（像素风不糊）
         painter.setRenderHint(QPainter::SmoothPixmapTransform, false);
         painter.drawImage(m_drawRect, m_frame);
+        drawPhysicsDebug(painter);
         drawGizmo(painter);
     } else {
         m_drawRect = QRect();
@@ -268,6 +279,57 @@ void Viewport::drawGizmo(QPainter &painter)
     painter.drawLine(p, p + QPoint(0, len));
     painter.drawLine(p + QPoint(0, len), p + QPoint(-4, len - 6));
     painter.drawLine(p + QPoint(0, len), p + QPoint(4, len - 6));
+}
+
+void Viewport::drawPhysicsDebug(QPainter &painter)
+{
+    if (!m_showColliders || !m_editScene || m_frame.isNull()) return;
+    auto *camera = editorCamera();
+    if (!camera) return;
+
+    painter.setBrush(Qt::NoBrush);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+
+    // 逻辑/世界像素 → 控件像素缩放（letterbox 等比，两轴同比例）
+    const float px = std::max(1, m_frame.width());
+    const float pixelScale = static_cast<float>(m_drawRect.width()) / px;
+
+    // 冲突体轮廓按刚体类型着色（对齐 Unity Gizmo 惯例）：
+    // Dynamic 绿 / Kinematic 黄 / Static 蓝灰；未挂刚体暗灰（无物理效果，只是占位形状）
+    for (auto &go : m_editScene->getGameObjects()) {
+        auto *transform = go->getComponent<Shit::TransformComponent>();
+        if (!transform) continue;
+        if (!go->getComponent<Shit::BoxCollider2D>() && !go->getComponent<Shit::CircleCollider2D>()) continue;
+
+        QColor color(150, 160, 175, 140);
+        if (auto *body = go->getComponent<Shit::RigidBody2D>()) {
+            switch (body->getBodyType()) {
+                case Shit::RigidBody2D::Type::Dynamic:   color = QColor(90, 220, 130, 185); break;
+                case Shit::RigidBody2D::Type::Kinematic: color = QColor(235, 200, 90, 185); break;
+                case Shit::RigidBody2D::Type::Static:    color = QColor(110, 165, 210, 165); break;
+            }
+        }
+        painter.setPen(QPen(color, 1));
+
+        const Shit::Vector2 pos = transform->getPosition();
+        const Shit::Vector2 sp = camera->worldToScreen(pos);
+        const QPointF c = logicalToWidget(sp.x, sp.y);
+
+        if (auto *box = go->getComponent<Shit::BoxCollider2D>()) {
+            const Shit::Vector2 size = box->getSize();
+            painter.save();
+            painter.translate(c);
+            // 物理形状不随 Transform.scale 缩放（与引擎一致），旋转跟随对象
+            painter.rotate(transform->getRotation());
+            painter.drawRect(QRectF(-size.x * 0.5f * pixelScale, -size.y * 0.5f * pixelScale,
+                                    size.x * pixelScale, size.y * pixelScale));
+            painter.restore();
+        }
+        if (auto *circle = go->getComponent<Shit::CircleCollider2D>()) {
+            const float r = circle->getRadius() * pixelScale;
+            painter.drawEllipse(c, r, r);
+        }
+    }
 }
 
 void Viewport::mousePressEvent(QMouseEvent *event)
