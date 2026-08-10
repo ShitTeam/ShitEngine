@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include <cstdint>
 #include <typeindex>
 #include <vector>
 #include <memory>
@@ -32,6 +33,7 @@ namespace Shit {
 	 *   SceneManager::LoadScene(std::move(scene));
 	 */
 	class SHIT_API Scene {
+		friend class GameObject; ///< GameObject 结构变更（组件增删/改名/改父）时通知 bumpGeneration
 	public:
 		explicit Scene(const std::string& name);
 		~Scene();
@@ -119,13 +121,24 @@ namespace Shit {
 		std::vector<std::unique_ptr<GameObject>>& getGameObjects() { return m_gameObjects; }
 
 		void setName(const std::string& name) { m_name = name; }
+
+		/// @brief 场景结构代数：任何对象增删/组件增删/改名/改父都会递增。
+		/// 编辑器据此判断"场景内容是否变化"，及时重建场景树、校验选中态，
+		/// 避免播放中对象被游戏逻辑销毁后仍持有悬垂指针。
+		uint64_t getGeneration() const { return m_generation; }
+
+		/// @brief 对象是否仍在当前场景容器中（地址比较，供编辑器校验旧选中指针）
+		bool containsGameObject(const GameObject* gameObject) const;
+
 	private:
 		void processPendingAdditions(); // 处理延迟添加
 		void processPendingRemoveSystems();
+		void bumpGeneration() { ++m_generation; } ///< 结构变更标记（GameObject 经 friend 调用）
 
 		std::string m_name; // 场景名称
 		std::vector<std::unique_ptr<GameObject>> m_gameObjects; // 游戏物体
 		std::vector<std::unique_ptr<GameObject>> m_pendingAdditions; // 延迟添加
+		uint64_t m_generation = 0; ///< 结构代数（编辑器同步用）
 
 		std::unordered_map<std::type_index, std::unique_ptr<System>> m_systemsMap; // 注册的系统
 		std::vector<System*> m_systems; // 缓存的系统

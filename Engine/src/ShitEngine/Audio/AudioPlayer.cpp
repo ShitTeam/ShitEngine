@@ -19,6 +19,8 @@ void AudioTrackGroup::registerTrack(AudioTrack* track) {
     if (track) {
         m_tracks.push_back(track);
         track->m_group = this;  // 友元写入
+        // 组生命周期令牌：track 存活期间组不释放（外部持有 track 可能跨过 AudioPlayer::destroy）
+        track->m_groupOwner = shared_from_this();
     }
 }
 
@@ -29,6 +31,7 @@ void AudioTrackGroup::unregisterTrack(AudioTrack* track) {
         m_tracks.end()
     );
     track->m_group = nullptr;
+    track->m_groupOwner.reset();
 }
 
 void AudioTrackGroup::pauseAll() {
@@ -125,7 +128,9 @@ AudioTrackGroup* AudioPlayer::createTrackGroup(const std::string& name) {
     auto it = m_groups.find(name);
     if (it != m_groups.end()) return it->second.get();
 
-    auto group = std::unique_ptr<AudioTrackGroup>(new AudioTrackGroup(name));
+    // shared_ptr 创建（enable_shared_from_this 要求对象由 shared_ptr 管理，
+    // 否则 registerTrack 里 shared_from_this() 会 throw）
+    auto group = std::shared_ptr<AudioTrackGroup>(new AudioTrackGroup(name));
     auto* ptr = group.get();
     m_groups[name] = std::move(group);
     return ptr;
@@ -136,7 +141,7 @@ AudioTrackGroup* AudioPlayer::getTrackGroup(const std::string& name) {
     return it != m_groups.end() ? it->second.get() : nullptr;
 }
 
-AudioTrack* AudioPlayer::play(const std::string& filePath, AudioTrackGroup* group, int loopCount) {
+std::shared_ptr<AudioTrack> AudioPlayer::play(const std::string& filePath, AudioTrackGroup* group, int loopCount) {
     if (!m_isInited || !m_mixer) {
         ST_CORE_ERROR("AudioPlayer 未初始化");
         return nullptr;
@@ -180,17 +185,19 @@ AudioTrack* AudioPlayer::play(const std::string& filePath, AudioTrackGroup* grou
 			return nullptr;
 		}
 
-    auto track = std::unique_ptr<AudioTrack>(new AudioTrack(handle));
+    // 私有构造（AudioPlayer 友元）：make_shared 在库代码内实例化，无法访问私有 ctor，
+    // 故用 shared_ptr(new ...) 在友元上下文中完成构造
+    auto track = std::shared_ptr<AudioTrack>(new AudioTrack(handle));
     auto* trackPtr = track.get();
     trackPtr->m_loops = loopCount;  // 记录循环数，供 setLooping/get 使用
 
-    m_tracks.push_back(std::move(track));
+    m_tracks.push_back(track);
     if (group) group->registerTrack(trackPtr);  // 同时置 trackPtr->m_group = group
 
     // 下发初始层级增益 master × group × track(1.0)
     applyTrackGain(trackPtr, group);
 
-    return trackPtr;
+    return track;
 }
 
 void AudioPlayer::setMasterVolume(float gain) {

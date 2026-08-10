@@ -1,5 +1,6 @@
 #pragma once
 #include "../Core/Core.h"
+#include <memory>
 
 struct MIX_Track;
 
@@ -39,6 +40,9 @@ private:
     float m_gain = 1.0f;
     int m_loops = 0;
     AudioTrackGroup* m_group = nullptr;
+    // 组生命周期令牌：本 track 仍存活期间持有组引用，组对象不会先于 track 销毁，
+    // 析构时 m_group->unregisterTrack(this) 不会访问已释放的组内存
+    std::shared_ptr<AudioTrackGroup> m_groupOwner;
     bool m_started = false;
     bool m_paused = false;
 };

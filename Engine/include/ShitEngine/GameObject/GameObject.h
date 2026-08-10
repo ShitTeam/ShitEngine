@@ -58,7 +58,11 @@ namespace Shit {
 		Scene* getScene() const { return m_scene; }
 		bool isNeedDestroy() const { return m_needDestroy; }
 
-		void setName(const std::string& name) { m_name = name; }
+		void setName(const std::string& name) {
+			if (name == m_name) return;
+			m_name = name;   // 场景树显示名随结构变更同步（编辑器据此刷新树）
+			if (m_scene) m_scene->bumpGeneration();
+		}
 		void setTag(const std::string& tag) { m_tag = tag; }  ///< 设置标签（用于分类，如 "enemy"、"player"）
 		void setScene(Scene* scene);  ///< 设置所属场景（同时触发未注册组件的 onAttach）
 		void setNeedDestroy(bool needDestroy) { m_needDestroy = needDestroy; }
@@ -112,6 +116,7 @@ namespace Shit {
 			//（如 removeGameObject 立即清理），对已释放对象写 map 会堆破坏；先入表则
 			// 回调内可以安全地把自己移除，clean() 也能遍历到它。
 			m_components[type_index] = std::unique_ptr<Component>(new_component.release());
+			if (m_scene) m_scene->bumpGeneration();   // 组件结构变更：通知场景代数递增
 
 			// 捕获回调可能用到的数据：回调内可能销毁 owner（this），之后不能再触碰 this
 			Scene* scene = m_scene;
@@ -177,6 +182,7 @@ namespace Shit {
 				// 先从容器取出再调回调，避免回调内再次 removeComponent 造成迭代器失效/重复回调
 				auto comp = std::move(it->second);
 				m_components.erase(it);
+				if (m_scene) m_scene->bumpGeneration();   // 组件结构变更：通知场景代数递增
 				comp->onDetach();
 				comp->onDestroy();
 			}

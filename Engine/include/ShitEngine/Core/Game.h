@@ -26,7 +26,11 @@ namespace Shit {
 		inline static bool Init() { return GetInstance().init(); }
 		inline static void Run() { GetInstance().run(); }
 		inline static void Destroy() { GetInstance().destroy(); }    ///< 反初始化，按依赖逆序清理子系统（init 部分失败时也能安全调用）
-		static bool IsRunning() { return GetInstance().m_isRunning; } ///< 主循环是否仍在运行
+		static bool IsRunning() { return GetInstance().m_isRunning; } ///< 是否处于运行态（主循环运行中，或编辑器显式置位）
+		/// @brief 标记运行态。编辑器内嵌预览（外部驱动主循环，不调用 run()）在播放期间
+		/// 置 true，使 Scene 增删走与 Runtime 一致的延时安全路径（帧末统一删除/添加），
+		/// 游戏逻辑在迭代中删除对象不会使容器迭代器失效。停止播放时置回 false。
+		static void SetIsRunning(bool running) { GetInstance().m_isRunning = running; }
 		inline static void SetPaused(bool paused) { GetInstance().m_isPaused = paused; }  ///< 全局暂停（冻结 Behavior/物理，UI 叠层照常）
 		inline static bool IsPaused() { return GetInstance().m_isPaused; }                ///< 是否处于暂停状态
 

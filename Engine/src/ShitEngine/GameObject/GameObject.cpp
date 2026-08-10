@@ -35,6 +35,7 @@ namespace Shit {
 
 		component->setOwner(this);
 		m_components[type_index] = std::unique_ptr<Component>(component);
+		if (m_scene) m_scene->bumpGeneration();   // 组件结构变更：通知场景代数递增
 
 		// 捕获回调可能用到的数据：回调内可能销毁 owner（this），之后不能再触碰 this
 		Scene* scene = m_scene;
@@ -81,6 +82,9 @@ namespace Shit {
 		if (parent) {
 			parent->m_children.push_back(this);
 		}
+
+		// 层级结构变更：通知场景代数递增（编辑器场景树据此刷新父子关系）
+		if (m_scene) m_scene->bumpGeneration();
 	}
 
 	void GameObject::removeFromParentChildren() {
@@ -99,10 +103,26 @@ namespace Shit {
 
 		// 进入场景时：对尚未注册的组件执行 onAttach
 		if (scene) {
+			// 快照遍历：onAttach 回调可能 removeComponent / 销毁 owner（此对象），
+			// 在回调前确认组件仍属于本对象、owner 仍存活，避免对已释放内存调用。
+			std::vector<Component*> comps;
+			comps.reserve(m_components.size());
 			for (auto& [type, comp] : m_components) {
-				if (!comp->isRegistered()) {
-					comp->onAttach();
+				if (comp && !comp->isRegistered()) comps.push_back(comp.get());
+			}
+
+			const std::weak_ptr<void> lifetime = m_lifetime;
+			for (auto* comp : comps) {
+				if (lifetime.expired()) return;   // 回调销毁了 owner → 组件已随 clean() 释放
+
+				// 回调期间组件可能已被 removeComponent：不再属于本对象则跳过
+				bool owned = false;
+				for (auto& [type, c] : m_components) {
+					if (c.get() == comp) { owned = true; break; }
 				}
+				if (!owned || comp->isRegistered()) continue;
+
+				comp->onAttach();
 			}
 
 			// 级联：所有子物体也设置场景

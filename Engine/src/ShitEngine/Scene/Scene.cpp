@@ -44,17 +44,24 @@ namespace Shit {
 			}
 		}
 
-		// 删除需要销毁的游戏对象
-		auto it = std::remove_if(m_gameObjects.begin(), m_gameObjects.end(), [](const std::unique_ptr<GameObject>& go) {
-			if (go && go->isNeedDestroy()) {
-				go->clean();
-				return true;
+		// 删除需要销毁的游戏对象：先把待销毁对象整体搬出容器（搬移阶段零回调），
+		// 再逐个 clean。若在容器迭代/回调阶段删除，onDetach/onDestroy 内重入
+		// removeGameObject/createGameObject 会使迭代器失效（见 AGENTS.md 约定）。
+		std::vector<std::unique_ptr<GameObject>> dying;
+		for (auto it = m_gameObjects.begin(); it != m_gameObjects.end();) {
+			if (*it && (*it)->isNeedDestroy()) {
+				dying.push_back(std::move(*it));
+				it = m_gameObjects.erase(it);
 			}
-			return false;
-			});
-
-		if (it != m_gameObjects.end()) {
-			m_gameObjects.erase(it, m_gameObjects.end());
+			else {
+				++it;
+			}
+		}
+		if (!dying.empty()) {
+			for (auto& go : dying) {
+				if (go) go->clean();
+			}
+			bumpGeneration();
 		}
 
 		processPendingAdditions();
@@ -62,17 +69,34 @@ namespace Shit {
 	}
 
 	void Scene::destroy() {
-		// 先清理所有待添加的对象
+		// 快照清理：先把对象整体搬出容器（搬移阶段零回调），再逐个 clean。
+		// onDetach/onDestroy 回调内增删对象（非运行态是立即增删）不会使迭代中的
+		// 容器失效/重分配（见 AGENTS.md 约定：不要在迭代期间删除元素）。
+		std::vector<std::unique_ptr<GameObject>> all;
+		all.reserve(m_pendingAdditions.size() + m_gameObjects.size());
+		for (auto& go : m_pendingAdditions) {
+			if (go) all.push_back(std::move(go));
+		}
+		m_pendingAdditions.clear();
+		for (auto& go : m_gameObjects) {
+			if (go) all.push_back(std::move(go));
+		}
+		m_gameObjects.clear();
+
+		for (auto& go : all) {
+			if (go) go->clean();
+		}
+
+		// 回调期间（如 onDestroy 内）误新增的对象：回收，避免残留
 		for (auto& go : m_pendingAdditions) {
 			if (go) go->clean();
 		}
-		m_pendingAdditions.clear();
-
-		// 清理游戏对象
 		for (auto& go : m_gameObjects) {
 			if (go) go->clean();
 		}
+		m_pendingAdditions.clear();
 		m_gameObjects.clear();
+		bumpGeneration();
 
 		// 销毁所有系统
 		for (auto& [type, system] : m_systemsMap) {
@@ -98,6 +122,7 @@ namespace Shit {
 			else { // 否则，直接添加
 				gameObject->setScene(this);
 				m_gameObjects.push_back(std::move(gameObject));
+				bumpGeneration();
 			}
 		}
 		else {
@@ -113,6 +138,7 @@ namespace Shit {
 			m_pendingAdditions.push_back(std::move(go));
 		} else {
 			m_gameObjects.push_back(std::move(go));
+			bumpGeneration();
 		}
 		return ptr;
 	}
@@ -159,8 +185,10 @@ namespace Shit {
 					return go.get() == gameObject;
 				});
 			if (it != m_pendingAdditions.end()) {
-				(*it)->clean();
+				// 先摘除再 clean：回调内重入删除其它待添加对象时不使迭代器失效
+				auto go = std::move(*it);
 				m_pendingAdditions.erase(it);
+				go->clean();
 				return;
 			}
 			gameObject->destroy(); // destroy() 会级联标记所有子物体
@@ -171,8 +199,12 @@ namespace Shit {
 				});
 
 			if (it != m_gameObjects.end()) {
-				(*it)->clean();
+				// 先摘除再 clean：onDetach/onDestroy 回调内若重入 removeGameObject
+				//（含移除自身），容器已不含本对象，不会迭代器失效/双重清理
+				auto go = std::move(*it);
 				m_gameObjects.erase(it);
+				bumpGeneration();
+				go->clean();
 			}
 			else {
 				ST_CORE_WARN("场景 {} 中没有找到对应的游戏对象 ！", m_name);
@@ -186,8 +218,9 @@ namespace Shit {
 			// 同时检查待添加列表
 			for (auto it = m_pendingAdditions.begin(); it != m_pendingAdditions.end(); ) {
 				if ((*it)->getName() == name) {
-					(*it)->clean();
+					auto go = std::move(*it);
 					it = m_pendingAdditions.erase(it);
+					go->clean();
 				} else {
 					++it;
 				}
@@ -202,8 +235,11 @@ namespace Shit {
 			bool found = false;
 			for (auto it = m_gameObjects.begin(); it != m_gameObjects.end(); ) {
 				if ((*it)->getName() == name) {
-					(*it)->clean();
+					// 先摘除再 clean：回调内重入（含删除同名对象）不会迭代器失效
+					auto go = std::move(*it);
 					it = m_gameObjects.erase(it);
+					bumpGeneration();
+					go->clean();
 					found = true;
 				}
 				else {
@@ -218,7 +254,15 @@ namespace Shit {
 
 	void Scene::processPendingAdditions()
 	{
-		for (auto& go : m_pendingAdditions) {
+		if (m_pendingAdditions.empty()) return;
+
+		// 先整体搬出再处理：onAttach 回调内若再 addGameObject（进新的
+		// m_pendingAdditions）不会使迭代中的容器重分配/失效；新条目留到下帧。
+		std::vector<std::unique_ptr<GameObject>> pending;
+		pending.swap(m_pendingAdditions);
+
+		bool added = false;
+		for (auto& go : pending) {
 			if(go) {
 				if (go->isNeedDestroy()) {
 					go->clean();
@@ -226,10 +270,20 @@ namespace Shit {
 				}
 				go->setScene(this);
 				m_gameObjects.push_back(std::move(go));
+				added = true;
 			}
 			else ST_CORE_WARN("试图向场景 {} 中添加空游戏对象！", m_name);
 		}
-		m_pendingAdditions.clear();
+		if (added) bumpGeneration();
+	}
+
+	bool Scene::containsGameObject(const GameObject* gameObject) const
+	{
+		if (!gameObject) return false;
+		for (const auto& go : m_gameObjects) {
+			if (go.get() == gameObject) return true;
+		}
+		return false;
 	}
 
 	void Scene::processPendingRemoveSystems() {

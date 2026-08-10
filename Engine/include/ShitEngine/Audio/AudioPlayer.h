@@ -9,7 +9,9 @@
 
 namespace Shit {
 
-class AudioTrackGroup {
+// enable_shared_from_this：track 持 group 的 shared_ptr（m_groupOwner）拉长组生命周期，
+// 避免 AudioPlayer::destroy 先释放 group 后，仍被外部持有的 track 析构时访问已释放的组。
+class AudioTrackGroup : public std::enable_shared_from_this<AudioTrackGroup> {
 public:
     ~AudioTrackGroup() = default;
 
@@ -43,7 +45,10 @@ public:
     static inline AudioTrackGroup* GetTrackGroup(const std::string& name) {
         return GetInstance().getTrackGroup(name);
     }
-    static inline AudioTrack* Play(const std::string& filePath, const std::string& group = "default") {
+    /// @brief 播放音频，返回共享句柄。播放结束后引擎自动回收资源；
+    /// 调用方保存返回值可安全持有（track 播完后 isFinished()==true，
+    /// 但对象不会悬垂——引擎释放的是自己的引用，调用方持有期间对象存活）。
+    static inline std::shared_ptr<AudioTrack> Play(const std::string& filePath, const std::string& group = "default") {
         auto& inst = GetInstance();
         AudioTrackGroup* g = inst.getTrackGroup(group);
         if (!g) {
@@ -77,7 +82,7 @@ private:
     void update();
     AudioTrackGroup* createTrackGroup(const std::string& name);
     AudioTrackGroup* getTrackGroup(const std::string& name);
-    AudioTrack* play(const std::string& filePath, AudioTrackGroup* group, int loopCount = 0);
+    std::shared_ptr<AudioTrack> play(const std::string& filePath, AudioTrackGroup* group, int loopCount = 0);
     void setMasterVolume(float gain);
     void pauseAll();
     void resumeAll();
@@ -87,8 +92,8 @@ private:
     struct MIX_Mixer* m_mixer = nullptr;
     bool m_isInited = false;
     float m_masterGain = 1.0f;
-    std::unordered_map<std::string, std::unique_ptr<AudioTrackGroup>> m_groups;
-    std::vector<std::unique_ptr<AudioTrack>> m_tracks;
+    std::unordered_map<std::string, std::shared_ptr<AudioTrackGroup>> m_groups;
+    std::vector<std::shared_ptr<AudioTrack>> m_tracks;
 };
 
 } // namespace Shit
