@@ -325,7 +325,7 @@ void MainWindow::newScene()
     std::vector<Shit::GameObject *> toRemove;
     for (auto &go : scene->getGameObjects()) {
         const std::string name = go->getName();
-        if (name != "scene_camera" && name != "game_camera")   // 保留两个相机（模板）
+        if (name != "scene_camera")   // 保留编辑器相机（游戏相机不定名，随场景里的走）
             toRemove.push_back(go.get());
     }
     for (auto *go : toRemove)
@@ -1288,7 +1288,7 @@ void MainWindow::resetToEmptyScene()
     std::vector<Shit::GameObject *> toRemove;
     for (auto &go : scene->getGameObjects()) {
         const std::string name = go->getName();
-        if (name != "scene_camera" && name != "game_camera")
+        if (name != "scene_camera")   // 保留编辑器相机；游戏相机不定名，随场景
             toRemove.push_back(go.get());
     }
     for (auto *go : toRemove)

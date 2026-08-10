@@ -60,7 +60,7 @@ ProjectWizard::ProjectWizard(QWidget *parent)
     layout->addLayout(form);
     layout->addWidget(m_scriptsCheck);
 
-    auto *hint = new QLabel(tr("初始化场景由编辑器生成（含 game_camera）。脚本工程编译产物输出到 bin/，随后即可在场景中挂载自定义行为。"), this);
+    auto *hint = new QLabel(tr("初始化场景由编辑器生成（编辑器相机 scene_camera 自动管理；游戏相机在场景中任意创建，如 Main Camera）。脚本工程编译产物输出到 bin/，随后即可在场景中挂载自定义行为。"), this);
     hint->setWordWrap(true);
     hint->setStyleSheet(QStringLiteral("color: gray;"));
     layout->addWidget(hint);

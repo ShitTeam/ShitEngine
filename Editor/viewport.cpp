@@ -147,6 +147,12 @@ void Viewport::setSelectedObject(Shit::GameObject *object)
 Shit::CameraComponent *Viewport::editorCamera() const
 {
     if (!m_editScene) return nullptr;
+    // 编辑器相机是约定名 scene_camera（场景视图基础设施，Gizmo 拾取/平移/缩放
+    // 都基于它）；找不到才回退场景中第一个相机（老场景兼容）
+    for (auto &go : m_editScene->getGameObjects())
+        if (go->getName() == "scene_camera")
+            if (auto *cam = go->getComponent<Shit::CameraComponent>())
+                return cam;
     for (auto &go : m_editScene->getGameObjects())
         if (auto *cam = go->getComponent<Shit::CameraComponent>())
             return cam;

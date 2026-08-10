@@ -23,6 +23,7 @@
 - **导出资源路径逃逸（编辑器）**：场景 JSON 中 `../` 形式的相对资源路径会写出导出包外且运行时落空——现按绝对路径分支处理（收进包内 `Assets/` 并改写字段），保证导出包自包含
 - **日志面板颜色不生效（编辑器）**：`LogWidget::appendMessage` 不再以"选中行"方式上色（无效），改为把字符格式直接应用到插入文本——错误红/警告橙恢复可见
 - **示例行为空指针（示例）**：`Player::onUpdate` 对未挂 `TransformComponent` 的对象安全跳过
+- **播放中场景缺游戏相机导致双视口冻结（编辑器）**：`EnginePreview::tick` 此前在相机缺失时提前 return——播放态 `ensureCameras()` 补建的相机走引擎**延时添加**（`m_pendingAdditions`），要等 `SceneManager::Update()` 统一 flush 才进场景，提前 return 使补建永不生效（停止播放后滞留的 pending 相机与编辑态再建的相机还会叠加成两个 `game_camera`）。修复：不再提前 return，缺失的相机由各 pass 空守卫跳过、pass 间按名重新定位——补建相机在游戏 pass 的 update 中入场景后当帧生效，游戏逻辑销毁相机后下一帧自愈；顺带消除游戏 pass 内销毁相机后编辑 pass 仍解引用缓存指针的悬垂隐患
 
 ### 新增
 
@@ -92,6 +93,8 @@
 
 ### 变更
 
+- **游戏相机不定名（编辑器，对齐 Unity）** — 运行视口不再锁定名为 `game_camera` 的相机：引擎每帧从场景所有启用相机中自动挑选（priority 最小者优先，上一帧选择延续防抖动），`Main Camera`/`PlayerCam` 等任意命名均可；场景无任何相机时兜底编辑器相机 `scene_camera`，运行视口画面不断流。编辑器相机 `scene_camera` 仍为约定名（不入库、树中隐藏、拒绝删除）。新建场景模板不再预置 `game_camera`；旧场景残留的 `game_camera` 自动兼容为普通游戏相机（可自由删除，运行视图自动改选）
+- **场景视图只渲染编辑器相机（编辑器）** — 编辑 pass 渲染期间暂时禁用其余全部相机（渲染后逐一恢复），多游戏相机分屏/画中画不再把各视口内容叠加进场景视图；运行视图 pass 仍渲染全部启用用户相机，多相机 viewport 分屏完整支持（引擎 `RenderSystem` 本就按 `viewportRatio` 逐相机渲染）
 - **插件 ABI v2** — 移除 `CreateMainScene` 场景工厂导出，插件 = 脚本库（只导出身份 + `RegisterPluginTypes`），插件不再写场景搭建代码
 - **Runtime 启动流程** — 读 `config.json` 顶层 `"scene"` 字段 → `SceneManager::LoadSceneFromFile`；缺省启动空场景、由序列化器兜底默认相机
 

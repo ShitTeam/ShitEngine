@@ -11,7 +11,8 @@
 
 namespace Shit { class EngineContext; class Scene; class CameraComponent; class PluginManager; }
 
-/// 引擎预览：单一 EngineContext + 单一场景，含编辑器相机与游戏相机。
+/// 引擎预览：单一 EngineContext + 单一场景，含编辑器相机（scene_camera 约定名）
+/// 与游戏相机（任意名称，从场景启用相机中挑选，Unity 语义）。
 /// 每帧两次渲染 pass（各只渲一个相机）→ 读回两个逻辑尺寸画面，分别供场景/运行视口。
 /// 同一场景 ⇒ 编辑一处，两个视图同步反映。
 /// 启动时从 exe 同目录 config.json 加载插件（脚本库），自定义行为类型可实例化/编辑/序列化。
@@ -66,9 +67,11 @@ private slots:
     void tick();
 
 private:
-    /// 按名重新定位编辑器/游戏相机（场景加载/编辑后相机可能重建）
+    /// 重新定位相机：编辑器相机按约定名 scene_camera；游戏相机取场景中
+    /// priority 最小的非编辑器相机（上一帧选择仍在场景则延续），无则兜底编辑器相机
     void refreshCameras();
-    /// 缺失的相机补齐（播放中游戏逻辑/误删导致相机消失时自愈，避免 tick 提前返回冻结）
+    /// 缺失的编辑器相机补齐（误删/播放中游戏逻辑销毁后自愈，保证场景视图不断流；
+    /// 游戏相机不定名，无需补建，由 refreshCameras 挑选）
     void ensureCameras();
     /// 清空场景全部对象（保留编辑器相机 scene_camera；组件析构调用 DLL 代码）
     void clearSceneObjects();

@@ -144,11 +144,11 @@ void SceneTree::deleteObject()
     Shit::GameObject *go = m_model->gameObjectAt(idx);
     if (!go) return;
 
-    // 相机是编辑/运行基础设施：删除会导致预览 tick 失能、保存后无法恢复
-    //（scene_camera 不入库、game_camera 删除后需重启），直接拒绝
-    const std::string name = go->getName();
-    if (name == "scene_camera" || name == "game_camera") {
-        emit sceneDeleteBlocked(QString::fromStdString(name) + tr(" 是相机基础设施，不能删除"));
+    // scene_camera 是场景视图基础设施（不入库、树中隐藏）：删除后编辑视点失能，
+    // 保存亦无法恢复。游戏相机不定名（Unity 语义）——场景中任意相机都可删除，
+    // 运行视图会自动改选场景中其余相机或兜底编辑器相机
+    if (go->getName() == "scene_camera") {
+        emit sceneDeleteBlocked(tr("scene_camera 是编辑器相机基础设施，不能删除"));
         return;
     }
 

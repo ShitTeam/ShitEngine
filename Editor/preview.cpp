@@ -45,7 +45,8 @@ bool EnginePreview::start()
         m_plugins->RegisterAllTypes();
     }
 
-    // 构建共享场景：默认空场景，仅两个相机（无测试对象/行为）
+    // 构建共享场景：默认空场景，仅编辑器相机（无测试对象/行为）。
+    // 游戏相机不定名（Unity 语义）：由 refreshCameras 从场景中挑选任意启用相机。
     auto scene = std::make_unique<Shit::Scene>("preview");
     scene->init();
 
@@ -53,11 +54,6 @@ bool EnginePreview::start()
     editorGo->addComponent<Shit::TransformComponent>();
     m_editorCam = editorGo->addComponent<Shit::CameraComponent>();
     m_editorCam->setZoom(1.0f);
-
-    auto *gameGo = scene->createGameObject("game_camera");
-    gameGo->addComponent<Shit::TransformComponent>();
-    m_gameCam = gameGo->addComponent<Shit::CameraComponent>();
-    m_gameCam->setZoom(1.0f);
 
     Shit::SceneManager::LoadScene(std::move(scene));
     m_scene = Shit::SceneManager::GetCurrentScene();
@@ -215,29 +211,50 @@ void EnginePreview::refreshCameras()
     m_editorCam = nullptr;
     m_gameCam = nullptr;
     if (!m_scene) return;
+
+    // 编辑器相机：约定名 scene_camera（场景视图基础设施，不入库/不参与游戏相机选择）
     for (auto &go : m_scene->getGameObjects()) {
-        if (go->getName() == "scene_camera")
+        if (go->getName() == "scene_camera") {
             m_editorCam = go->getComponent<Shit::CameraComponent>();
-        else if (go->getName() == "game_camera")
-            m_gameCam = go->getComponent<Shit::CameraComponent>();
+            break;
+        }
     }
+
+    // 游戏相机：Unity 语义——场景里任何启用相机都行（不按名约定）。上一帧选中的
+    // 用户相机若仍在场景则延续（避免 tick 双 pass 切换 enabled 造成选择抖动）；
+    // 否则取 priority 最小的相机（与 RenderSystem 渲染顺序一致），无用户相机时
+    // 兜底编辑器相机，保证运行视口画面不断流。
+    Shit::CameraComponent *prev = m_gameCam;
+    if (prev && prev->getOwner()
+            && prev->getOwner()->getName() != "scene_camera"
+            && m_scene->containsGameObject(prev->getOwner())
+            && prev->getOwner()->getComponent<Shit::CameraComponent>() == prev) {
+        m_gameCam = prev;
+        return;
+    }
+
+    Shit::CameraComponent *best = nullptr;
+    for (auto &go : m_scene->getGameObjects()) {
+        if (go->getName() == "scene_camera") continue;   // 编辑器相机不作为游戏相机
+        auto *cam = go->getComponent<Shit::CameraComponent>();
+        if (!cam) continue;
+        if (!best || cam->getPriority() < best->getPriority())
+            best = cam;
+    }
+    m_gameCam = best ? best : m_editorCam;
 }
 
 void EnginePreview::ensureCameras()
 {
     if (!m_scene) return;
-    // 按名补齐缺失的相机（初值对齐 start()：仅设 zoom，其余默认）
+    // 只保证编辑器相机（scene_camera）存在：它是场景视图基础设施。
+    // 游戏相机不定名，由 refreshCameras 从场景挑选（Unity 语义），缺失时
+    // 兜底编辑器相机，无需补建任何游戏相机。
     if (!m_editorCam) {
         auto *go = m_scene->createGameObject("scene_camera");
         go->addComponent<Shit::TransformComponent>();
         m_editorCam = go->addComponent<Shit::CameraComponent>();
         if (m_editorCam) m_editorCam->setZoom(1.0f);
-    }
-    if (!m_gameCam) {
-        auto *go = m_scene->createGameObject("game_camera");
-        go->addComponent<Shit::TransformComponent>();
-        m_gameCam = go->addComponent<Shit::CameraComponent>();
-        if (m_gameCam) m_gameCam->setZoom(1.0f);
     }
 }
 
@@ -249,12 +266,15 @@ void EnginePreview::tick()
     // 场景指针每帧跟随 SceneManager：播放中游戏代码 LoadScene 会整体替换场景
     //（旧场景销毁），若仍持有旧指针，refreshCameras/渲染会解引用已释放内存。
     m_scene = Shit::SceneManager::GetCurrentScene();
-    refreshCameras();   // 每帧按名定位（场景加载/编辑后相机可能重建，防悬空指针）
-    if (!m_editorCam || !m_gameCam) {
-        ensureCameras();        // 相机被（误）删/未建：自愈补齐，保证循环继续
+    refreshCameras();   // 每帧重新定位（场景加载/编辑后相机可能重建，防悬空指针）
+    if (!m_editorCam) {
+        ensureCameras();        // 编辑器相机被（误）删/未建：自愈补齐，保证循环继续
         refreshCameras();
     }
-    if (!m_editorCam || !m_gameCam) return;
+    // 注意：不因相机缺失而提前 return——播放态 ensureCameras() 新建的对象走延时
+    // 添加（m_pendingAdditions），要等下方 SceneManager::Update() 统一 flush 才进
+    // 容器；提前 return 会让对象永远进不了场景，双视口永久冻结。缺失的相机由
+    // 各 pass 的空守卫跳过、pass 后重新定位。
 
     Shit::Time::Update();
     Shit::EventBus::ProcessEvents();
@@ -262,33 +282,58 @@ void EnginePreview::tick()
     Shit::AudioPlayer::Update();
 
     // 游戏视图 pass：驱动逻辑一次（Behavior 等），渲染游戏相机 → target → 读图
-    m_gameCam->setEnabled(true);
-    m_editorCam->setEnabled(false);
+    if (m_editorCam) m_editorCam->setEnabled(false);
+    if (m_gameCam) m_gameCam->setEnabled(true);
     Shit::Renderer::BeginOffscreen();
     Shit::SceneManager::Update();
-    if (Shit::Renderer::ReadPixels(m_pixels.data(), m_logicalWidth * 4)) {
+    // 播放中 ensureCameras()/游戏逻辑创建的对象此刻才入容器；游戏逻辑也可能在
+    // update 中销毁相机 → 每个 pass 后重新定位，既让新建的相机立即可用，也防
+    // 本帧缓存指针在 pass 间变成悬垂。
+    refreshCameras();
+    if (m_gameCam && Shit::Renderer::ReadPixels(m_pixels.data(), m_logicalWidth * 4)) {
         QImage image(m_pixels.data(), m_logicalWidth, m_logicalHeight,
                      m_logicalWidth * 4, QImage::Format_ARGB32);
         emit gameFrameReady(image.copy());
     }
 
-    // 场景视图 pass：仅重渲染编辑器相机（不重跑逻辑），复用同一目标纹理
-    m_editorCam->setEnabled(true);
-    m_gameCam->setEnabled(false);
+    // 场景视图 pass：只渲染编辑器相机（不重跑逻辑），复用同一目标纹理。
+    // 其余相机（游戏相机/分屏相机）渲染期间暂时禁用——否则它们的内容会叠加进
+    // 编辑帧，多相机分屏时场景视图被各视口内容淹没（Unity 场景视图同样只看
+    // 编辑器视角；游戏侧多相机 viewport 在运行视图 pass 照常全部渲染）。
+    std::vector<Shit::CameraComponent *> userCams;
+    if (m_scene) {
+        for (auto &go : m_scene->getGameObjects()) {
+            if (go->getName() == "scene_camera") continue;
+            if (auto *cam = go->getComponent<Shit::CameraComponent>())
+                userCams.push_back(cam);
+        }
+    }
+    if (m_editorCam) m_editorCam->setEnabled(true);
+    for (auto *cam : userCams) cam->setEnabled(false);
     if (m_scene) {
         if (auto *renderSystem = m_scene->getSystem<Shit::RenderSystem>())
             renderSystem->update();
     }
-    if (Shit::Renderer::ReadPixels(m_pixels.data(), m_logicalWidth * 4)) {
+    // 恢复其余相机：渲染回调可能重入销毁对象，逐个校验仍在场景才恢复
+    for (auto *cam : userCams) {
+        if (!m_scene) break;
+        auto *owner = cam->getOwner();
+        if (owner && m_scene->containsGameObject(owner)
+            && owner->getComponent<Shit::CameraComponent>() == cam)
+            cam->setEnabled(true);
+    }
+    // 渲染回调可能重入增删对象 → 发帧前再重新定位一次，避免把悬垂指针传给界面
+    refreshCameras();
+    if (m_editorCam && Shit::Renderer::ReadPixels(m_pixels.data(), m_logicalWidth * 4)) {
         QImage image(m_pixels.data(), m_logicalWidth, m_logicalHeight,
                      m_logicalWidth * 4, QImage::Format_ARGB32);
         emit sceneFrameReady(image.copy());
     }
     Shit::Renderer::EndOffscreen();
 
-    // 收尾复位：编辑 pass 结束后把 game_camera 恢复为启用。否则保存场景时若恰好
-    // 处于禁用态（双 pass 竞态），会被序列化成禁用相机，下次加载触发兜底，
-    // 甚至新建第二个 game_camera 导致对象渲染双份。编辑器相机不入库，无需复位。
-    m_gameCam->setEnabled(true);
-    m_editorCam->setEnabled(false);
+    // 收尾复位：编辑 pass 结束后把游戏相机恢复为启用。否则保存场景时若恰好
+    // 处于禁用态（双 pass 竞态），会被序列化成禁用相机，下次加载触发引擎兜底。
+    // 编辑器相机（scene_camera）不入库，无需复位。
+    if (m_gameCam) m_gameCam->setEnabled(true);
+    if (m_editorCam) m_editorCam->setEnabled(false);
 }
