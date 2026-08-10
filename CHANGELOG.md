@@ -7,6 +7,23 @@
 
 ## [Unreleased]
 
+### 修复
+
+- **编辑器播放期悬垂指针崩溃（引擎 + 编辑器）**：播放中游戏逻辑销毁/新建对象（行为 `onUpdate` 里 `removeGameObject`、子弹回收、`LoadScene` 切关等）后，场景树行、视口 Gizmo、检查器仍持有已释放的 `GameObject*/Component*`，下一帧渲染/回读即 use-after-free 崩溃。修复：
+  - 场景结构引入**代数（generation）**：任何对象增删/组件增删/改名/改父递增（`Scene::getGeneration/bumpGeneration`，`GameObject` 为友元）；新增 `Scene::containsGameObject` 供编辑器校验旧选中指针
+  - 编辑器每帧 `onSceneFrameReady` 同步：场景指针或代数变化 → 重建场景树（不自动选中）→ 选中对象仍存活则恢复选中并重绑检查器/Gizmo，已被销毁则清空选中态；`SceneTree::setScene` 增加 `autoSelect` 参数、新增 `selectedObject()`
+  - `EnginePreview::tick` 每帧跟随 `SceneManager::GetCurrentScene()`（播放切关后不再持有被销毁的旧场景）；相机被删后自愈补齐（`ensureCameras`），不再因 tick 提前 return 而冻结编辑器
+  - `Viewport::drawGizmo` 二次防呆：选中对象不在场景则清除选中
+  - 新增 `Game::SetIsRunning(bool)`：编辑器播放期间置真，使 `Scene` 增删走与 Runtime 一致的**延时路径**（帧末统一增删）——游戏逻辑在迭代中删除对象不再导致容器迭代器失效；停止播放复位
+- **Scene 容器迭代安全（引擎）**：`update()` 销毁队列与 `destroy()` 全量清理改为"**先整体搬出容器再逐 clean**"；`processPendingAdditions` 先搬出再处理（`onAttach` 内再增删不进迭代容器）；`removeGameObject`/`removeGameObjectByName` 非运行分支**先摘除再 clean**——`onDetach/onDestroy` 回调内重入增删对象不再迭代器失效/双重清理
+- **`GameObject::setScene` 组件遍历（引擎）**：`onAttach` 改为快照遍历 + 生命周期令牌守卫，回调内 `removeComponent`/销毁 owner 不再使 `unordered_map` 迭代器失效
+- **音频句柄悬垂（引擎）**：`AudioPlayer::Play` 改为返回 `std::shared_ptr<AudioTrack>`（track 播完引擎只释放自己的引用，调用方持有的句柄不会悬垂）；`AudioTrack` 持 `AudioTrackGroup` 的 `shared_ptr` 令牌，组不会再先于 track 销毁（此前 `AudioPlayer::destroy` 释放组后，仍被外部持有的 track 析构会访问已释放内存）
+- **删除相机导致编辑器冻结（编辑器）**：场景树拒绝删除 `scene_camera`/`game_camera`（相机是编辑/运行基础设施，删除后保存无法恢复）
+- **项目设置保存旧 SDK 目录（编辑器）**：全局记忆 `lastSdkDir` 改为在 `applyToProject()` 之后取值——此前改 SDK 后「新建项目」向导仍预填旧路径
+- **导出资源路径逃逸（编辑器）**：场景 JSON 中 `../` 形式的相对资源路径会写出导出包外且运行时落空——现按绝对路径分支处理（收进包内 `Assets/` 并改写字段），保证导出包自包含
+- **日志面板颜色不生效（编辑器）**：`LogWidget::appendMessage` 不再以"选中行"方式上色（无效），改为把字符格式直接应用到插入文本——错误红/警告橙恢复可见
+- **示例行为空指针（示例）**：`Player::onUpdate` 对未挂 `TransformComponent` 的对象安全跳过
+
 ### 新增
 
 - **导出游戏（P18，引擎 + 编辑器）**：

@@ -5,6 +5,7 @@ void Player::onStart() {
 }
 
 void Player::onUpdate() {
+    if (!transform) return;   // 未挂 TransformComponent（如挂在空对象上）时安全跳过
     Shit::Vector2 pos = transform->getPosition();
 
     // 优先用 settings.json 的轴映射；没有配置时仍可退回原始 WASD
