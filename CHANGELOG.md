@@ -9,6 +9,10 @@
 
 ### 新增
 
+- **窗口布局重排（P21，编辑器）**：改 `createDocks()` 让「场景视口 / 运行视口」改为窗口中央的标签页叠放（`QTabWidget`，`scene_camera` / 游戏相机语义与之前一致），「资源 / 日志」在窗口底部标签页合并（`tabifyDockWidget`，拖标题栏可拆回独立 Dock）；左侧场景树、右侧属性检查器保留。布局持久化升级为**带版本号**（`QSettings::saveState(QMainWindow::SaveFullState, kLayoutVersion)` / `restoreState(…, kLayoutVersion)`），旧版布局不匹配时自动落回默认排列，重启不失真
+
+- **「窗口」菜单（编辑器）**：菜单栏新增「窗口」，列出全部可停靠面板（场景 / 属性 / 资源 / 日志），勾选 = 显示——面板右上角关闭后可从菜单重新打开；复用 `QDockWidget::toggleViewAction()`，勾选状态与面板可见性自动同步，关面板/恢复布局后菜单状态不失真
+
 - **组件 UUID + 组件引用字段（P20，引擎 + 扫描器 + 编辑器 + 示例）**：Unity 式"组件拖拽引用"基础设施——
   - **组件持久 UUID**：`Component` 基类新增 64 位随机 ID（`getUuid()/setUuid()`，`GenerateComponentUuid()`，0 保留为空引用），构造即分配；随 `.scene` 落盘（`Prefab::ComponentData.uuid`）——ID 跨编辑会话稳定；旧 `.scene` 无 `uuid` 字段时加载现场分配，向后兼容
   - **`ComponentRef<T>` 引用字段**（`GameObject/ComponentRef.h`）：字段内只存目标组件 UUID（8 字节），`get()/operator->/operator bool` 经当前场景索引懒解析；目标组件被移除/对象销毁后自动返回 nullptr——**永不悬垂**（与 `WeakComponentRef` 会话期弱引用互补：它是可序列化的持久引用）。运行时实例化（`Prefab::instantiate`）不恢复记录 ID，防复制实例共享 uuid 引用串线

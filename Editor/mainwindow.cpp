@@ -19,6 +19,7 @@
 #include <QMouseEvent>
 #include <QPushButton>
 #include <QStatusBar>
+#include <QTabWidget>
 #include <QTimer>
 #include <QToolBar>
 #include <QWheelEvent>
@@ -56,6 +57,10 @@
 namespace {
 constexpr int kMaxRecentScenes = 5;   ///< 最近场景列表长度上限
 constexpr int kMaxRecentProjects = 5; ///< 最近项目列表长度上限
+
+/// Dock 布局版本号（saveState/restoreState 第二参）。P21 起中央改为标签页叠放、
+/// 底部资源+日志 Tab 合并——旧版（v0）保存的布局作废，版本不匹配时自动落回默认排列。
+constexpr int kLayoutVersion = 2;
 } // namespace
 
 MainWindow::MainWindow(QWidget *parent)
@@ -81,18 +86,17 @@ MainWindow::MainWindow(QWidget *parent)
     // P13：Dock 布局持久化 —— 项目级 .shitengine/state.ini（无项目时回退全局注册表）。
     // 有上次布局恢复之；否则恢复「默认布局」（P17：可经「视图 → 将当前布局设为默认」
     // 覆盖，即自定义启动时的初始排列）；首次启动无默认时保存出厂布局为默认。
-    // 窗口几何同理。
+    // 窗口几何同理。P21：布局带版本号——旧版布局作废时自动落回 createDocks 默认排列。
     {
         QSettings *s = stateSettings();
         const QByteArray userLayout = s->value("dockState").toByteArray();
-        if (!userLayout.isEmpty()) {
-            restoreState(userLayout);
+        const QByteArray def = s->value("dockStateDefault").toByteArray();
+        if (!userLayout.isEmpty() && restoreState(userLayout, kLayoutVersion)) {
+            // 已恢复用户布局
+        } else if (!def.isEmpty()) {
+            restoreState(def, kLayoutVersion);   // 版本不匹配则忽略，沿用默认排列
         } else {
-            const QByteArray def = s->value("dockStateDefault").toByteArray();
-            if (!def.isEmpty())
-                restoreState(def);
-            else
-                s->setValue("dockStateDefault", saveState(0));
+            s->setValue("dockStateDefault", saveState(kLayoutVersion));
         }
         restoreGeometry(s->value("windowGeometry").toByteArray());
     }
@@ -204,13 +208,17 @@ void MainWindow::createDocks()
     // AllowTabbedDocks 显式开启标签化；AllowNestedDocks 支持嵌套停靠；AnimatedDocks 平滑过渡。
     setDockOptions(QMainWindow::AnimatedDocks | QMainWindow::AllowNestedDocks | QMainWindow::AllowTabbedDocks);
 
-    // 双视口 + 检查器全部做成独立 Dock（可拖动/停靠/浮动/Tab 合并，对齐 Unity 面板习惯）：
-    // 中央改空占位——主视口不再是中央 widget，拖走面板后不残留空白。
+    // P21：场景视口 + 运行视口改为中央标签页叠放（Unity Scene/Game 同款）——
+    // 不再做独立 Dock，始终占据窗口中央；四周 Dock 承载场景树 / 检查器 / 资源 / 日志。
     m_sceneViewport = new Viewport(this);
     m_gameViewport = new Viewport(this);
     m_gameViewport->setGizmoBarVisible(false);   // 运行视口不显示 Gizmo 工具条（运行态无编辑）
-    auto *centerPlaceholder = new QWidget(this);   // 空占位（dock 覆盖中央区）
-    setCentralWidget(centerPlaceholder);
+    auto *viewTabs = new QTabWidget(this);
+    viewTabs->setObjectName("viewTabs");
+    viewTabs->setDocumentMode(true);   // 扁平标签条（贴近 Unity 观感）
+    viewTabs->addTab(m_sceneViewport, tr("场景视口"));
+    viewTabs->addTab(m_gameViewport, tr("运行视口"));
+    setCentralWidget(viewTabs);
 
     // 左侧：场景树
     auto *sceneDock = new QDockWidget(tr("场景"), this);
@@ -218,38 +226,34 @@ void MainWindow::createDocks()
     m_sceneTree = new SceneTree(sceneDock);
     sceneDock->setWidget(m_sceneTree);
     addDockWidget(Qt::LeftDockWidgetArea, sceneDock);
+    m_docks.push_back(sceneDock);
 
-    // 右侧上方：场景视口（独立 Dock）
-    auto *sceneViewportDock = new QDockWidget(tr("场景视口"), this);
-    sceneViewportDock->setObjectName("sceneViewportDock");
-    sceneViewportDock->setWidget(m_sceneViewport);
-    addDockWidget(Qt::RightDockWidgetArea, sceneViewportDock);
-
-    // 右侧：运行视口（独立 Dock）
-    auto *gameDock = new QDockWidget(tr("运行视口"), this);
-    gameDock->setObjectName("gameViewportDock");
-    gameDock->setWidget(m_gameViewport);
-    addDockWidget(Qt::RightDockWidgetArea, gameDock);
-
-    // 右侧下方：属性检查器
+    // 右侧：属性检查器（双视口移入中央后，右侧只留检查器）
     auto *inspectorDock = new QDockWidget(tr("属性"), this);
     inspectorDock->setObjectName("inspectorDock");
     m_inspector = new Inspector(inspectorDock);
     inspectorDock->setWidget(m_inspector);
     addDockWidget(Qt::RightDockWidgetArea, inspectorDock);
+    m_docks.push_back(inspectorDock);
 
-    // 底部：资源面板 + 日志（并排）
+    // 底部：资源面板 + 日志，标签页叠放（同区域 Tab 合并；拖标题栏可拆回独立）
     auto *assetsDock = new QDockWidget(tr("资源"), this);
     assetsDock->setObjectName("assetsDock");
     m_assets = new AssetsDock(assetsDock);
     assetsDock->setWidget(m_assets);
     addDockWidget(Qt::BottomDockWidgetArea, assetsDock);
+    m_docks.push_back(assetsDock);
 
     auto *logDock = new QDockWidget(tr("日志"), this);
     logDock->setObjectName("logDock");
     m_log = new LogWidget(logDock);
     logDock->setWidget(m_log);
     addDockWidget(Qt::BottomDockWidgetArea, logDock);
+    m_docks.push_back(logDock);
+
+    // 叠在一起：资源 + 日志合并为底部标签组（默认显示资源页）
+    tabifyDockWidget(assetsDock, logDock);
+    assetsDock->raise();
 
     setDockNestingEnabled(true);
     resize(1280, 800);
@@ -306,6 +310,12 @@ void MainWindow::createMenus()
     auto *viewMenu = menuBar()->addMenu(tr("视图"));
     viewMenu->addAction(tr("恢复默认布局"), this, &MainWindow::resetDockLayout);
     viewMenu->addAction(tr("将当前布局设为默认"), this, &MainWindow::saveLayoutAsDefault);
+
+    // 窗口菜单：列出全部 Dock 面板（勾选 = 可见）。面板右上角关闭后，
+    // 可在此重新勾选打开；toggleViewAction 的勾选状态与面板可见性自动同步。
+    auto *windowMenu = menuBar()->addMenu(tr("窗口"));
+    for (QDockWidget *dock : m_docks)
+        windowMenu->addAction(dock->toggleViewAction());
 
     auto *helpMenu = menuBar()->addMenu(tr("帮助"));
     helpMenu->addAction(tr("关于"), this, &MainWindow::about);
@@ -741,8 +751,7 @@ void MainWindow::updateRecentMenu()
 void MainWindow::resetDockLayout()
 {
     const QByteArray def = stateSettings()->value("dockStateDefault").toByteArray();
-    if (!def.isEmpty()) {
-        restoreState(def);
+    if (!def.isEmpty() && restoreState(def, kLayoutVersion)) {
         statusBar()->showMessage(tr("已恢复默认布局"), 2000);
     } else {
         statusBar()->showMessage(tr("当前布局即为默认"), 2000);
@@ -754,7 +763,7 @@ void MainWindow::resetDockLayout()
 void MainWindow::saveLayoutAsDefault()
 {
     QSettings *s = stateSettings();
-    s->setValue("dockStateDefault", saveState(0));
+    s->setValue("dockStateDefault", saveState(kLayoutVersion));
     s->sync();
     statusBar()->showMessage(tr("已把当前布局设为默认布局"), 2000);
 }
@@ -1005,10 +1014,10 @@ void MainWindow::enterProject(const Project &project)
     m_projectSettings = new QSettings(project.stateFilePath(), QSettings::IniFormat);
     m_projectSettings->setFallbacksEnabled(false);   // 项目态独立于注册表
 
-    // 3) 恢复项目布局/几何（无保存值则保持现状）
+    // 3) 恢复项目布局/几何（无保存值则保持现状；版本不匹配忽略，沿用默认排列）
     {
         const QByteArray layout = m_projectSettings->value("dockState").toByteArray();
-        if (!layout.isEmpty()) restoreState(layout);
+        if (!layout.isEmpty()) restoreState(layout, kLayoutVersion);
         const QByteArray geo = m_projectSettings->value("windowGeometry").toByteArray();
         if (!geo.isEmpty()) restoreGeometry(geo);
     }
@@ -1075,7 +1084,7 @@ QSettings *MainWindow::stateSettings() const
 
 void MainWindow::saveProjectState()
 {
-    stateSettings()->setValue("dockState", saveState(0));
+    stateSettings()->setValue("dockState", saveState(kLayoutVersion));
     stateSettings()->setValue("windowGeometry", saveGeometry());
     stateSettings()->sync();
 }

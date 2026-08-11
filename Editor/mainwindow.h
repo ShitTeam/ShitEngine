@@ -21,6 +21,7 @@ QT_END_NAMESPACE
 class QCloseEvent;
 class QMenu;
 class QActionGroup;
+class QDockWidget;
 class Viewport;
 class SceneTree;
 class Inspector;
@@ -150,6 +151,7 @@ private:
     std::vector<QAction *> m_gizmoShortcutActions;   ///< Gizmo 三模式窗口快捷键（Q/W/E，不可见；运行态禁用防抢游戏键）
     QMenu *m_recentMenu = nullptr;
     AssetsDock *m_assets = nullptr;
+    std::vector<QDockWidget *> m_docks;   ///< 全部 Dock 面板（「窗口」菜单勾选显隐，关闭后可重新打开）
 
     bool m_dirty = false;       ///< 未保存修改标记（标题栏 *）
     QString m_scenePath;        ///< 当前场景文件路径（空 = 尚未保存过）
