@@ -36,6 +36,7 @@ add_library(ShitEngine SHARED
     "src/ShitEngine/Scene/SceneSerializer.cpp"
     # GameObject
     "src/ShitEngine/GameObject/GameObject.cpp"
+    "src/ShitEngine/GameObject/ComponentRef.cpp"
     "src/ShitEngine/GameObject/Prefab.cpp"
     # Plugin
     "src/ShitEngine/Plugin/PluginManager.cpp"

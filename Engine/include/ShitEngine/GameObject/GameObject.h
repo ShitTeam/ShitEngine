@@ -134,6 +134,16 @@ namespace Shit {
 			}
 			if (lifetime.expired()) return nullptr;   // onAttach 销毁了 owner
 
+			// P20: 组件 UUID 入场景索引（引用字段寻址；幂等，与 setScene 全量 sweep 兼容）
+			// 防御：onCreate/onAttach 回调可能已 removeComponent 移除并析构本组件
+			//（owner 未销毁时 lifetime 检查不生效），先确认组件仍归属本对象再索引。
+			if (scene) {
+				auto it = m_components.find(type_index);
+				if (it != m_components.end() && it->second.get() == new_component_ptr) {
+					scene->indexComponentUuid(new_component_ptr);
+				}
+			}
+
 			ST_CORE_TRACE("GameObject : {} 已添加 组件 {}", goName, typeid(T).name());
 
 			return new_component_ptr;
@@ -183,6 +193,8 @@ namespace Shit {
 				auto comp = std::move(it->second);
 				m_components.erase(it);
 				if (m_scene) m_scene->bumpGeneration();   // 组件结构变更：通知场景代数递增
+				// P20: 组件 UUID 出索引（引用字段随即失效；onDetach 内再 unregister 也幂等）
+				if (m_scene) m_scene->unindexComponentUuid(comp.get());
 				comp->onDetach();
 				comp->onDestroy();
 			}

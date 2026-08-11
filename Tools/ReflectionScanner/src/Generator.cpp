@@ -94,6 +94,11 @@ std::string Generator::generateTypeFile(const ReflectedType& type, const std::st
                     << field.size << ", \"" << field.typeName << "\")\n";
             }
 
+            // P20: ComponentRef<T> 引用字段 → 追加 .Ref("<目标类型>") 标记
+            if (field.isRef && !field.refTypeName.empty()) {
+                out << "        .Ref(\"" << field.refTypeName << "\")\n";
+            }
+
             // SHIT_META 结构化元数据（一个字段可叠加多条，全部输出）
             for (const auto& metaInit : field.metaInits) {
                 std::string init = metaInit;

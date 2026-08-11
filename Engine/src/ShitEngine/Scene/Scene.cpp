@@ -87,12 +87,15 @@ namespace Shit {
 			if (go) go->clean();
 		}
 
-		// 回调期间（如 onDestroy 内）误新增的对象：回收，避免残留
-		for (auto& go : m_pendingAdditions) {
-			if (go) go->clean();
+		// 回调期间（如 onDestroy 内）误新增的对象：回收，避免残留。
+		// 下标 + 实时 size 遍历：非运行态回调可能向容器 push_back 新对象，
+		// range-for 迭代器会因 vector 重分配失效（UB）。下标循环天然覆盖新增项
+		// （clean 不改变容器，新对象也会被清洁，符合"全灭"语义）。
+		for (size_t i = 0; i < m_pendingAdditions.size(); ++i) {
+			if (m_pendingAdditions[i]) m_pendingAdditions[i]->clean();
 		}
-		for (auto& go : m_gameObjects) {
-			if (go) go->clean();
+		for (size_t i = 0; i < m_gameObjects.size(); ++i) {
+			if (m_gameObjects[i]) m_gameObjects[i]->clean();
 		}
 		m_pendingAdditions.clear();
 		m_gameObjects.clear();
@@ -109,6 +112,7 @@ namespace Shit {
 		// 重置幂等守卫：场景被销毁后若复用（重新 loadScene 时 hasSystems()==false 会自动 init），
 		// 不能因 m_isInited 残留 true 而跳过系统注册。
 		m_isInited = false;
+		m_uuidMap.clear();  // 组件已全部销毁，清空 UUID 索引
 
 		ST_CORE_TRACE("场景 {} 已清除", m_name);
 	}
@@ -152,6 +156,7 @@ namespace Shit {
 
 	bool Scene::registerComponent(Component* component) {
 		if (!component) return false;
+		indexComponentUuid(component);
 		// 快照遍历：组件 onAttach 期间可能注册/移除系统，避免迭代器失效。
 		// 组件不再关心"哪个系统驱动我"——由各系统通过 dynamic_cast 自行认领（支持继承）。
 		auto systems = m_systems;
@@ -166,9 +171,36 @@ namespace Shit {
 
 	void Scene::unregisterComponent(Component* component) {
 		if (!component) return;
+		unindexComponentUuid(component);
 		auto systems = m_systems;
 		for (auto* system : systems) {
 			if (system) system->onComponentDetached(component);
+		}
+	}
+
+	void Scene::indexComponentUuid(Component* component) {
+		if (!component) return;
+		// 冲突保护：随机 uuid 撞车概率极低，但 .scene 手改/重复加载可能出现
+		// 同 uuid 指向不同组件——引用字段会串线，此时给后来者重发新 uuid。
+		for (int guard = 0; guard < 4; ++guard) {
+			const uint64_t uuid = component->getUuid();
+			if (uuid == 0) return;  // 未分配（理论上构造时已分配，兜底）
+
+			auto [it, inserted] = m_uuidMap.try_emplace(uuid, component);
+			if (inserted || it->second == component) return;  // 幂等：已索引过/新插入
+
+			ST_CORE_WARN("场景 {} 中组件 UUID 冲突 0x{:X}（目标已是 {}），为 {} 重新分配",
+				m_name, uuid, it->second ? it->second->getOwner() ? it->second->getOwner()->getName() : "?" : "?",
+				component->getOwner() ? component->getOwner()->getName() : "?");
+			component->setUuid(GenerateComponentUuid());
+		}
+	}
+
+	void Scene::unindexComponentUuid(Component* component) {
+		if (!component) return;
+		auto it = m_uuidMap.find(component->getUuid());
+		if (it != m_uuidMap.end() && it->second == component) {
+			m_uuidMap.erase(it);
 		}
 	}
 

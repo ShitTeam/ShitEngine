@@ -7,6 +7,16 @@
 
 ## [Unreleased]
 
+### 新增
+
+- **组件 UUID + 组件引用字段（P20，引擎 + 扫描器 + 编辑器 + 示例）**：Unity 式"组件拖拽引用"基础设施——
+  - **组件持久 UUID**：`Component` 基类新增 64 位随机 ID（`getUuid()/setUuid()`，`GenerateComponentUuid()`，0 保留为空引用），构造即分配；随 `.scene` 落盘（`Prefab::ComponentData.uuid`）——ID 跨编辑会话稳定；旧 `.scene` 无 `uuid` 字段时加载现场分配，向后兼容
+  - **`ComponentRef<T>` 引用字段**（`GameObject/ComponentRef.h`）：字段内只存目标组件 UUID（8 字节），`get()/operator->/operator bool` 经当前场景索引懒解析；目标组件被移除/对象销毁后自动返回 nullptr——**永不悬垂**（与 `WeakComponentRef` 会话期弱引用互补：它是可序列化的持久引用）。运行时实例化（`Prefab::instantiate`）不恢复记录 ID，防复制实例共享 uuid 引用串线
+  - **Scene UUID 索引**：`Scene::componentByUuid()` 公开查询 + 索引随组件生命周期维护（`registerComponent/unregisterComponent`、`GameObject` 挂载/卸下/清理全挂钩，覆盖不主动注册系统的组件如 TransformComponent）；随机 uuid 撞车自动重发并告警
+  - **反射与序列化支持**：扫描器识别 `ComponentRef<具体组件类型>` 字段（剥 `Shit::` 前缀解析模板参数），生成 `.Ref("<目标类型>")` 链式标记；`FieldInfo::refType` 标识引用字段（`isReference()`）；Prefab 序列化按 8 字节 UUID 直读直写（0 = 空引用）
+  - **检查器拖拽引用（编辑器）**：组件标题栏可拖拽（`ComponentHeaderLabel`，携带 UUID/类型名）；引用字段渲染为引用控件 `RefFieldWidget`（显示「对象名 (组件类型)」+「✕」清除按钮），接受组件头拖拽与**场景树对象拖入**（自动挑选第一个类型可赋值的组件；类型校验沿反射基类链做与运行期 dynamic_cast 同语义的判定）；编辑走既有 dirty 标记 + 撤销快照
+  - 示例 `CoinDemo.h` 的计数文本改由 `ComponentRef<UIText>` 引用（检查器拖拽/序列化恢复，不再按名现查），`CoinCollect.scene` 各组件带 uuid 落盘验证全链路
+
 ### 修复
 
 - **示例 Player 控制器反射化（示例）**：`Examples/src/Player.h` 是 P6 迁移前的遗留类，未加 `SHIT_REFLECT` 宏——扫描器不登记，检查器加不了、`.scene` 序列化不了（组件在编辑器里"不存在"）。补齐反射标记与 `speed` 字段元数据，Player 成为可编辑/可序列化的标准行为组件

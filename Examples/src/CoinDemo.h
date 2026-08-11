@@ -44,10 +44,8 @@ class SHIT_REFLECT(BlackList) CoinPickup : public Shit::Behavior {
     SHIT_REFLECT_BODY(CoinPickup)
 public:
     void onStart() override {
-        auto* scene = getOwner()->getScene();
-        if (auto* textGo = coin_demo_helpers::findByName(scene, m_scoreTextObject)) {
-            m_text = textGo->getComponent<Shit::UIText>();
-        }
+        // P20: ComponentRef 引用字段——由检查器拖拽/序列化恢复，不再按名现查
+        m_text = m_scoreText.get();
         m_audio = getOwner()->getComponent<Shit::AudioSource>();
     }
 
@@ -64,12 +62,12 @@ public:
         }
     }
 
-    SHIT_META(({.displayName = "Score Text", .tooltip = "计数显示的 UIText 对象名"}))
-    std::string m_scoreTextObject = "CoinText";
+    SHIT_META(({.displayName = "Score Text", .tooltip = "计数显示的 UIText 引用（检查器拖拽设置）"}))
+    Shit::ComponentRef<Shit::UIText> m_scoreText;
 
 private:
     SHIT_META(Disable)
-    Shit::UIText* m_text = nullptr;      ///< 运行时按名解析（自动跳过存档）
+    Shit::UIText* m_text = nullptr;      ///< 运行期缓存（引用目标销毁后 get() 返回 nullptr，不会悬垂）
     SHIT_META(Disable)
     Shit::AudioSource* m_audio = nullptr;
     SHIT_META(Disable)

@@ -13,6 +13,7 @@
 namespace Shit {
 	class System;
 	// 前向声明
+	class Component;
 	class CameraComponent;
 	class SceneManager;
 	class GameObject;
@@ -130,15 +131,26 @@ namespace Shit {
 		/// @brief 对象是否仍在当前场景容器中（地址比较，供编辑器校验旧选中指针）
 		bool containsGameObject(const GameObject* gameObject) const;
 
+		/// @brief 按持久 UUID 查找组件（ComponentRef<T> 懒解析 / 编辑器拖拽引用共用）
+		/// 组件已移除或对象已销毁后返回 nullptr（UUID 索引随组件生命周期维护）。
+		Component* componentByUuid(uint64_t uuid) const { return m_uuidMap.count(uuid) ? m_uuidMap.at(uuid) : nullptr; }
+
 	private:
 		void processPendingAdditions(); // 处理延迟添加
 		void processPendingRemoveSystems();
 		void bumpGeneration() { ++m_generation; } ///< 结构变更标记（GameObject 经 friend 调用）
 
+		/// @brief 把组件 UUID 纳入索引（幂等；冲突（同 uuid 属另一组件）时重发 uuid 并重试）
+		/// 供 registerComponent / GameObject 挂载组件时调用，覆盖不主动注册系统的组件。
+		void indexComponentUuid(Component* component);
+		/// @brief 从索引移除组件（幂等；仅当索引项确为本组件时擦除，防误删）
+		void unindexComponentUuid(Component* component);
+
 		std::string m_name; // 场景名称
 		std::vector<std::unique_ptr<GameObject>> m_gameObjects; // 游戏物体
 		std::vector<std::unique_ptr<GameObject>> m_pendingAdditions; // 延迟添加
 		uint64_t m_generation = 0; ///< 结构代数（编辑器同步用）
+		std::unordered_map<uint64_t, Component*> m_uuidMap; ///< 组件持久 ID → 组件（引用字段寻址）
 
 		std::unordered_map<std::type_index, std::unique_ptr<System>> m_systemsMap; // 注册的系统
 		std::vector<System*> m_systems; // 缓存的系统

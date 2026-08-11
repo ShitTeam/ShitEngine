@@ -19,6 +19,8 @@
 //   约束：引用仅限同一场景（UUID 索引挂在 Scene 上）；跨场景引用解析为 null。
 // ═══════════════════════════════════════════════════════════════
 
+#include "ShitEngine/Core/Core.h"
+
 #include <cstdint>
 
 namespace Shit {

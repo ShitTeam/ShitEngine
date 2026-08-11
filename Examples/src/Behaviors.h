@@ -173,5 +173,9 @@ private:
 
     SHIT_META(({.displayName = "行对象名（L0,L1,...）", .tooltip = "解析多条 UIText 对象用于显示状态"}))
     std::string m_lineNames;
-    std::vector<Shit::UIText*> m_lines;  ///< 运行时按名解析（不可序列化类型，自动跳过存档）
+    // 容器不可序列化，必须显式 Disable：libclang 会把 std::vector<...> 退化为 "int"
+    // 注册（BlackList 无条件收录），运行时按 4 字节读写 24 字节 vector 会损坏内存
+    // （Prefab/检查器另有 size 兜底防御，这里在源头排除）
+    SHIT_META(Disable)
+    std::vector<Shit::UIText*> m_lines;  ///< 运行时按名解析（容器类型不可序列化）
 };

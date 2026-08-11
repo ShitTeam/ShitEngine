@@ -20,6 +20,8 @@ struct ReflectedField {
     size_t      size    = 0;
     bool        enabled = true;
     std::vector<std::string> metaInits;  ///< 字段上所有 SHIT_META(({...})) 原文（含 {…}，每个直接嵌入 .gen.h 的 FieldMeta 初始化器）
+    bool        isRef       = false;     ///< 是否为 ComponentRef<T> 引用字段（P20）
+    std::string refTypeName;             ///< 引用目标类型名（归一化，无 "Shit::" 前缀）
 };
 
 /// 枚举常量（Scanner 从 CXCursor_EnumConstantDecl 提取）

@@ -165,6 +165,15 @@ public:
 		return *this;
 	}
 
+	// ── P20: 组件引用字段标记（ComponentRef<T>，编辑器拖拽引用 + UUID 序列化）──
+	// 由扫描器为 ComponentRef<...> 字段自动生成；普通字段不调用。
+	TypeInfoBuilder& Ref(const char* refType) {
+		if (!m_info.fields.empty() && refType) {
+			m_info.fields.back().refType = refType;
+		}
+		return *this;
+	}
+
 	// ── P3: 枚举常量 ──────────────────────────────────
 	TypeInfoBuilder& Value(const char* name, int64_t val) {
 		m_info.enumValues.push_back({name, val});

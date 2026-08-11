@@ -3,18 +3,29 @@
 #include <ShitEngine.h>
 #include <ShitEngine/Core/EngineContext.h>
 
+#include "dnd.h"
+
+#include <QApplication>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDoubleSpinBox>
+#include <QDrag>
 #include <QFormLayout>
+#include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMimeData>
+#include <QMouseEvent>
 #include <QScrollArea>
 #include <QSpinBox>
+#include <QToolButton>
 #include <QVBoxLayout>
 
+#include <cstring>
 #include <limits>
+#include <typeindex>
+#include <utility>
 
 namespace {
 
@@ -53,6 +64,193 @@ QDoubleSpinBox *makeSpin(float value)
     box->setValue(value);
     return box;
 }
+
+// ═══════════════════════════════════════════════════════════════
+// P20: 组件引用字段（ComponentRef<T>）——拖拽赋引用
+// ═══════════════════════════════════════════════════════════════
+
+/// 类型名归一化（去 "Shit::" 前缀；扫描器 refType 与 TypeRegistry 注册名均无前缀，防御处理）
+QString normalizeTypeName(const std::string &name)
+{
+    QString q = QString::fromStdString(name);
+    return q.remove("Shit::");
+}
+
+/// component 能否赋给 refType 引用字段（沿反射基类链向上查找，与运行期 dynamic_cast 语义一致）
+bool isAssignable(const Shit::Component *component, const std::string &refType)
+{
+    const QString target = normalizeTypeName(refType);
+    const Shit::TypeInfo *ti = Shit::TypeRegistry::Get(std::type_index(typeid(*component)));
+    for (; ti; ti = ti->baseType) {
+        if (normalizeTypeName(ti->name) == target) return true;
+    }
+    return false;
+}
+
+/// 组件标题：可拖拽（按住拖动到任意引用字段赋引用）
+class ComponentHeaderLabel : public QLabel
+{
+public:
+    ComponentHeaderLabel(const QString &text, const QByteArray &dragData, QWidget *parent)
+        : QLabel(text, parent)
+        , m_dragData(dragData)
+    {
+        setStyleSheet("font-weight:bold; color:#2a7ab1; margin-top:6px;");
+    }
+
+protected:
+    void mousePressEvent(QMouseEvent *event) override
+    {
+        if (event->button() == Qt::LeftButton)
+            m_pressPos = event->pos();
+        QLabel::mousePressEvent(event);
+    }
+
+    void mouseMoveEvent(QMouseEvent *event) override
+    {
+        if ((event->buttons() & Qt::LeftButton)
+            && (event->pos() - m_pressPos).manhattanLength() >= QApplication::startDragDistance()) {
+            auto *drag = new QDrag(this);
+            auto *mime = new QMimeData;
+            mime->setData(QString::fromLatin1(kDndComponentRef), m_dragData);
+            drag->setMimeData(mime);
+            drag->exec(Qt::CopyAction);
+        }
+        QLabel::mouseMoveEvent(event);
+    }
+
+private:
+    QPoint m_pressPos;
+    QByteArray m_dragData;
+};
+
+/// 组件引用字段的编辑控件：显示当前引用目标 + 拖放目标 + 清除按钮
+class RefFieldWidget : public QWidget
+{
+public:
+    using OnChanged = std::function<void()>;
+
+    RefFieldWidget(Shit::Component *obj, const Shit::FieldInfo &field, OnChanged onChanged, QWidget *parent)
+        : QWidget(parent)
+        , m_obj(obj)
+        , m_field(field)
+        , m_scene(obj && obj->getOwner() ? obj->getOwner()->getScene() : nullptr)
+        , m_onChanged(std::move(onChanged))
+    {
+        auto *layout = new QHBoxLayout(this);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->setSpacing(4);
+
+        m_label = new QLabel(this);
+        m_label->setFrameStyle(QFrame::StyledPanel);
+        m_label->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+        m_label->setMinimumHeight(22);
+        m_label->setToolTip(tr("把检查器里的组件标题、或场景树中的对象拖到这里赋引用"));
+
+        m_clear = new QToolButton(this);
+        m_clear->setText(tr("✕"));
+        m_clear->setToolTip(tr("清除引用"));
+
+        layout->addWidget(m_label, 1);
+        layout->addWidget(m_clear);
+
+        setAcceptDrops(true);
+
+        connect(m_clear, &QToolButton::clicked, this, [this] {
+            setFieldUuid(0);
+            refresh();
+            m_onChanged();
+        });
+
+        refresh();
+    }
+
+    /// 引擎 → 控件回读（检查器每帧 refresh 调用；目标销毁后自动显示 None）
+    void refresh()
+    {
+        const uint64_t uuid = fieldUuid();
+        const QString type = QString::fromStdString(m_field.refType);
+        if (!m_scene || uuid == 0) {
+            m_label->setText(tr("None (%1)").arg(type));
+            return;
+        }
+        Shit::Component *target = m_scene->componentByUuid(uuid);
+        if (!target) {
+            m_label->setText(tr("None (%1)").arg(type));   // 目标已销毁/跨场景
+            return;
+        }
+        const Shit::TypeInfo *ti = Shit::TypeRegistry::Get(std::type_index(typeid(*target)));
+        const QString typeName = ti ? normalizeTypeName(ti->name) : tr("?");
+        const QString ownerName = target->getOwner()
+            ? QString::fromStdString(target->getOwner()->getName()) : tr("?");
+        m_label->setText(QString("%1 (%2)").arg(ownerName, typeName));
+    }
+
+    /// 只读模式：隐藏清除按钮、拒绝拖放（readOnly 元数据的引用字段）
+    void setReadOnly(bool readOnly)
+    {
+        m_clear->setVisible(!readOnly);
+        setAcceptDrops(!readOnly);
+    }
+
+protected:
+    void dragEnterEvent(QDragEnterEvent *event) override
+    {
+        if (resolveDrop(event->mimeData()))
+            event->acceptProposedAction();
+    }
+
+    void dragMoveEvent(QDragMoveEvent *event) override
+    {
+        if (resolveDrop(event->mimeData()))
+            event->acceptProposedAction();
+    }
+
+    void dropEvent(QDropEvent *event) override
+    {
+        if (Shit::Component *target = resolveDrop(event->mimeData())) {
+            setFieldUuid(target->getUuid());
+            refresh();
+            m_onChanged();
+            event->acceptProposedAction();
+        }
+    }
+
+private:
+    uint64_t fieldUuid() const
+    {
+        uint64_t uuid = 0;
+        std::memcpy(&uuid, m_field.GetFieldPtr(m_obj), sizeof(uuid));
+        return uuid;
+    }
+
+    void setFieldUuid(uint64_t uuid)
+    {
+        std::memcpy(m_field.GetFieldPtr(m_obj), &uuid, sizeof(uuid));
+    }
+
+    /// 从拖拽数据解析出可赋值的组件（类型不符/跨场景/空返回 nullptr）
+    Shit::Component *resolveDrop(const QMimeData *mime) const
+    {
+        if (!mime || !m_scene || !mime->hasFormat(QString::fromLatin1(kDndComponentRef)))
+            return nullptr;
+        const auto items = decodeComponentRefs(mime->data(QString::fromLatin1(kDndComponentRef)));
+        for (const auto &[uuid, typeName] : items) {
+            Q_UNUSED(typeName);   // 以场景实况为准（类型校验走反射基类链）
+            Shit::Component *comp = m_scene->componentByUuid(uuid);
+            if (comp && isAssignable(comp, m_field.refType))
+                return comp;
+        }
+        return nullptr;
+    }
+
+    Shit::Component *m_obj;
+    Shit::FieldInfo m_field;
+    Shit::Scene *m_scene;
+    OnChanged m_onChanged;
+    QLabel *m_label;
+    QToolButton *m_clear;
+};
 
 } // namespace
 
@@ -113,8 +311,11 @@ void Inspector::setGameObject(Shit::GameObject *object)
             return; // 无反射元数据（如编辑器自定义 Behavior），跳过
 
         ++m_componentCount;
-        auto *title = new QLabel(QString::fromStdString(typeInfo->name), m_content);
-        title->setStyleSheet("font-weight:bold; color:#2a7ab1; margin-top:6px;");
+        // P20: 组件头可拖拽（携带自身 uuid + 类型名，供引用字段拖入）
+        QList<std::pair<quint64, QString>> refs;
+        refs.append({ component->getUuid(), QString::fromStdString(typeInfo->name) });
+        auto *title = new ComponentHeaderLabel(QString::fromStdString(typeInfo->name),
+                                               encodeComponentRefs(refs), m_content);
         m_form->addRow(title);
 
         for (const Shit::FieldInfo &field : typeInfo->fields) {
@@ -130,6 +331,25 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
 {
     const bool readOnly = metaOf(field) && metaOf(field)->readOnly;
     const QString name = displayNameOf(field);
+
+    // P20: 组件引用字段（ComponentRef<T>）→ 拖拽引用控件
+    // 防御：ComponentRef<T> 恒为 8 字节；size 不符（扫描器误解析等）时回退普通只读展示
+    if (field.isReference() && field.size == sizeof(uint64_t)) {
+        if (readOnly) {
+            auto *w = new RefFieldWidget(obj, field, [] {}, m_content);
+            w->setReadOnly(true);
+            m_form->addRow(name, w);
+            m_readbacks.push_back([w] { w->refresh(); });
+            return;
+        }
+        auto *widget = new RefFieldWidget(obj, field, [this] {
+            emit fieldEdited();
+            emit fieldCommitted();
+        }, m_content);
+        m_form->addRow(name, widget);
+        m_readbacks.push_back([widget] { widget->refresh(); });
+        return;
+    }
 
     if (readOnly) {
         m_form->addRow(name, new QLabel(fieldToString(field, obj), m_content));
@@ -159,7 +379,9 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
             box->blockSignals(false);
         });
     }
-    else if (typeNameOf(field) == "int") {
+    else if (typeNameOf(field) == "int" && field.size == sizeof(int)) {
+        // size 校验：libclang 会把解析失败的模板字段（std::vector 等）退化为
+        // "int"，此时 size 为真实对象大小（如 24），按 4 字节读写会损坏内存 → 只读展示
         auto *box = new QSpinBox(m_content);
         box->setRange(std::numeric_limits<int>::min(), std::numeric_limits<int>::max());
         box->setValue(*reinterpret_cast<int *>(field.GetFieldPtr(obj)));

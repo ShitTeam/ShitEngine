@@ -30,6 +30,7 @@
 
 // GameObject
 #include "ShitEngine/GameObject/GameObject.h"
+#include "ShitEngine/GameObject/ComponentRef.h"
 #include "ShitEngine/GameObject/Prefab.h"
 
 // Plugin（Runtime 与编辑器共享的动态插件加载）

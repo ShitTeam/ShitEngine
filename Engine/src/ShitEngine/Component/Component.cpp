@@ -11,11 +11,11 @@ namespace {
 std::mt19937_64& uuidRng() {
     static std::mt19937_64 rng = [] {
         std::random_device rd;
-        const std::seed_seq seq{
+        std::seed_seq seq{
             rd(), rd(), rd(), rd(),
             static_cast<unsigned>(std::chrono::steady_clock::now().time_since_epoch().count())
         };
-        return std::mt19937_64(seq);
+        return std::mt19937_64(seq);   // 注意：mt19937_64 的 seed_seq 构造要求非 const 左值
     }();
     return rng;
 }

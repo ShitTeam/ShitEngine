@@ -3,14 +3,11 @@
 #include <ShitEngine.h>
 #include <ShitEngine/Core/EngineContext.h>
 
+#include "dnd.h"
+
 #include <QDataStream>
 #include <QIODevice>
 #include <QMimeData>
-
-namespace {
-/// 拖拽传输场景对象路径的自定义 MIME 类型
-const char kObjectPathMime[] = "application/x-shitengine-objectpath";
-} // namespace
 
 SceneTreeModel::SceneTreeModel(QObject *parent)
     : QAbstractItemModel(parent)
@@ -97,7 +94,8 @@ Qt::DropActions SceneTreeModel::supportedDropActions() const
 
 QStringList SceneTreeModel::mimeTypes() const
 {
-    return { QString::fromLatin1(kObjectPathMime) };
+    // 对象路径（层级拖拽）+ 组件引用列表（检查器引用字段拖入，P20）
+    return { QString::fromLatin1(kDndObjectPath), QString::fromLatin1(kDndComponentRef) };
 }
 
 QByteArray SceneTreeModel::encodePath(const QModelIndex &index)
@@ -118,7 +116,19 @@ QMimeData *SceneTreeModel::mimeData(const QModelIndexList &indexes) const
 {
     if (indexes.isEmpty()) return nullptr;
     auto *mime = new QMimeData;
-    mime->setData(QString::fromLatin1(kObjectPathMime), encodePath(indexes.first()));
+    const QByteArray path = encodePath(indexes.first());
+    mime->setData(QString::fromLatin1(kDndObjectPath), path);
+
+    // P20: 同时附加组件引用列表（拖场景对象到检查器引用字段时，自动挑第一个可赋值的组件）
+    QList<std::pair<quint64, QString>> refs;
+    if (Shit::GameObject *go = objectFromPath(path)) {
+        go->forEachComponent([&refs](Shit::Component *comp) {
+            const Shit::TypeInfo *ti = Shit::TypeRegistry::Get(std::type_index(typeid(*comp)));
+            refs.append({ comp->getUuid(),
+                          ti ? QString::fromStdString(ti->name) : QString() });
+        });
+    }
+    mime->setData(QString::fromLatin1(kDndComponentRef), encodeComponentRefs(refs));
     return mime;
 }
 
@@ -146,10 +156,10 @@ bool SceneTreeModel::dropMimeData(const QMimeData *data, Qt::DropAction action,
     Q_UNUSED(row);
     Q_UNUSED(column);
     if (action == Qt::IgnoreAction) return true;
-    if (!m_scene || !data || !data->hasFormat(QString::fromLatin1(kObjectPathMime)))
+    if (!m_scene || !data || !data->hasFormat(QString::fromLatin1(kDndObjectPath)))
         return false;
 
-    Shit::GameObject *source = objectFromPath(data->data(QString::fromLatin1(kObjectPathMime)));
+    Shit::GameObject *source = objectFromPath(data->data(QString::fromLatin1(kDndObjectPath)));
     if (!source) return false;
     Shit::GameObject *target = gameObjectAt(parent);   // parent 无效 = 拖到根
     if (target == source) return false;

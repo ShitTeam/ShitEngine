@@ -51,6 +51,15 @@ namespace Shit {
 		}
 		if (lifetime.expired()) return nullptr;   // onAttach 销毁了 owner
 
+		// P20: 组件 UUID 入场景索引（引用字段寻址；幂等）
+		// 防御：onCreate/onAttach 回调可能已移除本组件（实例已析构），确认仍归属再索引
+		if (scene) {
+			auto it = m_components.find(type_index);
+			if (it != m_components.end() && it->second.get() == component) {
+				scene->indexComponentUuid(component);
+			}
+		}
+
 		return component;
 	}
 
@@ -125,6 +134,12 @@ namespace Shit {
 				comp->onAttach();
 			}
 
+			// P20: 全量补 UUID 索引（覆盖不主动注册系统的组件，如 TransformComponent；
+			// 幂等——已索引过的组件 try_emplace 命中自身直接返回）
+			for (auto& [type, comp] : m_components) {
+				if (comp) scene->indexComponentUuid(comp.get());
+			}
+
 			// 级联：所有子物体也设置场景
 			for (auto* child : m_children) {
 				if (child && child->m_scene != scene) {
@@ -151,6 +166,8 @@ namespace Shit {
 			auto it = m_components.begin();
 			auto comp = std::move(it->second);
 			m_components.erase(it);
+			// P20: 组件 UUID 出索引（引用字段随即失效；幂等）
+			if (m_scene) m_scene->unindexComponentUuid(comp.get());
 			comp->onDetach();
 			comp->onDestroy();
 		}

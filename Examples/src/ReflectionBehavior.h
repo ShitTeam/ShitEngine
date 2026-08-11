@@ -185,6 +185,9 @@ private:
 
     SHIT_META(({.displayName = "行对象名（R0,R1,...）", .tooltip = "解析多条 UIText 对象显示测试结果"}))
     std::string m_lineNames;
-    std::vector<std::string> m_results;   ///< 运行时结果（不可序列化类型，自动跳过存档）
-    std::vector<Shit::UIText*> m_lines;   ///< 运行时按名解析
+    // 容器不可序列化，必须显式 Disable（理由见 Behaviors.h：libclang 退化 "int" 注册会损坏内存）
+    SHIT_META(Disable)
+    std::vector<std::string> m_results;   ///< 运行时结果（容器类型不可序列化）
+    SHIT_META(Disable)
+    std::vector<Shit::UIText*> m_lines;   ///< 运行时按名解析（容器类型不可序列化）
 };

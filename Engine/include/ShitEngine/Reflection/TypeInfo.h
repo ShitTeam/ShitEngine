@@ -31,6 +31,14 @@ struct FieldInfo {
     std::string typeName;
     std::vector<FieldMeta> meta;  ///< 字段元数据（编辑器属性面板用）
 
+    // ── P20: 组件引用字段（ComponentRef<T>）──
+    // refType 非空时本字段是"组件引用"：字段内存放目标组件的持久 UUID（8 字节），
+    // 编辑器渲染为拖拽引用控件，序列化按 uint64 直读直写。
+    std::string refType;  ///< 引用目标类型名（归一化，无命名空间前缀；空 = 普通字段）
+
+    /// 是否为组件引用字段（ComponentRef<T>）
+    bool isReference() const { return !refType.empty(); }
+
     // ── P1-1: 运行时字段读写 ──────────────────────────
     // 调用者自行保证缓冲区大小匹配 size 字段
 

@@ -190,6 +190,38 @@ CXChildVisitResult Scanner::collectFields(CXCursor cursor, CXCursor,
 
     field.enabled  = true;
 
+    // ── P20: ComponentRef<T> 引用字段识别 ──
+    // 类型拼写形如 "ComponentRef<Shit::UIText>"（引擎头内不带前缀）或
+    // "Shit::ComponentRef<UIText>"（插件全局引用）。先剥掉全部 "Shit::"，
+    // 再匹配 "ComponentRef<"，取首 '<' 与末 '>' 之间的内容为被引用类型。
+    // 约束：参数必须是具体组件类型；解析失败时记 WARN 且不标记为引用（保持原行为）。
+    {
+        std::string normalized = field.typeName;
+        for (size_t p; (p = normalized.find("Shit::")) != std::string::npos; ) {
+            normalized.erase(p, 6);
+        }
+        const std::string kRefPrefix = "ComponentRef<";
+        if (normalized.rfind(kRefPrefix, 0) == 0) {
+            const size_t firstLt = normalized.find('<');
+            const size_t lastGt  = normalized.rfind('>');
+            if (firstLt != std::string::npos && lastGt > firstLt) {
+                std::string inner = normalized.substr(firstLt + 1, lastGt - firstLt - 1);
+                // trim 空白（clang 拼写一般无空白，防御性处理）
+                size_t s = inner.find_first_not_of(" \t\r\n");
+                size_t e = inner.find_last_not_of(" \t\r\n");
+                if (s != std::string::npos) inner = inner.substr(s, e - s + 1);
+                if (!inner.empty()) {
+                    field.isRef       = true;
+                    field.refTypeName = std::move(inner);
+                }
+                else {
+                    std::cerr << "[Scanner] WARN: 字段 " << field.name
+                              << " 的 ComponentRef<> 缺少类型参数，不标记为引用字段\n";
+                }
+            }
+        }
+    }
+
     // ── 捕获 SHIT_META 原文 ──
     // 仅结构体语法 SHIT_META(({...})) → shit-meta:({...}) 存入 metaInits
     // 简单标记（如 SHIT_META(Enable)）只影响 WhiteList 模式，不写入 metaInits。
@@ -208,6 +240,22 @@ CXChildVisitResult Scanner::collectFields(CXCursor cursor, CXCursor,
         // 仅以 ({ 开头的视为结构化元数据
         if (raw.size() >= 2 && raw.front() == '(' && raw[1] == '{') {
             field.metaInits.push_back(std::move(raw));
+        }
+    }
+
+    // ── 不可序列化模板字段跳过 ──
+    // 除 ComponentRef<T> 外的模板字段（std::vector<...> 等容器）在反射体系中
+    // 不可序列化，BlackList 模式会无条件收录 → 在此统一跳过。
+    // 注意：libclang 对解析失败的模板类型会把拼写**直接退化为 "int"** 且 size
+    // 也报 4（无法与真 int 区分），该路退化由运行时兜底防御（Prefab/检查器
+    // 校验 field.size == sizeof(int) 才按 int 处理；vector 实际 24 字节被跳过）。
+    {
+        std::string norm = field.typeName;
+        for (size_t p; (p = norm.find("Shit::")) != std::string::npos; ) {
+            norm.erase(p, 6);
+        }
+        if (norm.find('<') != std::string::npos && norm.rfind("ComponentRef<", 0) != 0) {
+            return CXChildVisit_Continue;
         }
     }
 

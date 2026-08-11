@@ -32,13 +32,23 @@ std::string_view normalizedTypeName(std::string_view type) {
     return type;
 }
 
-/// @brief 把字段值转换为 JSON（支持常见数值/字符串/Vector2/Color/枚举）
+/// @brief 把字段值转换为 JSON（支持常见数值/字符串/Vector2/Color/枚举/组件引用）
 json fieldToJson(const FieldInfo& field, const void* obj) {
     const void* p = field.GetFieldPtr(obj);
     const std::string_view t = normalizedTypeName(field.typeName);
 
+    // P20: 组件引用字段 → 目标组件 UUID（0 = 空引用；字段内存放 8 字节 uint64）
+    // 防御：ComponentRef<T> 恒为 8 字节；若扫描器误解析（嵌套模板等）出非 8 字节
+    // 引用字段，回退普通未知类型处理（跳过），避免按错误宽度读写越界。
+    if (field.isReference() && field.size == sizeof(uint64_t)) {
+        uint64_t uuid = 0;
+        std::memcpy(&uuid, p, sizeof(uuid));
+        return json(uuid);
+    }
     if (t == "float")            return json(*static_cast<const float*>(p));
-    if (t == "int")              return json(*static_cast<const int*>(p));
+    // "int" 分支校验 size：libclang 会把解析失败的模板字段（std::vector 等）
+    // 拼写退化为 "int"，此时 size 为真实对象大小（如 24），按 4 字节读写会损坏内存。
+    if (t == "int" && field.size == sizeof(int)) return json(*static_cast<const int*>(p));
     if (t == "unsigned int")     return json(*static_cast<const unsigned int*>(p));
     if (t == "long")             return json(*static_cast<const long*>(p));
     if (t == "unsigned long")    return json(*static_cast<const unsigned long*>(p));
@@ -70,8 +80,17 @@ bool fieldFromJson(const FieldInfo& field, void* obj, const json& j) {
     void* p = field.GetFieldPtr(obj);
     const std::string_view t = normalizedTypeName(field.typeName);
 
+    // P20: 组件引用字段 → 目标组件 UUID（0 = 空引用；须为数值）
+    // 与 fieldToJson 对称：仅当字段确为 8 字节引用时按 UUID 写回
+    if (field.isReference() && field.size == sizeof(uint64_t)) {
+        if (!j.is_number_unsigned() && !j.is_number()) return false;
+        const uint64_t uuid = j.get<uint64_t>();
+        std::memcpy(p, &uuid, sizeof(uuid));
+        return true;
+    }
     if (t == "float")            { *static_cast<float*>(p) = j.get<float>(); return true; }
-    if (t == "int")              { *static_cast<int*>(p) = j.get<int>(); return true; }
+    // 与 fieldToJson 对称：int 分支校验 size（防 libclang 模板字段退化 "int" 的 4 字节误写）
+    if (t == "int" && field.size == sizeof(int)) { *static_cast<int*>(p) = j.get<int>(); return true; }
     if (t == "unsigned int")     { *static_cast<unsigned int*>(p) = j.get<unsigned int>(); return true; }
     if (t == "long")             { *static_cast<long*>(p) = j.get<long>(); return true; }
     if (t == "unsigned long")    { *static_cast<unsigned long*>(p) = j.get<unsigned long>(); return true; }
@@ -112,6 +131,7 @@ Prefab Prefab::Capture(GameObject* source) {
 
         ComponentData data;
         data.typeName = ti->name;
+        data.uuid     = comp->getUuid();   // P20: 持久 ID 随预制体记录（引用字段寻址）
         data.fields = json::object();
 
         for (const auto& field : ti->fields) {
@@ -138,6 +158,10 @@ Prefab Prefab::FromJson(const json& j) {
         if (entry.contains("type") && entry["type"].is_string()) {
             data.typeName = entry["type"].get<std::string>();
         }
+        // P20: 可选恢复组件 UUID（旧 .scene 无该字段 → 0，加载时现场分配）
+        if (entry.contains("uuid") && entry["uuid"].is_number_unsigned()) {
+            data.uuid = entry["uuid"].get<uint64_t>();
+        }
         data.fields = (entry.contains("fields") && entry["fields"].is_object())
             ? entry["fields"] : json::object();
         if (!data.typeName.empty()) {
@@ -150,12 +174,16 @@ Prefab Prefab::FromJson(const json& j) {
 json Prefab::toJson() const {
     json j = json::array();
     for (const auto& c : m_components) {
-        j.push_back({ { "type", c.typeName }, { "fields", c.fields } });
+        j.push_back({ { "type", c.typeName }, { "uuid", c.uuid }, { "fields", c.fields } });
     }
     return j;
 }
 
 void Prefab::apply(GameObject* go) const {
+    applyInternal(go, true);
+}
+
+void Prefab::applyInternal(GameObject* go, bool restoreUuid) const {
     if (!go) return;
 
     // 反射工厂创建 + 字段拷贝
@@ -180,6 +208,12 @@ void Prefab::apply(GameObject* go) const {
                 }
             }
         }
+        // P20: 恢复持久 UUID。必须在 addComponentInstance 挂载（组件 UUID 入场景索引）
+        // 之前设置，保证索引键是最终 UUID；运行时实例化（restoreUuid=false）保留
+        // 构造时随机 ID，避免复制出的多个实例共享同一 UUID 导致引用串线。
+        if (restoreUuid && data.uuid != 0) {
+            comp->setUuid(data.uuid);
+        }
 // 反序列化钩子：字段已直写，通知组件重建依赖引擎状态的内部数据（如纹理加载）。
 		// addComponentInstance 遇同类型已存在时会丢弃新实例并返回已有组件，
 		// 故钩子须对"实际生效的那个实例"调用。
@@ -191,7 +225,7 @@ void Prefab::apply(GameObject* go) const {
 GameObject* Prefab::instantiate(Scene* scene, const std::string& name) const {
     if (!scene) return nullptr;
     auto* go = scene->createGameObject(name.empty() ? "PrefabInstance" : name);
-    apply(go);
+    applyInternal(go, false);   // 运行时实例化：uuid 全部现场分配，防跨实例引用串线
     // 兜底：确保 GameObject 有 TransformComponent（多数系统依赖）
     if (!go->hasComponent<TransformComponent>()) {
         go->addComponent<TransformComponent>();

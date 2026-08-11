@@ -21,9 +21,10 @@ class Scene;
  */
 class SHIT_API Prefab {
 public:
-    /// 单个组件的数据（类型名 + 反射字段值，JSON 可序列化）
+    /// 单个组件的数据（类型名 + 持久 UUID + 反射字段值，JSON 可序列化）
     struct ComponentData {
         std::string typeName;        ///< 组件类型名（TypeRegistry::Get 查询）
+        uint64_t    uuid = 0;        ///< 组件持久 ID（0 = 未记录，加载时现场分配）
         nlohmann::json fields;       ///< 字段名 → 值（仅反射且可序列化的字段）
     };
 
@@ -36,7 +37,7 @@ public:
     /// @brief 序列化为 JSON
     nlohmann::json toJson() const;
 
-    /// @brief 把此预制体应用到已有 GameObject（反射克隆）
+    /// @brief 把此预制体应用到已有 GameObject（反射克隆；恢复记录的组件 UUID）
     void apply(GameObject* go) const;
 
     /// @brief 创建新 GameObject 并应用此预制体
@@ -50,6 +51,10 @@ public:
 
 private:
     Prefab() = default;
+
+    /// @brief 应用组件数据；restoreUuid=true 时按记录恢复组件 UUID（场景反序列化用），
+    /// false 时保留组件构造时随机分配的 UUID（运行时实例化用，防跨实例引用串线）
+    void applyInternal(GameObject* go, bool restoreUuid) const;
 
     std::vector<ComponentData> m_components;
 };

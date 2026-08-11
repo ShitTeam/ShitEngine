@@ -15,7 +15,8 @@
             ],
             "m_anchor": 1
           },
-          "type": "UIText"
+          "type": "UIText",
+          "uuid": 9000000000000001
         },
         {
           "fields": {
@@ -39,7 +40,8 @@
             "m_height": 40.0,
             "m_zIndex": 0
           },
-          "type": "UITransform"
+          "type": "UITransform",
+          "uuid": 9000000000000002
         }
       ],
       "name": "CoinText",
@@ -51,7 +53,8 @@
           "fields": {
             "m_sortOrder": 0
           },
-          "type": "UICanvas"
+          "type": "UICanvas",
+          "uuid": 9000000000001001
         },
         {
           "fields": {
@@ -75,7 +78,8 @@
             "m_height": 720.0,
             "m_zIndex": 0
           },
-          "type": "UITransform"
+          "type": "UITransform",
+          "uuid": 9000000000001002
         }
       ],
       "name": "Canvas",
@@ -93,7 +97,8 @@
             ],
             "m_zoom": 1.0
           },
-          "type": "CameraComponent"
+          "type": "CameraComponent",
+          "uuid": 9000000000002001
         },
         {
           "fields": {
@@ -107,7 +112,8 @@
               1.0
             ]
           },
-          "type": "TransformComponent"
+          "type": "TransformComponent",
+          "uuid": 9000000000002002
         }
       ],
       "name": "Camera",
@@ -125,7 +131,8 @@
               30.0
             ]
           },
-          "type": "BoxCollider2D"
+          "type": "BoxCollider2D",
+          "uuid": 9000000000003001
         },
         {
           "fields": {
@@ -134,7 +141,8 @@
             "m_linearDamping": 0.0,
             "m_type": 0
           },
-          "type": "RigidBody2D"
+          "type": "RigidBody2D",
+          "uuid": 9000000000003002
         },
         {
           "fields": {
@@ -148,7 +156,8 @@
               1.0
             ]
           },
-          "type": "TransformComponent"
+          "type": "TransformComponent",
+          "uuid": 9000000000003003
         }
       ],
       "name": "Ground",
@@ -160,7 +169,8 @@
           "fields": {
             "m_speed": 180.0
           },
-          "type": "BallDemo"
+          "type": "BallDemo",
+          "uuid": 9000000000004001
         },
         {
           "fields": {
@@ -169,7 +179,8 @@
             "m_restitution": 0.0,
             "m_radius": 20.0
           },
-          "type": "CircleCollider2D"
+          "type": "CircleCollider2D",
+          "uuid": 9000000000004002
         },
         {
           "fields": {
@@ -178,7 +189,8 @@
             "m_linearDamping": 0.0,
             "m_type": 2
           },
-          "type": "RigidBody2D"
+          "type": "RigidBody2D",
+          "uuid": 9000000000004003
         },
         {
           "fields": {
@@ -192,7 +204,8 @@
               1.0
             ]
           },
-          "type": "TransformComponent"
+          "type": "TransformComponent",
+          "uuid": 9000000000004004
         }
       ],
       "name": "Ball",
@@ -202,9 +215,10 @@
       "data": [
         {
           "fields": {
-            "m_scoreTextObject": "CoinText"
+            "m_scoreText": 9000000000000001
           },
-          "type": "CoinPickup"
+          "type": "CoinPickup",
+          "uuid": 9000000000005001
         },
         {
           "fields": {
@@ -213,7 +227,8 @@
             "m_playOnStart": false,
             "m_volume": 0.8
           },
-          "type": "AudioSource"
+          "type": "AudioSource",
+          "uuid": 9000000000005002
         },
         {
           "fields": {
@@ -222,7 +237,8 @@
             "m_restitution": 0.0,
             "m_radius": 16.0
           },
-          "type": "CircleCollider2D"
+          "type": "CircleCollider2D",
+          "uuid": 9000000000005003
         },
         {
           "fields": {
@@ -231,7 +247,8 @@
             "m_linearDamping": 0.0,
             "m_type": 0
           },
-          "type": "RigidBody2D"
+          "type": "RigidBody2D",
+          "uuid": 9000000000005004
         },
         {
           "fields": {
@@ -245,7 +262,8 @@
               1.0
             ]
           },
-          "type": "TransformComponent"
+          "type": "TransformComponent",
+          "uuid": 9000000000005005
         }
       ],
       "name": "Coin1",
@@ -255,9 +273,10 @@
       "data": [
         {
           "fields": {
-            "m_scoreTextObject": "CoinText"
+            "m_scoreText": 9000000000000001
           },
-          "type": "CoinPickup"
+          "type": "CoinPickup",
+          "uuid": 9000000000006001
         },
         {
           "fields": {
@@ -266,7 +285,8 @@
             "m_playOnStart": false,
             "m_volume": 0.8
           },
-          "type": "AudioSource"
+          "type": "AudioSource",
+          "uuid": 9000000000006002
         },
         {
           "fields": {
@@ -275,7 +295,8 @@
             "m_restitution": 0.0,
             "m_radius": 16.0
           },
-          "type": "CircleCollider2D"
+          "type": "CircleCollider2D",
+          "uuid": 9000000000006003
         },
         {
           "fields": {
@@ -284,7 +305,8 @@
             "m_linearDamping": 0.0,
             "m_type": 0
           },
-          "type": "RigidBody2D"
+          "type": "RigidBody2D",
+          "uuid": 9000000000006004
         },
         {
           "fields": {
@@ -298,7 +320,8 @@
               1.0
             ]
           },
-          "type": "TransformComponent"
+          "type": "TransformComponent",
+          "uuid": 9000000000006005
         }
       ],
       "name": "Coin2",
@@ -308,9 +331,10 @@
       "data": [
         {
           "fields": {
-            "m_scoreTextObject": "CoinText"
+            "m_scoreText": 9000000000000001
           },
-          "type": "CoinPickup"
+          "type": "CoinPickup",
+          "uuid": 9000000000007001
         },
         {
           "fields": {
@@ -319,7 +343,8 @@
             "m_playOnStart": false,
             "m_volume": 0.8
           },
-          "type": "AudioSource"
+          "type": "AudioSource",
+          "uuid": 9000000000007002
         },
         {
           "fields": {
@@ -328,7 +353,8 @@
             "m_restitution": 0.0,
             "m_radius": 16.0
           },
-          "type": "CircleCollider2D"
+          "type": "CircleCollider2D",
+          "uuid": 9000000000007003
         },
         {
           "fields": {
@@ -337,7 +363,8 @@
             "m_linearDamping": 0.0,
             "m_type": 0
           },
-          "type": "RigidBody2D"
+          "type": "RigidBody2D",
+          "uuid": 9000000000007004
         },
         {
           "fields": {
@@ -351,7 +378,8 @@
               1.0
             ]
           },
-          "type": "TransformComponent"
+          "type": "TransformComponent",
+          "uuid": 9000000000007005
         }
       ],
       "name": "Coin3",
