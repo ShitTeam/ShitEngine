@@ -40,6 +40,10 @@ virtual void onCreate() {}   // 组件创建时（有 owner，但可能尚未挂
 		/// 用于重建"直写字段绕过了 setter、无法自动触发的引擎状态"（如精灵纹理加载）。
 		virtual void onAfterDeserialize() {}
 
+		/// 检查器直接写反射字段后回调（字段名）。用于绕过 setter 的直写完成后
+		/// 重新同步引擎状态（如 Box2D 刚体/形状）。默认无操作。
+		virtual void onFieldChanged(const std::string& fieldName) { (void)fieldName; }
+
 		// 禁止拷贝和移动
 		Component(const Component&) = delete;
 		Component& operator=(const Component&) = delete;

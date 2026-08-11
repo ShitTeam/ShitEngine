@@ -148,6 +148,7 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
         box->setValue(*reinterpret_cast<float *>(field.GetFieldPtr(obj)));
         connect(box, &QDoubleSpinBox::valueChanged, this, [this, obj, field](double v) {
             *reinterpret_cast<float *>(field.GetFieldPtr(obj)) = static_cast<float>(v);
+            obj->onFieldChanged(field.name);
             emit fieldEdited();
         });
         connect(box, &QDoubleSpinBox::editingFinished, this, [this] { emit fieldCommitted(); });
@@ -164,6 +165,7 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
         box->setValue(*reinterpret_cast<int *>(field.GetFieldPtr(obj)));
         connect(box, &QSpinBox::valueChanged, this, [this, obj, field](int v) {
             *reinterpret_cast<int *>(field.GetFieldPtr(obj)) = v;
+            obj->onFieldChanged(field.name);
             emit fieldEdited();
         });
         connect(box, &QSpinBox::editingFinished, this, [this] { emit fieldCommitted(); });
@@ -179,6 +181,7 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
         check->setChecked(*reinterpret_cast<bool *>(field.GetFieldPtr(obj)));
         connect(check, &QCheckBox::toggled, this, [this, obj, field](bool on) {
             *reinterpret_cast<bool *>(field.GetFieldPtr(obj)) = on;
+            obj->onFieldChanged(field.name);
             emit fieldEdited();
             emit fieldCommitted();
         });
@@ -195,10 +198,12 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
         auto *yBox = makeSpin(p->y);
         connect(xBox, &QDoubleSpinBox::valueChanged, this, [this, obj, field](double v) {
             reinterpret_cast<Shit::Vector2 *>(field.GetFieldPtr(obj))->x = static_cast<float>(v);
+            obj->onFieldChanged(field.name);
             emit fieldEdited();
         });
         connect(yBox, &QDoubleSpinBox::valueChanged, this, [this, obj, field](double v) {
             reinterpret_cast<Shit::Vector2 *>(field.GetFieldPtr(obj))->y = static_cast<float>(v);
+            obj->onFieldChanged(field.name);
             emit fieldEdited();
         });
         connect(xBox, &QDoubleSpinBox::editingFinished, this, [this] { emit fieldCommitted(); });
@@ -224,6 +229,7 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
         auto *edit = new QLineEdit(QString::fromStdString(*p), m_content);
         connect(edit, &QLineEdit::textChanged, this, [this, obj, field](const QString &text) {
             *reinterpret_cast<std::string *>(field.GetFieldPtr(obj)) = text.toStdString();
+            obj->onFieldChanged(field.name);
             emit fieldEdited();
         });
         connect(edit, &QLineEdit::editingFinished, this, [this] { emit fieldCommitted(); });
@@ -249,6 +255,7 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
             combo->setCurrentIndex(sel);
             connect(combo, &QComboBox::currentIndexChanged, this, [this, obj, field, combo]() {
                 *reinterpret_cast<int *>(field.GetFieldPtr(obj)) = combo->currentData().toInt();
+                obj->onFieldChanged(field.name);
                 emit fieldEdited();
                 emit fieldCommitted();
             });

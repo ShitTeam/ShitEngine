@@ -42,6 +42,9 @@ namespace Shit {
 		void setBodyType(Type type);
 		Type getBodyType() const { return m_type; }
 
+		/// 检查器直写反射字段后回调：把运行时字段改动同步到已创建的 Box2D 刚体
+		void onFieldChanged(const std::string& fieldName) override;
+
 		void setGravityScale(float scale) { m_gravityScale = scale; }
 		float getGravityScale() const { return m_gravityScale; }
 

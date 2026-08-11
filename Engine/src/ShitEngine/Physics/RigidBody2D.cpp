@@ -83,6 +83,23 @@ namespace Shit {
 		}
 	}
 
+	void RigidBody2D::onFieldChanged(const std::string& fieldName) {
+		// 检查器直写反射字段后，把改动同步到已创建的刚体；无体时等补建（createRigidBody
+		// 读 m_* 字段）即正确。
+		if (!m_bodyValid) return;
+		b2BodyId bodyId = Internal::MakeBodyId(m_bodyIndex, m_bodyWorld0, m_bodyGeneration);
+		if (!b2Body_IsValid(bodyId)) return;
+		if (fieldName == "m_type") {
+			b2Body_SetType(bodyId, static_cast<b2BodyType>(static_cast<int>(m_type)));
+		} else if (fieldName == "m_gravityScale") {
+			b2Body_SetGravityScale(bodyId, m_gravityScale);
+		} else if (fieldName == "m_linearDamping") {
+			b2Body_SetLinearDamping(bodyId, m_linearDamping);
+		} else if (fieldName == "m_fixedRotation") {
+			b2Body_SetFixedRotation(bodyId, m_fixedRotation);
+		}
+	}
+
 	/// @brief 物理体尚未创建时补建（场景反序列化组件顺序不定：刚体先于 Transform 挂载
 	/// 时，物理系统的每帧补建要等 BehaviorSystem 之后才跑，onStart 里调物理 API 会落空）。
 	/// 幂等：已有效或无场景/无系统时直接返回。

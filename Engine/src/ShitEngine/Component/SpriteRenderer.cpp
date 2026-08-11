@@ -38,14 +38,18 @@ namespace Shit {
 		// 世界坐标转屏幕坐标
 		Vector2 screenPosition = camera->worldToScreen(transform->getPosition());
 
-		// 像素对齐：取整防止子像素模糊
+		// 像素对齐：取整防止子像素模糊。
+		// 位置 = 精灵中心（与 Box2D 刚体/碰撞体/Gizmo 一致）：worldToScreen 把世界点
+		// 映射到该点所在像素，用其作为精灵矩形的左上角会造成 +w/2,+h/2 偏移。
 		float pixelPerUnit = camera->getPixelPerUnit();
 		Vector2 scale = transform->getScale();
+		const float w = frameWidth * scale.x * pixelPerUnit;
+		const float h = frameHeight * scale.y * pixelPerUnit;
 		SDL_FRect destinationRect = {
-			std::floor(screenPosition.x),
-			std::floor(screenPosition.y),
-			std::floor(frameWidth * scale.x * pixelPerUnit + 0.5f),
-			std::floor(frameHeight * scale.y * pixelPerUnit + 0.5f)
+			std::floor(screenPosition.x - w * 0.5f),
+			std::floor(screenPosition.y - h * 0.5f),
+			std::floor(w + 0.5f),
+			std::floor(h + 0.5f)
 		};
 
 		SDL_FlipMode flip = m_sprite.isFlipped() ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
@@ -88,6 +92,9 @@ namespace Shit {
 			SDL_GetTextureSize(texture, &width, &height);
 		}
 
-		return SDL_FRect{ position.x, position.y, width * scale.x, height * scale.y };
+		// 与 onRender 一致：包围盒以 Transform 位置为中心（顶左 → 居中）
+		const float gbw = width * scale.x;
+		const float gbh = height * scale.y;
+		return SDL_FRect{ position.x - gbw * 0.5f, position.y - gbh * 0.5f, gbw, gbh };
 	}
 }

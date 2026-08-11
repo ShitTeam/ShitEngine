@@ -37,6 +37,9 @@ namespace Shit {
 		void setRadius(float radius);           ///< 像素半径，默认 16.0f
 		float getRadius() const { return m_radius; }
 
+		/// 检查器直写反射字段后回调：把半径改动同步到已创建的 Box2D 圆形状
+		void onFieldChanged(const std::string& fieldName) override;
+
 		void setDensity(float density);         ///< 密度，默认 1.0f
 		float getDensity() const { return m_density; }
 

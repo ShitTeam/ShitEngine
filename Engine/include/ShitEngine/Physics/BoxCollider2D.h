@@ -36,6 +36,9 @@ namespace Shit {
 		void setSize(const Vector2& size);    ///< 像素尺寸（宽/高）默认 {32, 32}
 		const Vector2& getSize() const { return m_size; }
 
+		/// 检查器直写反射字段后回调：把尺寸改动同步到已创建的 Box2D 形状
+		void onFieldChanged(const std::string& fieldName) override;
+
 		void setDensity(float density);       ///< 密度，默认 1.0f
 		float getDensity() const { return m_density; }
 
