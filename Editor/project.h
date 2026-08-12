@@ -46,7 +46,7 @@ public:
     QString stateFilePath() const; ///< .shitengine/state.ini
     QString assetsDir() const;     ///< Assets/
     QString scriptsDir() const;    ///< Scripts/
-    QString buildDir() const;      ///< build/scripts（CMake 缓存）
+    QString buildDir() const;      ///< build/editor-scripts（CMake 缓存；避开 VSCode 对根工程 build/Scripts 子目录的输出，Windows 大小写不敏感会撞目录）
     QString buildOutDir() const;   ///< build/out（构建产物临时目录，避开编辑器占用 bin/）
     QString binDir() const;        ///< bin/
     QString scenesDir() const { return rootDir() + "/Scenes"; }

@@ -182,7 +182,7 @@ QString Project::stateDir() const { return m_rootDir + "/.shitengine"; }
 QString Project::stateFilePath() const { return m_rootDir + "/.shitengine/state.ini"; }
 QString Project::assetsDir() const { return m_rootDir + "/Assets"; }
 QString Project::scriptsDir() const { return m_rootDir + "/Scripts"; }
-QString Project::buildDir() const { return m_rootDir + "/build/scripts"; }
+QString Project::buildDir() const { return m_rootDir + "/build/editor-scripts"; }   // 避开 VSCode 根工程 build/Scripts 输出（Windows 大小写不敏感会撞目录）
 QString Project::buildOutDir() const { return m_rootDir + "/build/out"; }
 QString Project::binDir() const { return m_rootDir + "/bin"; }
 
