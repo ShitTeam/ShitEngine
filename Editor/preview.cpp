@@ -225,7 +225,17 @@ void EnginePreview::refreshCameras()
     // 用户相机若仍在场景则延续（避免 tick 双 pass 切换 enabled 造成选择抖动）；
     // 否则取 priority 最小的相机（与 RenderSystem 渲染顺序一致），无用户相机时
     // 兜底编辑器相机，保证运行视口画面不断流。
-    if (prev && prev->getOwner()
+    // 注意：延续前必须先用指针比对做存活校验——prev 是跨帧缓存，播放中游戏逻辑
+    // 销毁相机/切换场景（旧场景整体销毁）后它就是悬垂指针，直接 prev->getOwner()
+    // 会解引用已释放内存（调试堆 0xDD 填充 → std::string::_Equal 读 0xffffffff
+    // 访问违例，曾在此崩溃）。先遍历当前场景按指针比对确认存活，再解引用。
+    bool prevAlive = false;
+    if (prev && m_scene) {
+        for (auto &go : m_scene->getGameObjects()) {
+            if (go->getComponent<Shit::CameraComponent>() == prev) { prevAlive = true; break; }
+        }
+    }
+    if (prevAlive && prev->getOwner()
             && prev->getOwner()->getName() != "scene_camera"
             && m_scene->containsGameObject(prev->getOwner())
             && prev->getOwner()->getComponent<Shit::CameraComponent>() == prev) {
