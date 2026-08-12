@@ -79,7 +79,7 @@ QStringList ScriptBuilder::makeConfigureArgs() const
         args << QStringLiteral("-G") << QStringLiteral("Ninja")
              << QStringLiteral("-DCMAKE_C_COMPILER=gcc")
              << QStringLiteral("-DCMAKE_CXX_COMPILER=g++")
-             << QStringLiteral("-DCMAKE_BUILD_TYPE=Debug");
+             << QStringLiteral("-DCMAKE_BUILD_TYPE=%1").arg(sdkBuildConfig());
     }
     return args;
 }
@@ -88,8 +88,18 @@ QStringList ScriptBuilder::makeBuildArgs() const
 {
     QStringList args{ QStringLiteral("--build"), m_buildDir };
     if (detectToolchain(m_sdkDir) == Toolchain::MSVC)
-        args << QStringLiteral("--config") << QStringLiteral("Debug");
+        args << QStringLiteral("--config") << sdkBuildConfig();
     return args;
+}
+
+QString ScriptBuilder::sdkBuildConfig() const
+{
+    QDir bin(m_sdkDir + "/bin");
+    const bool hasDebug = bin.exists(QStringLiteral("ShitEngine-d.dll"));
+    const bool hasRelease = bin.exists(QStringLiteral("ShitEngine.dll"));
+    if (hasDebug && !hasRelease)
+        return QStringLiteral("Debug");
+    return QStringLiteral("Release");
 }
 
 void ScriptBuilder::startConfigure()

@@ -47,6 +47,11 @@ private:
     void startBuild();
     QStringList makeConfigureArgs() const;
     QStringList makeBuildArgs() const;
+    /// 按 SDK bin/ 的引擎 DLL 形态选择插件构建配置：
+    /// 只有 ShitEngine-d.dll → Debug；否则（仅 Release 或两者皆有）→ Release。
+    /// Debug 插件与 Release 引擎 DLL 混用会因 _ITERATOR_DEBUG_LEVEL 不一致，
+    /// 在 RegisterPluginTypes 跨 DLL 传 std::string 时崩溃。
+    QString sdkBuildConfig() const;
     void finishSuccess();
     void finishFailure(const QString &reason);
 
