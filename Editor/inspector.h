@@ -13,6 +13,7 @@ namespace Shit {
 class GameObject;
 class Component;
 struct FieldInfo;
+struct TypeInfo;
 }
 
 /// 右侧属性检查器：反射选中对象的组件字段，生成可编辑控件。
@@ -40,6 +41,8 @@ signals:
     void fieldEdited();
     /// 一次字段编辑结束（数值/文本控件 editingFinished，或按钮/下拉即时提交 → 撤销提交点）
     void fieldCommitted();
+    /// 通过底部 Add Component 菜单向选中对象添加了组件（撤销提交点，标签"添加组件"）
+    void componentAdded();
 
 private:
     /// 为单个字段生成一行编辑控件
@@ -48,9 +51,18 @@ private:
     /// 只读字段/未知类型的字符串展示
     QString fieldToString(const Shit::FieldInfo &field, Shit::Component *obj) const;
 
+    /// 底部"Add Component"按钮点击：弹出组件选择菜单
+    void showAddComponentMenu();
+
+    /// 向当前选中对象添加反射类型组件（工厂创建 + addComponentInstance）
+    void addComponentToObject(const Shit::TypeInfo *type);
+
     QScrollArea *m_scroll;
     QWidget *m_content;
     QFormLayout *m_form;
+
+    /// 当前正在编辑的对象（nullptr = 未选中）；添加组件后需重建表单
+    Shit::GameObject *m_object = nullptr;
 
     /// 每个字段的"组件 → 控件"回读函数（refresh 时逐行调用）
     std::vector<std::function<void()>> m_readbacks;

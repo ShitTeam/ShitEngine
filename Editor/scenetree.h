@@ -7,7 +7,7 @@ class QTreeView;
 class QMenu;
 class SceneTreeModel;
 
-namespace Shit { class Scene; class GameObject; class Component; struct TypeInfo; }
+namespace Shit { class Scene; class GameObject; struct TypeInfo; }
 
 /// 左侧场景树：列出当前场景的 GameObject 层级，选中联动属性检查器。
 /// 右键菜单：新建对象 / 添加组件 / 删除对象。
@@ -43,8 +43,6 @@ protected:
 private:
     void createObject();
     void deleteObject();
-    /// 为指定对象生成"添加组件"子菜单
-    QMenu *buildAddComponentMenu(Shit::GameObject *target);
     void addComponent(const Shit::TypeInfo *type, Shit::GameObject *target);
 
     QTreeView *m_view;

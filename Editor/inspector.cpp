@@ -1,13 +1,15 @@
 #include "inspector.h"
 
+#include "componentmenu.h"
+#include "dnd.h"
+
 #include <ShitEngine.h>
 #include <ShitEngine/Core/EngineContext.h>
-
-#include "dnd.h"
 
 #include <QApplication>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QCursor>
 #include <QDoubleSpinBox>
 #include <QDrag>
 #include <QFormLayout>
@@ -17,6 +19,7 @@
 #include <QLineEdit>
 #include <QMimeData>
 #include <QMouseEvent>
+#include <QPushButton>
 #include <QScrollArea>
 #include <QSpinBox>
 #include <QToolButton>
@@ -276,6 +279,7 @@ Inspector::Inspector(QWidget *parent)
 void Inspector::clear()
 {
     m_readbacks.clear();
+    m_object = nullptr;
     while (m_form->rowCount() > 0)
         m_form->removeRow(0);
 
@@ -294,6 +298,7 @@ void Inspector::refresh()
 void Inspector::setGameObject(Shit::GameObject *object)
 {
     clear();
+    m_object = object;
     m_componentCount = 0;
     m_fieldCount = 0;
     if (!object)
@@ -325,6 +330,22 @@ void Inspector::setGameObject(Shit::GameObject *object)
     });
 
     emit buildInfo(m_componentCount, m_fieldCount);
+
+    // Unity 风格 "Add Component"：组件列表底部的虚线按钮，点击弹出组件类型菜单
+    auto *addBtn = new QPushButton(tr("Add Component"), m_content);
+    addBtn->setCursor(Qt::PointingHandCursor);
+    addBtn->setStyleSheet(
+        "QPushButton { border: 1px dashed #5a6a7a; border-radius: 3px; color: #9ab0c4;"
+        "              background: transparent; padding: 5px; }"
+        "QPushButton:hover { border-color: #7ac0ff; color: #d0e4f5; background: rgba(122,192,255,0.08); }");
+    auto *row = new QWidget(m_content);
+    auto *rowLayout = new QHBoxLayout(row);
+    rowLayout->setContentsMargins(0, 4, 0, 0);
+    rowLayout->addStretch(1);
+    rowLayout->addWidget(addBtn);
+    rowLayout->addStretch(1);
+    m_form->addRow(row);
+    connect(addBtn, &QPushButton::clicked, this, &Inspector::showAddComponentMenu);
 }
 
 void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
@@ -511,4 +532,25 @@ QString Inspector::fieldToString(const Shit::FieldInfo &field, Shit::Component *
     if (typeNameOf(field) == "std::string")
         return QString::fromStdString(*reinterpret_cast<std::string *>(ptr));
     return QString("<%1>").arg(typeNameOf(field));
+}
+
+void Inspector::showAddComponentMenu()
+{
+    if (!m_object) return;
+    auto *menu = buildAddComponentMenu(this, m_object,
+        [this](const Shit::TypeInfo *ti) { addComponentToObject(ti); });
+    menu->exec(QCursor::pos());
+    delete menu;
+}
+
+void Inspector::addComponentToObject(const Shit::TypeInfo *type)
+{
+    if (!type || !m_object) return;
+    void *raw = type->Create();   // 反射工厂堆分配（菜单已过滤无工厂/抽象类型）
+    if (!raw) return;
+    auto *comp = static_cast<Shit::Component *>(raw);
+    emit fieldEdited();           // undo begin + 会话 dirty（须在修改前；mainwindow 已连）
+    m_object->addComponentInstance(comp);
+    setGameObject(m_object);      // 重建表单显示新组件
+    emit componentAdded();        // undo commit（标签"添加组件"）
 }

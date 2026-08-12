@@ -1,5 +1,6 @@
 #include "scenetree.h"
 
+#include "componentmenu.h"
 #include "scenetreemodel.h"
 
 #include <ShitEngine.h>
@@ -13,21 +14,6 @@
 #include <QMenu>
 #include <QTreeView>
 #include <QVBoxLayout>
-
-#include <algorithm>
-#include <vector>
-
-namespace {
-
-/// 判断反射类型是否为 Component 派生（沿基类链查找 "Component"）
-bool isComponentDerived(const Shit::TypeInfo *ti)
-{
-    for (const Shit::TypeInfo *b = ti; b; b = b->baseType)
-        if (b->name == "Component") return true;
-    return false;
-}
-
-} // namespace
 
 SceneTree::SceneTree(QWidget *parent)
     : QWidget(parent)
@@ -117,7 +103,8 @@ void SceneTree::contextMenuEvent(QContextMenuEvent *event)
 
     if (target) {
         menu->addSeparator();
-        menu->addMenu(buildAddComponentMenu(target));
+        menu->addMenu(buildAddComponentMenu(this, target,
+            [this, target](const Shit::TypeInfo *ti) { addComponent(ti, target); }));
         auto *delAction = menu->addAction(tr("删除对象"));
         connect(delAction, &QAction::triggered, this, &SceneTree::deleteObject);
     }
@@ -158,25 +145,6 @@ void SceneTree::deleteObject()
     // 检查器/视口及时换绑新对象（否则其持有被删对象指针，下一帧渲染即悬垂崩溃）
     setScene(m_scene);
     emit sceneEdited();
-}
-
-QMenu *SceneTree::buildAddComponentMenu(Shit::GameObject *target)
-{
-    auto *menu = new QMenu(tr("添加组件"), this);
-
-    std::vector<const Shit::TypeInfo *> comps;
-    Shit::TypeRegistry::ForEach([&](const Shit::TypeInfo &ti) {
-        if (isComponentDerived(&ti) && ti.factory)
-            comps.push_back(&ti);
-    });
-    std::sort(comps.begin(), comps.end(),
-              [](const Shit::TypeInfo *a, const Shit::TypeInfo *b) { return a->name < b->name; });
-
-    for (const Shit::TypeInfo *ti : comps) {
-        auto *act = menu->addAction(QString::fromStdString(ti->name));
-        connect(act, &QAction::triggered, this, [this, ti, target]() { addComponent(ti, target); });
-    }
-    return menu;
 }
 
 void SceneTree::addComponent(const Shit::TypeInfo *type, Shit::GameObject *target)

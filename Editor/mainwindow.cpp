@@ -117,6 +117,8 @@ MainWindow::MainWindow(QWidget *parent)
     });
     connect(m_inspector, &Inspector::fieldEdited, this, [this] { undoBegin(); });
     connect(m_inspector, &Inspector::fieldCommitted, this, [this] { undoCommit(tr("编辑属性")); });
+    // 检查器底部 Add Component 添加组件：undo 事务已由 fieldEdited 开启，此处提交
+    connect(m_inspector, &Inspector::componentAdded, this, [this] { undoCommit(tr("添加组件")); });
     connect(m_sceneTree, &SceneTree::sceneActionStarted, this, [this] { undoBegin(); });
     connect(m_sceneTree, &SceneTree::sceneEdited, this, [this] {
         undoCommit(tr("场景结构编辑"));

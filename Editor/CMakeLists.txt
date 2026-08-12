@@ -23,6 +23,7 @@ set(PROJECT_SOURCES
         scenetree.h
         scenetreemodel.cpp
         scenetreemodel.h
+        componentmenu.h
         inspector.cpp
         inspector.h
         logwidget.cpp

@@ -9,6 +9,8 @@
 
 ### 新增
 
+- **属性检查器 Add Component（P23，编辑器）**：Unity 式"添加组件"入口——检查器组件列表底部新增虚线「Add Component」按钮，点击弹出组件类型菜单；场景树右键「添加组件」菜单重构为两处共用的工具头 `componentmenu.h`（`collectAddableComponentTypes` / `buildAddComponentMenu`），行为完全一致。新增特性：**已持有的组件类型置灰并标注「（已有）」**（替代原先重复添加被 `addComponentInstance` 静默丢弃的不明确行为）；添加走反射工厂 + `addComponentInstance`，检查器立即重建显示新组件，接入既有撤销栈（撤销标签「添加组件」/ Ctrl+Z 恢复）与 dirty 标记（编辑会话安全）
+
 - **窗口布局重排（P21，编辑器）**：改 `createDocks()` 让「场景视口 / 运行视口」改为窗口中央的标签页叠放（`QTabWidget`，`scene_camera` / 游戏相机语义与之前一致），「资源 / 日志」在窗口底部标签页合并（`tabifyDockWidget`，拖标题栏可拆回独立 Dock）；左侧场景树、右侧属性检查器保留。布局持久化升级为**带版本号**（`QSettings::saveState(QMainWindow::SaveFullState, kLayoutVersion)` / `restoreState(…, kLayoutVersion)`），旧版布局不匹配时自动落回默认排列，重启不失真
 
 - **「窗口」菜单（编辑器）**：菜单栏新增「窗口」，列出全部可停靠面板（场景 / 属性 / 资源 / 日志），勾选 = 显示——面板右上角关闭后可从菜单重新打开；复用 `QDockWidget::toggleViewAction()`，勾选状态与面板可见性自动同步，关面板/恢复布局后菜单状态不失真
@@ -23,6 +25,7 @@
 
 ### 修复
 
+- **编辑器反复闪退修复（P22，编辑器）**：定位到确定性崩溃——`EnginePreview::refreshCameras()` 的"上一帧游戏相机延续"逻辑先解引用后校验：`m_gameCam` 是跨帧缓存，播放中游戏逻辑销毁相机或切换场景（旧场景整体销毁）后即为悬垂指针，下一帧 tick 里 `prev->getOwner()->getName() != "scene_camera"`（`preview.cpp`）读取已释放内存（调试堆 0xDD 填充），`std::string::_Equal` 内访问 `0xffffffffffffffff` 触发访问违例——七份崩溃转储（14:24/14:25/21:38/21:39/21:40，`Editor.exe!EnginePreview::refreshCameras+0x13b` ← `tick+0x82`）栈完全一致。修复：延续前先用指针比对遍历当前场景确认相机仍存活（不触碰悬垂内存），通过后才解引用——场景切换/对象销毁后自动落回重新挑选，不再崩溃
 - **示例 Player 控制器反射化（示例）**：`Examples/src/Player.h` 是 P6 迁移前的遗留类，未加 `SHIT_REFLECT` 宏——扫描器不登记，检查器加不了、`.scene` 序列化不了（组件在编辑器里"不存在"）。补齐反射标记与 `speed` 字段元数据，Player 成为可编辑/可序列化的标准行为组件
 - **项目设置保存丢失启动场景（P15 遗留，编辑器）**：设置对话框「启动场景」下拉只列 `<项目>/Scenes/` 目录下的 `.scene`——场景文件不在该目录（如放项目根目录）时下拉无匹配项，保存设置即 `setScenePath("")` **静默清除** config.json 的 `scene` 字段，下次启动项目退回空场景。修复：下拉追加「（当前）场景名」兜底项并默认选中——当前启动场景总能被保存
 - **刚体暂缺 Transform 告警降噪（引擎）**：`.scene` 组件顺序不定导致的"缺少 TransformComponent"是自愈补建的正常瞬态，由 WARN 降为 DEBUG——每次场景加载不再刷 6 条告警（永久缺 Transform 的异常对象由补建循环静默跳过，不刷屏）
