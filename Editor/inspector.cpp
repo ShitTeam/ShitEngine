@@ -308,6 +308,36 @@ void Inspector::setGameObject(Shit::GameObject *object)
     while (m_form->rowCount() > 0)
         m_form->removeRow(0);
 
+    // Unity 风格：顶部对象名编辑行（提交走撤销"重命名"；与树内 F2 等价，两处同步）
+    auto *nameEdit = new QLineEdit(QString::fromStdString(m_object->getName()), m_content);
+    nameEdit->setAlignment(Qt::AlignCenter);
+    nameEdit->setStyleSheet(
+        "QLineEdit { border: 1px solid #3a4a5a; border-radius: 3px; background: #1c2430;"
+        "            color: #e0e8f0; font-size: 14px; font-weight: bold; padding: 5px; }"
+        "QLineEdit:focus { border-color: #7ac0ff; }");
+    connect(nameEdit, &QLineEdit::editingFinished, this, [this, nameEdit] {
+        const std::string newName = nameEdit->text().trimmed().toStdString();
+        if (newName.empty() || newName == m_object->getName()) {
+            nameEdit->setText(QString::fromStdString(m_object->getName()));   // 空/未变 → 还原显示
+            return;
+        }
+        emit fieldEdited();               // undo begin + dirty（须在修改前）
+        m_object->setName(newName);
+        emit objectRenamed();             // undo commit（标签"重命名"）
+    });
+    m_readbacks.push_back([this, nameEdit] {
+        // 播放中游戏逻辑改名 → 同步回显（blockSignals 防回显触发重命名提交）
+        nameEdit->blockSignals(true);
+        nameEdit->setText(QString::fromStdString(m_object->getName()));
+        nameEdit->blockSignals(false);
+    });
+    m_form->addRow(nameEdit);
+
+    auto *nameSep = new QFrame(m_content);
+    nameSep->setFrameShape(QFrame::HLine);
+    nameSep->setStyleSheet("color: #2a3540;");
+    m_form->addRow(nameSep);
+
     object->forEachComponent([this](Shit::Component *component) {
         if (!component) return;
 
@@ -321,7 +351,26 @@ void Inspector::setGameObject(Shit::GameObject *object)
         refs.append({ component->getUuid(), QString::fromStdString(typeInfo->name) });
         auto *title = new ComponentHeaderLabel(QString::fromStdString(typeInfo->name),
                                                encodeComponentRefs(refs), m_content);
-        m_form->addRow(title);
+
+        // Unity 风格：组件头右侧「✕ 移除组件」（Transform 是引擎基础设施，不显示按钮）
+        auto *row = new QWidget(m_content);
+        auto *rowLayout = new QHBoxLayout(row);
+        rowLayout->setContentsMargins(0, 0, 0, 0);
+        rowLayout->setSpacing(0);
+        rowLayout->addWidget(title, 1);
+        if (normalizeTypeName(typeInfo->name) != "TransformComponent") {
+            auto *removeBtn = new QToolButton(row);
+            removeBtn->setText(tr("✕"));
+            removeBtn->setToolTip(tr("移除组件"));
+            removeBtn->setCursor(Qt::PointingHandCursor);
+            removeBtn->setStyleSheet(
+                "QToolButton { border: none; color: #7a8a9a; padding: 2px 6px; }"
+                "QToolButton:hover { color: #ff6b6b; background: rgba(255, 80, 80, 0.12); }");
+            rowLayout->addWidget(removeBtn);
+            connect(removeBtn, &QToolButton::clicked, this,
+                    [this, component] { removeComponentFromObject(component); });
+        }
+        m_form->addRow(row);
 
         for (const Shit::FieldInfo &field : typeInfo->fields) {
             addFieldRow(field, component);
@@ -553,4 +602,29 @@ void Inspector::addComponentToObject(const Shit::TypeInfo *type)
     m_object->addComponentInstance(comp);
     setGameObject(m_object);      // 重建表单显示新组件
     emit componentAdded();        // undo commit（标签"添加组件"）
+}
+
+void Inspector::removeComponentFromObject(Shit::Component *component)
+{
+    if (!component || !m_object) return;
+    const Shit::TypeInfo *ti = Shit::TypeRegistry::Get(std::type_index(typeid(*component)));
+    if (!ti) return;   // 无反射元数据（不可达：组件头只对反射类型渲染）
+
+    // 基础设施拒删（与场景树"scene_camera 拒删"同语义）：
+    // TransformComponent 每个对象必有（渲染/物理/UI 依赖），Unity 同款不可移除；
+    // scene_camera 的相机组件是场景视图编辑视点，移除后编辑 pass 失能。
+    const QString typeName = normalizeTypeName(ti->name);
+    if (typeName == "TransformComponent") {
+        emit componentRemoveBlocked(tr("TransformComponent 是对象的基础组件，不能移除"));
+        return;
+    }
+    if (m_object->getName() == "scene_camera" && typeName == "CameraComponent") {
+        emit componentRemoveBlocked(tr("scene_camera 的相机组件是编辑器基础设施，不能移除"));
+        return;
+    }
+
+    emit fieldEdited();   // undo begin + dirty（须在修改前）
+    m_object->removeComponent(std::type_index(typeid(*component)));
+    setGameObject(m_object);   // 重建表单；引用该组件的字段随即显示 None（uuid 索引已清）
+    emit componentRemoved();   // undo commit（标签"移除组件"）
 }

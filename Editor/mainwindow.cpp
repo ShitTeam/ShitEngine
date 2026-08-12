@@ -3,6 +3,7 @@
 
 #include <QAction>
 #include <QActionGroup>
+#include <QApplication>
 #include <QCloseEvent>
 #include <QDir>
 #include <QDockWidget>
@@ -17,9 +18,11 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QMouseEvent>
+#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QStatusBar>
 #include <QTabWidget>
+#include <QTextEdit>
 #include <QTimer>
 #include <QToolBar>
 #include <QWheelEvent>
@@ -61,6 +64,32 @@ constexpr int kMaxRecentProjects = 5; ///< 最近项目列表长度上限
 /// Dock 布局版本号（saveState/restoreState 第二参）。P21 起中央改为标签页叠放、
 /// 底部资源+日志 Tab 合并——旧版（v0）保存的布局作废，版本不匹配时自动落回默认排列。
 constexpr int kLayoutVersion = 2;
+
+/// 复制/粘贴仅在非文本编辑场景生效：检查器/树重命名等输入框获焦时，
+/// Ctrl+C/V 应交给文本控件（复制文字），不劫持为"复制对象"
+bool isTextEditFocused()
+{
+    QWidget *w = QApplication::focusWidget();
+    return qobject_cast<QLineEdit *>(w)
+        || qobject_cast<QTextEdit *>(w)
+        || qobject_cast<QPlainTextEdit *>(w);
+}
+
+/// 生成场景内唯一名：base / base (1) / base (2)…（树按名区分对象，重名会混乱）
+QString uniqueObjectName(Shit::Scene *scene, const std::string &base)
+{
+    const auto &gos = scene->getGameObjects();
+    auto taken = [&](const std::string &name) {
+        for (const auto &go : gos)
+            if (go->getName() == name) return true;
+        return false;
+    };
+    if (!taken(base)) return QString::fromStdString(base);
+    for (int i = 1; ; ++i) {
+        const std::string candidate = base + " (" + std::to_string(i) + ")";
+        if (!taken(candidate)) return QString::fromStdString(candidate);
+    }
+}
 } // namespace
 
 MainWindow::MainWindow(QWidget *parent)
@@ -119,6 +148,11 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_inspector, &Inspector::fieldCommitted, this, [this] { undoCommit(tr("编辑属性")); });
     // 检查器底部 Add Component 添加组件：undo 事务已由 fieldEdited 开启，此处提交
     connect(m_inspector, &Inspector::componentAdded, this, [this] { undoCommit(tr("添加组件")); });
+    // 检查器组件头「✕」移除组件 / 顶部名称栏重命名（同前：fieldEdited 已开启事务，此处提交）
+    connect(m_inspector, &Inspector::componentRemoved, this, [this] { undoCommit(tr("移除组件")); });
+    connect(m_inspector, &Inspector::objectRenamed, this, [this] { undoCommit(tr("重命名")); });
+    connect(m_inspector, &Inspector::componentRemoveBlocked, this,
+            [this](const QString &reason) { m_log->appendMessage(reason, Qt::red); });
     connect(m_sceneTree, &SceneTree::sceneActionStarted, this, [this] { undoBegin(); });
     connect(m_sceneTree, &SceneTree::sceneEdited, this, [this] {
         undoCommit(tr("场景结构编辑"));
@@ -233,6 +267,7 @@ void MainWindow::createDocks()
     // 右侧：属性检查器（双视口移入中央后，右侧只留检查器）
     auto *inspectorDock = new QDockWidget(tr("属性"), this);
     inspectorDock->setObjectName("inspectorDock");
+    inspectorDock->setMinimumWidth(260);
     m_inspector = new Inspector(inspectorDock);
     inspectorDock->setWidget(m_inspector);
     addDockWidget(Qt::RightDockWidgetArea, inspectorDock);
@@ -301,6 +336,13 @@ void MainWindow::createMenus()
     m_redoAction = editMenu->addAction(tr("重做"), this, &MainWindow::redo);
     m_redoAction->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Z));
     updateUndoActions();
+
+    // 复制/粘贴对象（内部剪贴板，不进系统剪贴板）：文本控件获焦时自动让位（见 isTextEditFocused）
+    editMenu->addSeparator();
+    auto *copyAction = editMenu->addAction(tr("复制对象"), this, &MainWindow::copySelectedObject);
+    copyAction->setShortcut(QKeySequence::Copy);   // Ctrl+C
+    auto *pasteAction = editMenu->addAction(tr("粘贴对象"), this, &MainWindow::pasteObject);
+    pasteAction->setShortcut(QKeySequence::Paste); // Ctrl+V
 
     // P16：打开代码编辑器（IDE 在项目设置 → 通用 → 代码编辑器 中选择）
     editMenu->addSeparator();
@@ -533,6 +575,52 @@ void MainWindow::redo()
     }
     applySnapshot(*target);
     m_log->appendMessage(tr("已重做"));
+}
+
+void MainWindow::copySelectedObject()
+{
+    if (isTextEditFocused()) return;   // 文本编辑中：Ctrl+C 复制文字，不劫持
+    Shit::GameObject *sel = m_sceneTree->selectedObject();
+    if (!sel) {
+        m_log->appendMessage(tr("未选中对象，无法复制"), Qt::yellow);
+        return;
+    }
+    m_clipboard = Shit::Prefab::Capture(sel).toJson();
+    m_log->appendMessage(tr("已复制「%1」").arg(QString::fromStdString(sel->getName())));
+}
+
+void MainWindow::pasteObject()
+{
+    if (isTextEditFocused()) return;   // 文本编辑中：Ctrl+V 粘贴文字，不劫持
+    Shit::Scene *scene = m_preview ? m_preview->getScene() : nullptr;
+    if (!scene || m_clipboard.is_null()) {
+        m_log->appendMessage(tr("没有可粘贴的对象（剪贴板为空）"), Qt::yellow);
+        return;
+    }
+    Shit::Prefab prefab = Shit::Prefab::FromJson(m_clipboard);
+    if (!prefab.hasData()) {
+        m_log->appendMessage(tr("剪贴板数据无效，无法粘贴"), Qt::red);
+        return;
+    }
+
+    // 源对象可能已在播放中被游戏逻辑销毁：存活才沿用其名与父级
+    Shit::GameObject *src = m_sceneTree->selectedObject();
+    std::string base = "Pasted Object";
+    Shit::GameObject *parent = nullptr;
+    if (src && scene->containsGameObject(src)) {
+        base = src->getName();
+        parent = src->getParent();
+    }
+
+    undoBegin();   // before 快照（须在修改前）
+    auto *dup = prefab.instantiate(scene, uniqueObjectName(scene, base).toStdString());
+    if (!dup) return;
+    if (parent) dup->setParent(parent);   // 粘贴为源对象兄弟（同父）
+    undoCommit(tr("复制对象"));
+    setDirty(true);
+    // 刷新树并选中新对象（联动检查器/Gizmo；播放中 setScene 另由每帧同步重建，幂等）
+    m_sceneTree->setScene(scene, false);
+    m_sceneTree->selectObject(dup);
 }
 
 void MainWindow::updateUndoActions()

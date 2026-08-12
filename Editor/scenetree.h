@@ -41,7 +41,10 @@ protected:
     void contextMenuEvent(QContextMenuEvent *event) override;
 
 private:
-    void createObject();
+    /// 右键「新建」子菜单对象模板种类
+    enum class CreateKind { Empty, Sprite, Camera, Canvas, Text };
+    void createObject();               ///< 新建空对象（"新建 → 空对象"）
+    void createObjectOfKind(CreateKind kind);  ///< 新建模板对象（精灵/相机/Canvas/文本）
     void deleteObject();
     void addComponent(const Shit::TypeInfo *type, Shit::GameObject *target);
 

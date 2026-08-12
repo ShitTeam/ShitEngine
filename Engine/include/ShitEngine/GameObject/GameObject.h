@@ -186,9 +186,15 @@ namespace Shit {
 		template <typename T>
 		void removeComponent() {
 			static_assert(std::is_base_of_v<Component, T>, "移除的组件必须继承自 Component！");
-			auto type_index = std::type_index(typeid(T));
+			removeComponent(std::type_index(typeid(T)));
+		}
 
-			if (auto it = m_components.find(type_index); it != m_components.end()) {
+		/**
+		 * @brief 按类型索引移除组件（编辑器/反射场景用，与 removeComponent<T>() 等价）
+		 * @param typeIndex 组件类型索引（TypeInfo::typeIndex / typeid(T)）
+		 */
+		void removeComponent(const std::type_index &typeIndex) {
+			if (auto it = m_components.find(typeIndex); it != m_components.end()) {
 				// 先从容器取出再调回调，避免回调内再次 removeComponent 造成迭代器失效/重复回调
 				auto comp = std::move(it->second);
 				m_components.erase(it);

@@ -9,6 +9,10 @@
 
 ### 新增
 
+- **检查器完善（P24，编辑器）**：属性面板两处增强——**对象名编辑**：面板顶部新增对象名输入框（选中对象即回显，回车/失焦提交）；**移除组件**：组件标题栏右侧新增「✕」按钮（hover 红色提示），点击经引擎新增的非模板 API `GameObject::removeComponent(std::type_index)` 移除并重建面板（模板版 `removeComponent<T>()` 重构为转调它）。两项均接入撤销栈（撤销标签「移除组件」/「重命名」）与 dirty 标记；护栏：`TransformComponent` 是对象基础组件拒删、`scene_camera` 的相机组件是编辑器视口基础设施拒删（违规仅日志红字提示，不崩溃）
+- **复制/粘贴对象（P24，编辑器）**：「编辑 → 复制对象 / 粘贴对象」（Ctrl+C / Ctrl+V）：复制把选中对象经 `Prefab::Capture` 序列化为 JSON 存入编辑器内部剪贴板（不占系统剪贴板，避免与文本复制冲突），粘贴经 `Prefab::FromJson` + `instantiate` 实例化——组件（含 UUID/引用字段）完整保留、重名自动追加「 (1)（2）」去重、父级继承，粘贴后自动选中新对象；输入框/文本框聚焦时快捷键不劫持（场景搜索/重命名输入照常）
+- **快捷创建菜单（P24，编辑器）**：场景树右键菜单新增「新建」子菜单，五个模板——空对象 / 精灵 / 相机 / UI Canvas / 文本：各模板自动挂载对应组件（精灵 = SpriteRenderer、相机 = CameraComponent、Canvas = UICanvas、文本 = UIText）；「文本」优先挂到场景已有 Canvas 下，无 Canvas 时顺带自动创建一个（Unity 式 UI 层级适配）；对象名自动去重，入撤销栈 + dirty 标记
+
 - **属性检查器 Add Component（P23，编辑器）**：Unity 式"添加组件"入口——检查器组件列表底部新增虚线「Add Component」按钮，点击弹出组件类型菜单；场景树右键「添加组件」菜单重构为两处共用的工具头 `componentmenu.h`（`collectAddableComponentTypes` / `buildAddComponentMenu`），行为完全一致。新增特性：**已持有的组件类型置灰并标注「（已有）」**（替代原先重复添加被 `addComponentInstance` 静默丢弃的不明确行为）；添加走反射工厂 + `addComponentInstance`，检查器立即重建显示新组件，接入既有撤销栈（撤销标签「添加组件」/ Ctrl+Z 恢复）与 dirty 标记（编辑会话安全）
 
 - **窗口布局重排（P21，编辑器）**：改 `createDocks()` 让「场景视口 / 运行视口」改为窗口中央的标签页叠放（`QTabWidget`，`scene_camera` / 游戏相机语义与之前一致），「资源 / 日志」在窗口底部标签页合并（`tabifyDockWidget`，拖标题栏可拆回独立 Dock）；左侧场景树、右侧属性检查器保留。布局持久化升级为**带版本号**（`QSettings::saveState(QMainWindow::SaveFullState, kLayoutVersion)` / `restoreState(…, kLayoutVersion)`），旧版布局不匹配时自动落回默认排列，重启不失真
@@ -25,6 +29,8 @@
 
 ### 修复
 
+- **脚本工程构建配置随 SDK 引擎 DLL 形态（编辑器，工程收尾）**：`ScriptBuilder` 此前固定 `--config Debug`（MSVC）/ `-DCMAKE_BUILD_TYPE=Debug`（MinGW）——SDK 只含 Release 引擎（`ShitEngine.dll`，无 `-d`）时，Debug 插件与 Release 引擎跨 DLL 传 `std::string`（`_ITERATOR_DEBUG_LEVEL` 不一致）在 `RegisterPluginTypes` 阶段崩溃，即「MyGame 插件加载失败」根因。修复：`sdkBuildConfig()` 按 SDK bin/ 的引擎 DLL 形态探测（只有 `ShitEngine-d.dll` → Debug，否则 Release），MSVC 与 MinGW 分支统一套用；Debug SDK（仅 `-d`）行为不变
+- **SDK 安装漏带第三方编解码 DLL（引擎）**：Engine install 清单只含 SDL3 四个 DLL，SDL_mixer/image 动态加载的编解码器（mpg123/vorbis/ogg/opus/FLAC/png/webp/tiff/xmp/wavpack/gme）不随 SDK 分发——独立 Runtime / 导出包运行缺 DLL 崩溃。修复：改为 `install(DIRECTORY bin/ … FILES_MATCHING *.dll)`（排除示例插件），SDK 自包含，且不再硬编码 MSVC/MinGW 前缀命名差异
 - **编辑器反复闪退修复（P22，编辑器）**：定位到确定性崩溃——`EnginePreview::refreshCameras()` 的"上一帧游戏相机延续"逻辑先解引用后校验：`m_gameCam` 是跨帧缓存，播放中游戏逻辑销毁相机或切换场景（旧场景整体销毁）后即为悬垂指针，下一帧 tick 里 `prev->getOwner()->getName() != "scene_camera"`（`preview.cpp`）读取已释放内存（调试堆 0xDD 填充），`std::string::_Equal` 内访问 `0xffffffffffffffff` 触发访问违例——七份崩溃转储（14:24/14:25/21:38/21:39/21:40，`Editor.exe!EnginePreview::refreshCameras+0x13b` ← `tick+0x82`）栈完全一致。修复：延续前先用指针比对遍历当前场景确认相机仍存活（不触碰悬垂内存），通过后才解引用——场景切换/对象销毁后自动落回重新挑选，不再崩溃
 - **示例 Player 控制器反射化（示例）**：`Examples/src/Player.h` 是 P6 迁移前的遗留类，未加 `SHIT_REFLECT` 宏——扫描器不登记，检查器加不了、`.scene` 序列化不了（组件在编辑器里"不存在"）。补齐反射标记与 `speed` 字段元数据，Player 成为可编辑/可序列化的标准行为组件
 - **项目设置保存丢失启动场景（P15 遗留，编辑器）**：设置对话框「启动场景」下拉只列 `<项目>/Scenes/` 目录下的 `.scene`——场景文件不在该目录（如放项目根目录）时下拉无匹配项，保存设置即 `setScenePath("")` **静默清除** config.json 的 `scene` 字段，下次启动项目退回空场景。修复：下拉追加「（当前）场景名」兜底项并默认选中——当前启动场景总能被保存

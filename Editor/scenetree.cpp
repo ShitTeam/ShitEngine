@@ -5,6 +5,11 @@
 
 #include <ShitEngine.h>
 #include <ShitEngine/Core/EngineContext.h>
+#include <ShitEngine/Component/TransformComponent.h>
+#include <ShitEngine/Component/CameraComponent.h>
+#include <ShitEngine/Component/SpriteRenderer.h>
+#include <ShitEngine/UI/UICanvas.h>
+#include <ShitEngine/UI/UIText.h>
 
 #include <QAbstractItemView>
 #include <QAction>
@@ -98,8 +103,13 @@ void SceneTree::contextMenuEvent(QContextMenuEvent *event)
         m_view->setCurrentIndex(idx);
 
     auto *menu = new QMenu(this);
-    auto *newAction = menu->addAction(tr("新建对象"));
-    connect(newAction, &QAction::triggered, this, &SceneTree::createObject);
+    auto *newMenu = menu->addMenu(tr("新建"));
+    newMenu->addAction(tr("空对象"), this, [this] { createObject(); });
+    // 模板创建（Unity 式快捷搭建）：同名自动去重后缀 (1) (2)…
+    newMenu->addAction(tr("精灵"), this, [this] { createObjectOfKind(CreateKind::Sprite); });
+    newMenu->addAction(tr("相机"), this, [this] { createObjectOfKind(CreateKind::Camera); });
+    newMenu->addAction(tr("UI Canvas"), this, [this] { createObjectOfKind(CreateKind::Canvas); });
+    newMenu->addAction(tr("文本"), this, [this] { createObjectOfKind(CreateKind::Text); });
 
     if (target) {
         menu->addSeparator();
@@ -115,11 +125,68 @@ void SceneTree::contextMenuEvent(QContextMenuEvent *event)
 
 void SceneTree::createObject()
 {
+    createObjectOfKind(CreateKind::Empty);
+}
+
+void SceneTree::createObjectOfKind(CreateKind kind)
+{
     if (!m_scene) return;
+
+    // 场景内唯一名（已有同名则 " (1)"、" (2)"…，与主窗口复制粘贴一致）
+    const auto &gos = m_scene->getGameObjects();
+    auto taken = [&](const std::string &name) {
+        for (const auto &go : gos)
+            if (go->getName() == name) return true;
+        return false;
+    };
+    auto uniqueName = [&](const char *base) {
+        std::string name = base;
+        if (!taken(name)) return name;
+        for (int i = 1; ; ++i) {
+            const std::string candidate = std::string(base) + " (" + std::to_string(i) + ")";
+            if (!taken(candidate)) return candidate;
+        }
+    };
+
     emit sceneActionStarted();   // 撤销 begin（须在修改前）
-    auto *go = m_scene->createGameObject("New Object");
+    auto *go = m_scene->createGameObject(uniqueName("New Object"));
     go->addComponent<Shit::TransformComponent>();
-    m_model->setScene(m_scene);   // 刷新层级
+
+    switch (kind) {
+    case CreateKind::Sprite:
+        go->setName(uniqueName("New Sprite"));
+        go->addComponent<Shit::SpriteRenderer>();
+        break;
+    case CreateKind::Camera:
+        go->setName(uniqueName("New Camera"));
+        go->addComponent<Shit::CameraComponent>();
+        break;
+    case CreateKind::Canvas:
+        go->setName(uniqueName("New Canvas"));
+        go->addComponent<Shit::UICanvas>();
+        break;
+    case CreateKind::Text:
+        // 文本渲染依赖 Canvas 父：优先挂到场景已有 Canvas，无则顺带创建一个（Unity 同款自动适配 UI 层级）
+        go->setName(uniqueName("New Text"));
+        go->addComponent<Shit::UIText>();
+        {
+            Shit::GameObject *canvas = nullptr;
+            for (const auto &candidate : gos)
+                if (candidate->getComponent<Shit::UICanvas>()) { canvas = candidate.get(); break; }
+            if (!canvas) {
+                canvas = m_scene->createGameObject("Canvas");
+                canvas->addComponent<Shit::TransformComponent>();
+                canvas->addComponent<Shit::UICanvas>();
+            }
+            go->setParent(canvas);
+        }
+        break;
+    case CreateKind::Empty:
+    default:
+        break;   // 空对象：保持默认名与仅 Transform
+    }
+
+    m_model->setScene(m_scene);
     selectObject(go);
     emit sceneEdited();
 }

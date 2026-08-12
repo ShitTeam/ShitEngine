@@ -43,6 +43,12 @@ signals:
     void fieldCommitted();
     /// 通过底部 Add Component 菜单向选中对象添加了组件（撤销提交点，标签"添加组件"）
     void componentAdded();
+    /// 通过组件头「✕」按钮移除了组件（撤销提交点，标签"移除组件"）
+    void componentRemoved();
+    /// 通过顶部名称栏重命名了对象（撤销提交点，标签"重命名"）
+    void objectRenamed();
+    /// 组件移除被拒绝（如 Transform / scene_camera 相机是基础设施）
+    void componentRemoveBlocked(const QString &reason);
 
 private:
     /// 为单个字段生成一行编辑控件
@@ -56,6 +62,9 @@ private:
 
     /// 向当前选中对象添加反射类型组件（工厂创建 + addComponentInstance）
     void addComponentToObject(const Shit::TypeInfo *type);
+
+    /// 移除选中对象的某个组件（refuse 为 true 时先做基础设施拒删判断，拒绝则提示不执行）
+    void removeComponentFromObject(Shit::Component *component);
 
     QScrollArea *m_scroll;
     QWidget *m_content;

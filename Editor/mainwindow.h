@@ -59,6 +59,8 @@ private slots:
     bool saveSceneAs();                  ///< 另存为…
     void undo();                         ///< 撤销（Ctrl+Z）
     void redo();                         ///< 重做（Ctrl+Shift+Z）
+    void copySelectedObject();           ///< 复制选中对象到内部剪贴板（Ctrl+C；文本控件获焦时不劫持）
+    void pasteObject();                  ///< 粘贴剪贴板对象为选中对象兄弟（Ctrl+V）
     void about();
     void resetDockLayout();              ///< 恢复出厂默认 Dock 布局（P13）
     void saveLayoutAsDefault();          ///< 把当前 Dock 布局存为默认（P17）
@@ -158,6 +160,7 @@ private:
     QSettings m_settings;       ///< 全局编辑器状态（注册表：最近项目 / lastProjectDir / lastSdkDir）
     UndoStack m_undo;           ///< 场景快照型撤销/重做栈（P9）
     nlohmann::json m_savedSnapshot;   ///< 最后保存/打开/新建时的场景快照（dirty 对比基准）
+    nlohmann::json m_clipboard;       ///< 复制/粘贴内部剪贴板（Prefab JSON；is_null() = 空）
 
     // ---- P14 运行态（Unity 式）----
     nlohmann::json m_runSnapshot;           ///< 进入运行前的场景快照（停止时恢复）
