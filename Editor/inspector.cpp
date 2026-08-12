@@ -395,6 +395,21 @@ void Inspector::setGameObject(Shit::GameObject *object)
     rowLayout->addStretch(1);
     m_form->addRow(row);
     connect(addBtn, &QPushButton::clicked, this, &Inspector::showAddComponentMenu);
+
+    applyEditLock();   // 播放态编辑锁：重建后按当前播放状态重新禁用
+}
+
+void Inspector::setPlayMode(bool playing)
+{
+    m_playMode = playing;
+    applyEditLock();
+}
+
+void Inspector::applyEditLock()
+{
+    // 统一递归禁用表单（含字段控件/移除按钮/Add Component/对象名栏/引用控件）；
+    // 禁用控件仍可被回读刷新 setText/setValue（blockSignals 已防回环），运行时值实时可见
+    if (m_content) m_content->setEnabled(!m_playMode);
 }
 
 void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)

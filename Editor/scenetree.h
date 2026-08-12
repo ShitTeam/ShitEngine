@@ -1,6 +1,7 @@
 #ifndef SCENETREE_H
 #define SCENETREE_H
 
+#include <QList>
 #include <QWidget>
 
 class QTreeView;
@@ -27,6 +28,9 @@ public:
     /// 当前选中对象（无选中/索引失效时返回 nullptr；仅地址比较，调用方需自行校验存活）
     Shit::GameObject *selectedObject() const;
 
+    /// 当前全部选中对象（多选；仅地址比较，调用方需自行校验存活）
+    QList<Shit::GameObject *> selectedObjects() const;
+
 signals:
     /// 选中某个对象（供属性检查器联动）
     void objectSelected(Shit::GameObject *object);
@@ -36,6 +40,8 @@ signals:
     void sceneEdited();
     /// 删除被拒绝（如编辑器/游戏相机是基础设施，不允许删除）
     void sceneDeleteBlocked(const QString &reason);
+    /// 请求把选中对象（含子树）存为 .prefab 预置资产（P25c，保存对话框由主窗口弹）
+    void prefabSaveRequested(Shit::GameObject *object);
 
 protected:
     void contextMenuEvent(QContextMenuEvent *event) override;

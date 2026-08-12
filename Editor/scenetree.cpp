@@ -32,7 +32,7 @@ SceneTree::SceneTree(QWidget *parent)
     m_view->setModel(m_model);
     m_view->setHeaderHidden(true);
     m_view->setAlternatingRowColors(true);
-    m_view->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_view->setSelectionMode(QAbstractItemView::ExtendedSelection);  // P25a：多选（Ctrl/Shift）
     m_view->setSelectionBehavior(QAbstractItemView::SelectRows);
 
     // P11：双击/F2 重命名 + 拖拽改层级
@@ -85,6 +85,17 @@ Shit::GameObject *SceneTree::selectedObject() const
     return m_model->gameObjectAt(m_view->selectionModel()->currentIndex());
 }
 
+QList<Shit::GameObject *> SceneTree::selectedObjects() const
+{
+    QList<Shit::GameObject *> objects;
+    const auto rows = m_view->selectionModel()->selectedRows();
+    for (const QModelIndex &idx : rows) {
+        if (Shit::GameObject *go = m_model->gameObjectAt(idx))
+            objects.append(go);
+    }
+    return objects;
+}
+
 void SceneTree::selectObject(Shit::GameObject *object)
 {
     const QModelIndex idx = m_model->indexOf(object);
@@ -112,10 +123,20 @@ void SceneTree::contextMenuEvent(QContextMenuEvent *event)
     newMenu->addAction(tr("文本"), this, [this] { createObjectOfKind(CreateKind::Text); });
 
     if (target) {
+        const int multiCount = m_view->selectionModel()->selectedRows().size();
         menu->addSeparator();
         menu->addMenu(buildAddComponentMenu(this, target,
             [this, target](const Shit::TypeInfo *ti) { addComponent(ti, target); }));
-        auto *delAction = menu->addAction(tr("删除对象"));
+        // P25c：把对象（含子树）存为 .prefab 预置资产（多选时保存当前项）
+        QAction *prefabAction = nullptr;
+        if (multiCount <= 1) {
+            prefabAction = menu->addAction(tr("存为预置…"));
+            connect(prefabAction, &QAction::triggered, this, [this, target] {
+                emit prefabSaveRequested(target);
+            });
+        }
+        auto *delAction = menu->addAction(multiCount > 1
+            ? tr("删除对象 (%1)").arg(multiCount) : tr("删除对象"));
         connect(delAction, &QAction::triggered, this, &SceneTree::deleteObject);
     }
 
@@ -194,20 +215,28 @@ void SceneTree::createObjectOfKind(CreateKind kind)
 void SceneTree::deleteObject()
 {
     if (!m_scene) return;
-    const QModelIndex idx = m_view->selectionModel()->currentIndex();
-    Shit::GameObject *go = m_model->gameObjectAt(idx);
-    if (!go) return;
+
+    // P25a：批量删除（快照收集 → 逐个删，迭代中不直接删容器元素）
+    const auto objects = selectedObjects();
+    if (objects.isEmpty()) return;
 
     // scene_camera 是场景视图基础设施（不入库、树中隐藏）：删除后编辑视点失能，
     // 保存亦无法恢复。游戏相机不定名（Unity 语义）——场景中任意相机都可删除，
-    // 运行视图会自动改选场景中其余相机或兜底编辑器相机
-    if (go->getName() == "scene_camera") {
-        emit sceneDeleteBlocked(tr("scene_camera 是编辑器相机基础设施，不能删除"));
-        return;
+    // 运行视图会自动改选场景中其余相机或兜底编辑器相机。
+    // 混选时只过滤基础设施，其余照删（并红字提示被跳过项）。
+    QList<Shit::GameObject *> victims;
+    for (Shit::GameObject *go : objects) {
+        if (go->getName() == "scene_camera") {
+            emit sceneDeleteBlocked(tr("scene_camera 是编辑器相机基础设施，不能删除"));
+            continue;
+        }
+        victims.append(go);
     }
+    if (victims.isEmpty()) return;
 
     emit sceneActionStarted();   // 撤销 begin（须在修改前）
-    m_scene->removeGameObject(go);
+    for (Shit::GameObject *go : victims)
+        m_scene->removeGameObject(go);
     // 用 setScene 而非 m_model->setScene：自动重新选中第一项 → 触发 objectSelected，
     // 检查器/视口及时换绑新对象（否则其持有被删对象指针，下一帧渲染即悬垂崩溃）
     setScene(m_scene);

@@ -20,7 +20,7 @@ namespace {
 bool isAllowedAsset(const QString &path)
 {
     const QString ext = QFileInfo(path).suffix().toLower();
-    static const QStringList kAllowed = { "png", "jpg", "jpeg", "bmp", "wav", "ttf", "otf", "scene" };
+    static const QStringList kAllowed = { "png", "jpg", "jpeg", "bmp", "wav", "ttf", "otf", "scene", "prefab" };
     return kAllowed.contains(ext);
 }
 
@@ -86,12 +86,15 @@ AssetsDock::AssetsDock(QWidget *parent)
     connect(browseBtn, &QToolButton::clicked, this, &AssetsDock::browse);
     connect(m_dirEdit, &QLineEdit::editingFinished, this, &AssetsDock::onDirEdited);
 
-    // 双击 .scene → 请求打开；其它双击忽略
+    // 双击 .scene → 请求打开；.prefab → 实例化进当前场景；其它双击忽略
     connect(m_view, &QTreeView::doubleClicked, this, [this](const QModelIndex &index) {
         const QModelIndex src = m_filter->mapToSource(index);
         const QString path = m_model->filePath(src);
-        if (QFileInfo(path).suffix().compare(QStringLiteral("scene"), Qt::CaseInsensitive) == 0)
+        const QString ext = QFileInfo(path).suffix().toLower();
+        if (ext == QStringLiteral("scene"))
             emit sceneOpenRequested(path);
+        else if (ext == QStringLiteral("prefab"))
+            emit prefabOpenRequested(path);
     });
 
     // 默认目录：上次记忆 → 无则应用目录

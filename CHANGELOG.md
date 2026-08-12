@@ -9,8 +9,17 @@
 
 ### 新增
 
-- **检查器完善（P24，编辑器）**：属性面板两处增强——**对象名编辑**：面板顶部新增对象名输入框（选中对象即回显，回车/失焦提交）；**移除组件**：组件标题栏右侧新增「✕」按钮（hover 红色提示），点击经引擎新增的非模板 API `GameObject::removeComponent(std::type_index)` 移除并重建面板（模板版 `removeComponent<T>()` 重构为转调它）。两项均接入撤销栈（撤销标签「移除组件」/「重命名」）与 dirty 标记；护栏：`TransformComponent` 是对象基础组件拒删、`scene_camera` 的相机组件是编辑器视口基础设施拒删（违规仅日志红字提示，不崩溃）
+- **碰撞体编辑手柄（P25，编辑器）**：视口内直接编辑碰撞体形状——选中含碰撞体的对象时（「碰撞体」开关开启），其轮廓黄色高亮并叠加白色手柄：Box 四角方块拖拽改尺寸（屏幕位移逆旋转到对象局部系，双边伸缩；Ctrl 4px 吸附，最小 2px）、Circle 右端方块拖拽改半径（拖到鼠标处，Ctrl 吸附）；经 `setSize/setRadius` 写入并即时同步 Box2D 形状，拖拽接入撤销栈与 dirty 标记（复用 Gizmo 信号）。与「碰撞体」开关联动（轮廓隐藏时手柄一并失活）
+- **Prefab 预置资产（P25，引擎 + 编辑器）**：Unity 式资产化——场景树右键「存为预置…」把选中对象**含子树**存为 `.prefab` 文件（新增 `SceneSerializer::toJson(GameObject*)`：子树 DFS 父先于子，与 .scene 同构）；资源面板白名单加入 `.prefab`（双击或拖入视口 → `SceneSerializer::fromJson` 追加实例化，根对象重名自动去重后缀、拖入落点映射为根对象世界坐标、自动选中）；引擎侧零格式改动（复用场景加载器），入撤销栈 + dirty
+- **场景树多选 + 批量删除（P25，编辑器）**：`ExtendedSelection`（Ctrl/Shift 点选）；新增 `selectedObjects()`；Del / 右键「删除对象 (N)」批量删除——快照收集后逐个 `removeGameObject`（不迭代中删除），`scene_camera` 混选时过滤并红字提示、其余照删；撤销与 dirty 一次记录整批
+- **播放态调试（P25，编辑器）**：播放中检查器**只读**（Unity 语义）——`Inspector::setPlayMode` 统一递归禁用表单（字段控件 / Add Component / 移除按钮 / 对象名栏 / 引用控件），但每帧回读刷新照常（运行时值实时可见）；视口 Gizmo 与碰撞体手柄拖拽禁用（`Viewport::setEditEnabled`，拾取仍可用）；进入/退出播放自动切换
+
+### 修复
+
+- **跨分辨率恢复窗口越界（P25e，编辑器）**：保存的窗口几何来自更大屏幕/更高 DPI 时，恢复后右侧「属性」/底部「资源 日志」Dock 被推到屏幕外不可见（此前误判为面板丢失，清注册表无效——Dock 一直都在，只是被推出屏）。修复：`restoreGeometry` 异步生效后（延迟 120ms）按可用屏幕**正溢出**判定（宽/高超出或左/上越界，容忍 -8 阴影边距）钳制窗口尺寸并居中；普通小窗口/多屏布局不受影响
+
 - **复制/粘贴对象（P24，编辑器）**：「编辑 → 复制对象 / 粘贴对象」（Ctrl+C / Ctrl+V）：复制把选中对象经 `Prefab::Capture` 序列化为 JSON 存入编辑器内部剪贴板（不占系统剪贴板，避免与文本复制冲突），粘贴经 `Prefab::FromJson` + `instantiate` 实例化——组件（含 UUID/引用字段）完整保留、重名自动追加「 (1)（2）」去重、父级继承，粘贴后自动选中新对象；输入框/文本框聚焦时快捷键不劫持（场景搜索/重命名输入照常）
+- **检查器完善（P24，编辑器）**：属性面板两处增强——**对象名编辑**：面板顶部新增对象名输入框（选中对象即回显，回车/失焦提交）；**移除组件**：组件标题栏右侧新增「✕」按钮（hover 红色提示），点击经引擎新增的非模板 API `GameObject::removeComponent(std::type_index)` 移除并重建面板（模板版 `removeComponent<T>()` 重构为转调它）。两项均接入撤销栈（撤销标签「移除组件」/「重命名」）与 dirty 标记；护栏：`TransformComponent` 是对象基础组件拒删、`scene_camera` 的相机组件是编辑器视口基础设施拒删（违规仅日志红字提示，不崩溃）
 - **快捷创建菜单（P24，编辑器）**：场景树右键菜单新增「新建」子菜单，五个模板——空对象 / 精灵 / 相机 / UI Canvas / 文本：各模板自动挂载对应组件（精灵 = SpriteRenderer、相机 = CameraComponent、Canvas = UICanvas、文本 = UIText）；「文本」优先挂到场景已有 Canvas 下，无 Canvas 时顺带自动创建一个（Unity 式 UI 层级适配）；对象名自动去重，入撤销栈 + dirty 标记
 
 - **属性检查器 Add Component（P23，编辑器）**：Unity 式"添加组件"入口——检查器组件列表底部新增虚线「Add Component」按钮，点击弹出组件类型菜单；场景树右键「添加组件」菜单重构为两处共用的工具头 `componentmenu.h`（`collectAddableComponentTypes` / `buildAddComponentMenu`），行为完全一致。新增特性：**已持有的组件类型置灰并标注「（已有）」**（替代原先重复添加被 `addComponentInstance` 静默丢弃的不明确行为）；添加走反射工厂 + `addComponentInstance`，检查器立即重建显示新组件，接入既有撤销栈（撤销标签「添加组件」/ Ctrl+Z 恢复）与 dirty 标记（编辑会话安全）

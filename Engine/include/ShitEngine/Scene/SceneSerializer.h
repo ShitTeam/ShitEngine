@@ -7,6 +7,7 @@
 
 namespace Shit {
 	class Scene;
+	class GameObject;
 
 	/**
 	 * @brief 全场景序列化器 —— .scene 文件的事实标准（v2）
@@ -34,6 +35,10 @@ namespace Shit {
 		/// 序列化整个场景（含层级）为 v2 JSON。被排除的对象（如编辑器相机）不落盘，
 		/// 其子对象提升为根（parent=-1）。
 		static nlohmann::json toJson(Scene* scene, const std::vector<std::string>& excludeNames = {});
+
+		/// 序列化单个对象及其子树（父先于子，parent 为数组内下标；根对象 parent=-1）——
+		/// 编辑器「存为预置」的 .prefab 资产格式（与 .scene 同构，可直接 fromJson 实例化）。
+		static nlohmann::json toJson(Shit::GameObject* root);
 
 		/// 把 JSON 追加实例化进目标场景（对象 + 组件 + 层级 + 相机兜底）。
 		/// 调用方负责前置清场（如编辑器"打开"先删旧对象）；

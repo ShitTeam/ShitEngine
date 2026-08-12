@@ -12,6 +12,7 @@
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QPolygonF>
 #include <QResizeEvent>
 #include <QToolButton>
 #include <QUrl>
@@ -46,6 +47,20 @@ bool firstImageFile(const QMimeData *mime, QString &path)
     for (const QUrl &url : mime->urls()) {
         const QString p = url.toLocalFile();
         if (kImages.contains(QFileInfo(p).suffix().toLower())) {
+            path = p;
+            return true;
+        }
+    }
+    return false;
+}
+
+/// MIME 的 URL 列表中第一个 .prefab 文件路径；无则返回 false（P25c）
+bool firstPrefabFile(const QMimeData *mime, QString &path)
+{
+    if (!mime || !mime->hasUrls()) return false;
+    for (const QUrl &url : mime->urls()) {
+        const QString p = url.toLocalFile();
+        if (QFileInfo(p).suffix().compare(QStringLiteral("prefab"), Qt::CaseInsensitive) == 0) {
             path = p;
             return true;
         }
@@ -281,6 +296,33 @@ void Viewport::drawGizmo(QPainter &painter)
     painter.drawLine(p + QPoint(0, len), p + QPoint(4, len - 6));
 }
 
+bool Viewport::colliderHandleGeom(QPointF &center, float &rotRad, float &pixelScale) const
+{
+    if (!m_selected || !m_editScene || m_frame.isNull() || m_drawRect.isEmpty())
+        return false;
+    // 播放中游戏逻辑可能销毁了选中的对象：不在场景中 → 视为未选中（防悬垂解引用）
+    if (!m_editScene->containsGameObject(m_selected)) return false;
+    auto *camera = editorCamera();
+    auto *transform = m_selected->getComponent<Shit::TransformComponent>();
+    if (!camera || !transform) return false;
+
+    const Shit::Vector2 pos = transform->getPosition();
+    const Shit::Vector2 sp = camera->worldToScreen(pos);
+    center = logicalToWidget(sp.x, sp.y);
+    rotRad = transform->getRotation() * 3.14159265f / 180.0f;
+    pixelScale = static_cast<float>(m_drawRect.width()) / std::max(1, m_frame.width());
+    return true;
+}
+
+/// 碰撞体手柄：局部坐标 → 控件坐标（对象旋转 + 中心平移 + letterbox 像素比例）
+static QPointF colliderLocalToScreen(const QPointF &center, float rotRad, float pixelScale,
+                                     const QPointF &local)
+{
+    const float c = std::cos(rotRad), s = std::sin(rotRad);
+    return QPointF(center.x() + (local.x() * c - local.y() * s) * pixelScale,
+                   center.y() + (local.x() * s + local.y() * c) * pixelScale);
+}
+
 void Viewport::drawPhysicsDebug(QPainter &painter)
 {
     if (!m_showColliders || !m_editScene || m_frame.isNull()) return;
@@ -330,6 +372,44 @@ void Viewport::drawPhysicsDebug(QPainter &painter)
             painter.drawEllipse(c, r, r);
         }
     }
+
+    // —— P25b：选中碰撞体的编辑手柄（黄色高亮轮廓 + 白色尺寸/半径块）——
+    QPointF selCenter;
+    float selRot = 0.0f;
+    float selPs = 1.0f;
+    if (!colliderHandleGeom(selCenter, selRot, selPs)) return;
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(Qt::NoBrush);
+    if (auto *box = m_selected->getComponent<Shit::BoxCollider2D>()) {
+        const Shit::Vector2 half = box->getSize() * 0.5f;
+        const QPointF corners[4] = {
+            colliderLocalToScreen(selCenter, selRot, selPs, {-half.x, -half.y}),
+            colliderLocalToScreen(selCenter, selRot, selPs, { half.x, -half.y}),
+            colliderLocalToScreen(selCenter, selRot, selPs, { half.x,  half.y}),
+            colliderLocalToScreen(selCenter, selRot, selPs, {-half.x,  half.y}),
+        };
+        painter.setBrush(Qt::NoBrush);
+        painter.setPen(QPen(QColor(255, 215, 80), 2));
+        QPolygonF poly;
+        poly << corners[0] << corners[1] << corners[2] << corners[3];
+        painter.drawPolygon(poly);
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(Qt::white);
+        for (const QPointF &corner : corners)
+            painter.drawRect(QRectF(corner.x() - 5, corner.y() - 5, 10, 10));
+    } else if (auto *circle = m_selected->getComponent<Shit::CircleCollider2D>()) {
+        const float r = circle->getRadius() * selPs;
+        painter.setBrush(Qt::NoBrush);
+        painter.setPen(QPen(QColor(255, 215, 80), 2));
+        painter.drawEllipse(selCenter, r, r);
+        const QPointF tip = colliderLocalToScreen(selCenter, selRot, selPs,
+                                                  {circle->getRadius(), 0});
+        painter.setPen(QPen(QColor(255, 215, 80), 1, Qt::DashLine));
+        painter.drawLine(selCenter, tip);
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(Qt::white);
+        painter.drawRect(QRectF(tip.x() - 5, tip.y() - 5, 10, 10));
+    }
 }
 
 void Viewport::mousePressEvent(QMouseEvent *event)
@@ -350,8 +430,46 @@ void Viewport::mousePressEvent(QMouseEvent *event)
         return;
     }
 
-if (event->button() == Qt::LeftButton && m_selected && !m_frame.isNull()
+if (event->button() == Qt::LeftButton && m_editEnabled && m_selected && !m_frame.isNull()
         && m_drawRect.contains(pos)) {
+        // P25b：碰撞体编辑手柄命中（优先于 Gizmo——手柄目标更小，需更精确检测；
+        // 与「碰撞体」开关联动：轮廓隐藏时手柄一并失活；播放态编辑锁禁用）
+        if (m_editEnabled && m_showColliders) {
+            QPointF c; float rotRad = 0.0f; float ps = 1.0f;
+            if (colliderHandleGeom(c, rotRad, ps)) {
+                const QPointF m(pos.x(), pos.y());
+                if (auto *box = m_selected->getComponent<Shit::BoxCollider2D>()) {
+                    const Shit::Vector2 half = box->getSize() * 0.5f;
+                    for (int i = 0; i < 4; ++i) {
+                        const QPointF corner = colliderLocalToScreen(c, rotRad, ps,
+                            {(i & 1) ? half.x : -half.x, (i & 2) ? half.y : -half.y});
+                        if (QRectF(corner.x() - 7, corner.y() - 7, 14, 14).contains(m)) {
+                            m_drag = DragMode::ColliderBox;
+                            m_dragCorner = i;
+                            m_dragStartSizeX = box->getSize().x;
+                            m_dragStartSizeY = box->getSize().y;
+                            m_dragPixelScale = ps;
+                            m_dragStartWidget = pos;
+                            emit gizmoDragStarted();
+                            QWidget::mousePressEvent(event);
+                            return;
+                        }
+                    }
+                } else if (auto *circle = m_selected->getComponent<Shit::CircleCollider2D>()) {
+                    const QPointF tip = colliderLocalToScreen(c, rotRad, ps,
+                                                              {circle->getRadius(), 0});
+                    if (QRectF(tip.x() - 7, tip.y() - 7, 14, 14).contains(m)) {
+                        m_drag = DragMode::ColliderCircle;
+                        m_dragStartWidget = pos;
+                        m_dragPixelScale = ps;
+                        emit gizmoDragStarted();
+                        QWidget::mousePressEvent(event);
+                        return;
+                    }
+                }
+            }
+        }
+
         // Gizmo 手柄命中检测（按模式分派）
         auto *camera = editorCamera();
         auto *transform = m_selected->getComponent<Shit::TransformComponent>();
@@ -511,6 +629,41 @@ void Viewport::mouseMoveEvent(QMouseEvent *event)
             transform->setScale(s);
             update();
         }
+    } else if (m_drag == DragMode::ColliderBox) {
+        // 拖角：屏幕位移 → 逆旋转到对象局部系 → 尺寸双边伸缩（角移动 = 半宽两倍）
+        if (auto *box = m_selected ? m_selected->getComponent<Shit::BoxCollider2D>() : nullptr) {
+            if (auto *transform = m_selected->getComponent<Shit::TransformComponent>()) {
+                const float rotRad = transform->getRotation() * 3.14159265f / 180.0f;
+                const float dxw = static_cast<float>(event->pos().x() - m_dragStartWidget.x());
+                const float dyw = static_cast<float>(event->pos().y() - m_dragStartWidget.y());
+                const float cosr = std::cos(rotRad), sinr = std::sin(rotRad);
+                const float ldx = (dxw * cosr + dyw * sinr) / m_dragPixelScale;
+                const float ldy = (-dxw * sinr + dyw * cosr) / m_dragPixelScale;
+                float sx = m_dragStartSizeX + 2.0f * ldx * ((m_dragCorner & 1) ? 1.0f : -1.0f);
+                float sy = m_dragStartSizeY + 2.0f * ldy * ((m_dragCorner & 2) ? 1.0f : -1.0f);
+                if (event->modifiers() & Qt::ControlModifier) {
+                    sx = std::round(sx / 4.0f) * 4.0f;
+                    sy = std::round(sy / 4.0f) * 4.0f;
+                }
+                box->setSize({ std::max(2.0f, sx), std::max(2.0f, sy) });
+                update();
+            }
+        }
+    } else if (m_drag == DragMode::ColliderCircle) {
+        // 半径 = 当前鼠标到圆心的控件距离 / 像素比例（直观地"拖到鼠标处"）
+        if (auto *circle = m_selected ? m_selected->getComponent<Shit::CircleCollider2D>() : nullptr) {
+            QPointF c; float rotRad = 0.0f; float ps = 1.0f;
+            if (colliderHandleGeom(c, rotRad, ps)) {
+                const QPointF m(event->pos());
+                const float dx = static_cast<float>(m.x() - c.x());
+                const float dy = static_cast<float>(m.y() - c.y());
+                float r = std::hypot(dx, dy) / m_dragPixelScale;
+                if (event->modifiers() & Qt::ControlModifier)
+                    r = std::round(r / 4.0f) * 4.0f;
+                circle->setRadius(std::max(2.0f, r));
+                update();
+            }
+        }
     } else if (m_drag == DragMode::Pan) {
         if (auto *t = camera->getOwner()->getComponent<Shit::TransformComponent>()) {
             t->setPosition({ m_panStartCamX - worldDx, m_panStartCamY - worldDy });
@@ -522,11 +675,13 @@ void Viewport::mouseMoveEvent(QMouseEvent *event)
 
 void Viewport::mouseReleaseEvent(QMouseEvent *event)
 {
-    // 只有 Gizmo 拖拽（对象变换已写回）才算编辑；相机平移/缩放不入库，不置 dirty
+    // 只有 Gizmo/碰撞体拖拽（对象字段已写回）才算编辑；相机平移/缩放不入库，不置 dirty
     const bool wasGizmoDrag = (m_drag == DragMode::GizmoX || m_drag == DragMode::GizmoY
                             || m_drag == DragMode::Move
                             || m_drag == DragMode::Rotate || m_drag == DragMode::ScaleX
-                            || m_drag == DragMode::ScaleY);
+                            || m_drag == DragMode::ScaleY
+                            || m_drag == DragMode::ColliderBox
+                            || m_drag == DragMode::ColliderCircle);
     m_drag = DragMode::None;
     if (wasGizmoDrag)
         emit gizmoDragFinished();
@@ -548,7 +703,7 @@ void Viewport::wheelEvent(QWheelEvent *event)
 void Viewport::dragEnterEvent(QDragEnterEvent *event)
 {
     QString path;
-    if (firstImageFile(event->mimeData(), path)) {
+    if (firstImageFile(event->mimeData(), path) || firstPrefabFile(event->mimeData(), path)) {
         event->acceptProposedAction();
         return;
     }
@@ -558,7 +713,7 @@ void Viewport::dragEnterEvent(QDragEnterEvent *event)
 void Viewport::dragMoveEvent(QDragMoveEvent *event)
 {
     QString path;
-    if (firstImageFile(event->mimeData(), path)) {
+    if (firstImageFile(event->mimeData(), path) || firstPrefabFile(event->mimeData(), path)) {
         event->acceptProposedAction();
         return;
     }
@@ -568,7 +723,8 @@ void Viewport::dragMoveEvent(QDragMoveEvent *event)
 void Viewport::dropEvent(QDropEvent *event)
 {
     QString path;
-    if (!firstImageFile(event->mimeData(), path)) {
+    const bool isPrefab = firstPrefabFile(event->mimeData(), path);
+    if (!isPrefab && !firstImageFile(event->mimeData(), path)) {
         event->ignore();
         return;
     }
@@ -581,5 +737,8 @@ void Viewport::dropEvent(QDropEvent *event)
 #endif
     const QPointF logical = widgetToLogical(pos);
     event->acceptProposedAction();
-    emit assetDropped(path, static_cast<float>(logical.x()), static_cast<float>(logical.y()));
+    if (isPrefab)
+        emit prefabDropped(path, static_cast<float>(logical.x()), static_cast<float>(logical.y()));
+    else
+        emit assetDropped(path, static_cast<float>(logical.x()), static_cast<float>(logical.y()));
 }

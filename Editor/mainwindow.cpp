@@ -20,6 +20,7 @@
 #include <QMouseEvent>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QScreen>
 #include <QStatusBar>
 #include <QTabWidget>
 #include <QTextEdit>
@@ -28,6 +29,8 @@
 #include <QWheelEvent>
 
 #include <SDL3/SDL_events.h>
+
+#include <unordered_set>
 #include <SDL3/SDL_scancode.h>
 
 #include <algorithm>
@@ -128,6 +131,22 @@ MainWindow::MainWindow(QWidget *parent)
             s->setValue("dockStateDefault", saveState(kLayoutVersion));
         }
         restoreGeometry(s->value("windowGeometry").toByteArray());
+        // P25e：跨分辨率/DPI 恢复的窗口几何可能超出可用屏幕（保存时屏大、恢复时屏小，
+        // 右侧「属性」/底部「资源 日志」Dock 会被推到屏幕外）。restoreGeometry 异步生效，
+        // 此刻 frameGeometry 尚未更新（Windows SetWindowPos 异步），延迟到几何应用后钳制。
+        QTimer::singleShot(120, this, [this] {
+            if (const QScreen *screen = QGuiApplication::primaryScreen()) {
+                const QRect avail = screen->availableGeometry();
+                const QRect fg = frameGeometry();
+                // 正溢出（宽/高超出或左边越界；容忍 -8 阴影边距）才钳制，
+                // 普通小窗口/多屏布局不受干扰
+                if (fg.width() > avail.width() || fg.height() > avail.height()
+                    || fg.left() < avail.left() - 8 || fg.top() < avail.top() - 8) {
+                    resize(std::min(1280, avail.width() - 80), std::min(800, avail.height() - 80));
+                    move(avail.center().x() - width() / 2, avail.center().y() - height() / 2);
+                }
+            }
+        });
     }
 
     // 场景视图点击 → 拾取（须在双视口创建后连接）
@@ -165,6 +184,10 @@ MainWindow::MainWindow(QWidget *parent)
             openScenePath(path);
     });
     connect(m_sceneViewport, &Viewport::assetDropped, this, &MainWindow::onViewportAssetDropped);
+    // P25c：.prefab 预置资产（拖入视口实例化 / 双击实例化 / 场景树存为预置）
+    connect(m_sceneViewport, &Viewport::prefabDropped, this, &MainWindow::onPrefabDropped);
+    connect(m_assets, &AssetsDock::prefabOpenRequested, this, &MainWindow::onPrefabOpenRequested);
+    connect(m_sceneTree, &SceneTree::prefabSaveRequested, this, &MainWindow::onSaveObjectAsPrefab);
 
     // 单一引擎预览：共享场景，双视口同源（编辑一处，双视图同步）
     m_preview = new EnginePreview(this);
@@ -623,6 +646,98 @@ void MainWindow::pasteObject()
     m_sceneTree->selectObject(dup);
 }
 
+// ── P25c：Prefab 预置资产（存为预置 / 拖入或双击实例化）──
+
+void MainWindow::onSaveObjectAsPrefab(Shit::GameObject *object)
+{
+    if (!object || !m_preview) return;
+    if (isPlaying()) {
+        m_log->appendMessage(tr("播放中不能存为预置"), Qt::yellow);
+        return;
+    }
+    const nlohmann::json doc = Shit::SceneSerializer::toJson(object);
+    const QString base = QString::fromStdString(object->getName()).replace(' ', '_');
+    const QString dir = m_assets->projectDir().isEmpty()
+        ? QCoreApplication::applicationDirPath() : m_assets->projectDir();
+    const QString path = QFileDialog::getSaveFileName(this, tr("存为预置"),
+        dir + "/" + base + ".prefab", tr("ShitEngine 预置 (*.prefab)"));
+    if (path.isEmpty()) return;
+
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        m_log->appendMessage(tr("无法写入预置文件: %1").arg(path), Qt::red);
+        return;
+    }
+    file.write(doc.dump(2).c_str());
+    m_log->appendMessage(tr("已保存预置: %1（%2 个对象，含子树）")
+        .arg(QFileInfo(path).fileName()).arg(doc["objects"].size()));
+    // 资源面板 QFileSystemModel 自动监听目录，无需手动刷新
+}
+
+void MainWindow::onPrefabOpenRequested(const QString &path)
+{
+    instantiatePrefab(path, false, 0.0f, 0.0f);
+}
+
+void MainWindow::onPrefabDropped(const QString &path, float logicalX, float logicalY)
+{
+    instantiatePrefab(path, true, logicalX, logicalY);
+}
+
+void MainWindow::instantiatePrefab(const QString &path, bool useDropPos, float logicalX, float logicalY)
+{
+    Shit::Scene *scene = m_preview ? m_preview->getScene() : nullptr;
+    if (!scene) return;
+
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        m_log->appendMessage(tr("无法读取预置文件: %1").arg(path), Qt::red);
+        return;
+    }
+    nlohmann::json doc;
+    try {
+        doc = nlohmann::json::parse(file.readAll().toStdString());
+    } catch (const std::exception &e) {
+        m_log->appendMessage(tr("预置文件解析失败: %1").arg(e.what()), Qt::red);
+        return;
+    }
+    if (!doc.contains("objects") || !doc["objects"].is_array() || doc["objects"].empty()) {
+        m_log->appendMessage(tr("预置文件为空或格式无效: %1").arg(QFileInfo(path).fileName()), Qt::red);
+        return;
+    }
+
+    // 根对象重名去重（与复制粘贴同款 " (1)" 后缀；子树内部名字保留）
+    if (doc["objects"][0].contains("name") && doc["objects"][0]["name"].is_string())
+        doc["objects"][0]["name"] = uniqueObjectName(scene,
+            doc["objects"][0]["name"].get<std::string>()).toStdString();
+
+    // 记录现有对象 → fromJson 后找出新增根对象（用于落点定位与选中）
+    std::unordered_set<Shit::GameObject *> before;
+    for (auto &go : scene->getGameObjects()) before.insert(go.get());
+
+    undoBegin();
+    Shit::SceneSerializer::fromJson(doc, scene);
+    Shit::GameObject *created = nullptr;
+    for (auto &go : scene->getGameObjects())
+        if (!before.count(go.get())) { created = go.get(); break; }
+    if (created && useDropPos) {
+        // 落点逻辑像素 → 世界坐标（与拾取/拖图同源）
+        Shit::Vector2 world{ 0.0f, 0.0f };
+        for (auto &go : scene->getGameObjects())
+            if (auto *cam = go->getComponent<Shit::CameraComponent>()) {
+                world = cam->screenToWorld({ logicalX, logicalY });
+                break;
+            }
+        if (auto *t = created->getComponent<Shit::TransformComponent>())
+            t->setPosition(world);
+    }
+    undoCommit(tr("实例化预置 %1").arg(QFileInfo(path).baseName()));
+    setDirty(true);
+    m_sceneTree->setScene(scene, false);
+    if (created) m_sceneTree->selectObject(created);
+    m_log->appendMessage(tr("已实例化预置: %1").arg(QFileInfo(path).fileName()));
+}
+
 void MainWindow::updateUndoActions()
 {
     if (!m_undoAction || !m_redoAction) return;
@@ -978,6 +1093,9 @@ void MainWindow::enterPlayMode()
         }
         m_preview->setPlaying(true);
     }
+    // P25d：播放态编辑锁——检查器只读（运行时值仍实时刷新）、视口 Gizmo/碰撞体手柄禁用
+    m_inspector->setPlayMode(true);
+    m_sceneViewport->setEditEnabled(false);
     updateUndoActions();
     statusBar()->showMessage(tr("运行中"));
 }
@@ -1000,6 +1118,9 @@ void MainWindow::exitPlayMode()
         applySnapshot(m_runSnapshot);
     m_hasRunSnapshot = false;
     m_playPendingBuild = false;
+    // P25d：解锁编辑（applySnapshot 重建检查器后调用，控件默认启用态）
+    m_inspector->setPlayMode(false);
+    m_sceneViewport->setEditEnabled(true);
     updateUndoActions();
     statusBar()->showMessage(tr("已停止（恢复运行前状态）"), 2500);
 }

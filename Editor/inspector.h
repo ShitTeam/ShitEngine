@@ -34,6 +34,11 @@ public:
     /// 从组件重读当前值并更新控件（引擎 → 检查器实时同步）
     void refresh();
 
+    /// 播放态编辑锁（P25d）：播放中所有控件只读（Unity 语义）——字段控件/Add Component/
+    /// 移除按钮/对象名栏全部禁用，但每帧回读刷新照常（运行时值实时可见）。
+    /// 停止后自动解锁；重建表单（setGameObject）时按当前状态重新应用。
+    void setPlayMode(bool playing);
+
 signals:
     /// 诊断：每次重建时报告渲染了 n 个组件 / n 个字段（供日志定位）
     void buildInfo(int components, int fields);
@@ -78,6 +83,8 @@ private:
 
     int m_componentCount = 0;  ///< 本次构建渲染的组件数（诊断）
     int m_fieldCount = 0;      ///< 本次构建渲染的字段数（诊断）
+    bool m_playMode = false;   ///< 播放态编辑锁（setPlayMode 写入，setGameObject 重建时重新应用）
+    void applyEditLock();      ///< 按 m_playMode 统一禁用/启用表单控件
 };
 
 #endif // INSPECTOR_H

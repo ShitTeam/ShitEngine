@@ -47,6 +47,9 @@ public:
     /// 是否显示视图内 Gizmo 工具条（运行视口为 false——运行态无编辑，按钮徒增干扰）
     void setGizmoBarVisible(bool visible) { if (m_gizmoBar) m_gizmoBar->setVisible(visible); }
 
+    /// 播放态编辑锁（P25d）：关闭后 Gizmo 与碰撞体手柄不可拖拽（拾取仍可用）
+    void setEditEnabled(bool enabled) { m_editEnabled = enabled; update(); }
+
     /// 控件坐标 → 逻辑像素坐标（播放态输入转发等外部使用）
     QPointF mapToLogical(const QPoint &pos) const { return widgetToLogical(pos); }
 
@@ -59,6 +62,8 @@ signals:
     void gizmoDragFinished();
     /// 资源文件（图片）被拖入视口（逻辑像素坐标；供创建精灵用）
     void assetDropped(const QString &path, float logicalX, float logicalY);
+    /// .prefab 预置资产被拖入视口（逻辑像素坐标；供实例化用，P25c）
+    void prefabDropped(const QString &path, float logicalX, float logicalY);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -84,8 +89,12 @@ private:
     void drawPhysicsDebug(QPainter &painter);
     /// 点到线段距离（Gizmo 手柄命中判定）
     static float distToSegment(const QPointF &p, const QPointF &a, const QPointF &b);
+    /// P25b：计算选中对象碰撞体手柄的绘制/命中几何（并校验存活）。
+    /// 成功返回 true 并输出中心屏幕点 / 旋转弧度 / 像素比例。
+    bool colliderHandleGeom(QPointF &center, float &rotRad, float &pixelScale) const;
 
-    enum class DragMode { None, GizmoX, GizmoY, Move, Rotate, ScaleX, ScaleY, Pan };
+    enum class DragMode { None, GizmoX, GizmoY, Move, Rotate, ScaleX, ScaleY,
+                          ColliderBox, ColliderCircle, Pan };
     DragMode m_drag = DragMode::None;
     QPoint m_dragStartWidget;       ///< 拖动起点（控件坐标）
     float m_dragStartPosX = 0.0f;   ///< 对象拖动前世界位置
@@ -94,6 +103,10 @@ private:
     float m_dragStartSnapped = 0.0f;
     float m_dragStartScaleX = 1.0f;    ///< 缩放模式：起始缩放
     float m_dragStartScaleY = 1.0f;
+    float m_dragStartSizeX = 0.0f;     ///< 碰撞体手柄：起始尺寸/半径与角索引
+    float m_dragStartSizeY = 0.0f;
+    int m_dragCorner = 0;
+    float m_dragPixelScale = 1.0f;     ///< 碰撞体手柄：逻辑像素→控件像素比例（拖拽期缓存）
     float m_panStartCamX = 0.0f;    ///< 相机平移前位置
     float m_panStartCamY = 0.0f;
 
@@ -102,6 +115,7 @@ private:
     Shit::Scene *m_editScene = nullptr;
     Shit::GameObject *m_selected = nullptr;
     GizmoMode m_gizmoMode = GizmoMode::Move;
+    bool m_editEnabled = true;   ///< 播放态编辑锁（P25d）
 
     // P14：视图内 Gizmo 工具条（左上角，Unity 风格）
     QWidget *m_gizmoBar = nullptr;

@@ -29,7 +29,7 @@ class LogWidget;
 class EnginePreview;
 class AssetsDock;
 
-namespace Shit { class Scene; }   ///< 播放中场景同步成员用（仅指针，不要求完整类型）
+namespace Shit { class Scene; class GameObject; }   ///< 播放中场景同步成员用（仅指针，不要求完整类型）
 
 class MainWindow : public QMainWindow
 {
@@ -69,6 +69,11 @@ private slots:
     void onSceneFrameReady(const QImage &frame);  ///< 场景视图帧：同步树/选中态 + 检查器回读
     void pickSceneAt(float x, float y);  ///< 场景视图点击拾取
     void onViewportAssetDropped(const QString &path, float logicalX, float logicalY); ///< 资源图拖入视口 → 建精灵
+    void onPrefabDropped(const QString &path, float logicalX, float logicalY); ///< .prefab 拖入视口 → 实例化（P25c）
+    void onPrefabOpenRequested(const QString &path);  ///< 资产面板双击 .prefab → 实例化（P25c）
+    void onSaveObjectAsPrefab(Shit::GameObject *object);  ///< 场景树「存为预置…」→ 写 .prefab 文件（P25c）
+    /// 从 .prefab 文件实例化进当前场景（useDropPos 时把根对象移到落点世界坐标）
+    void instantiatePrefab(const QString &path, bool useDropPos, float logicalX, float logicalY);
 
     // P14 项目
     void newProject();                   ///< 新建项目向导

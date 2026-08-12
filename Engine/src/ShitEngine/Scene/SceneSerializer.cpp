@@ -98,6 +98,30 @@ json SceneSerializer::toJson(Scene* scene, const std::vector<std::string>& exclu
 	return doc;
 }
 
+json SceneSerializer::toJson(GameObject* root) {
+	json doc;
+	doc["version"] = kSceneVersion;
+	json objects = json::array();
+	if (!root) return doc;
+
+	// 子树 DFS（父先于子）：根对象 parent=-1，子树内按数组下标引用
+	std::unordered_map<GameObject*, int> indexOf;
+	std::function<void(GameObject*)> walk = [&](GameObject* go) {
+		indexOf[go] = static_cast<int>(objects.size());
+		json entry;
+		entry["name"] = go->getName();
+		GameObject* parent = go->getParent();
+		entry["parent"] = (go != root && parent) ? indexOf.at(parent) : -1;
+		entry["data"] = Prefab::Capture(go).toJson();
+		objects.push_back(std::move(entry));
+		for (auto* child : go->getChildren()) walk(child);
+	};
+	walk(root);
+
+	doc["objects"] = std::move(objects);
+	return doc;
+}
+
 void SceneSerializer::fromJson(const json& doc, Scene* scene) {
 	if (!scene) return;
 	if (!doc.is_object() || !doc.contains("objects") || !doc["objects"].is_array()) {
