@@ -42,7 +42,7 @@ void ScriptBuilder::build(const QString &scriptsDir, const QString &buildDir,
     m_binDir = binDir;
     m_configured = false;
     m_lastConfigureFailed = false;
-    m_vsGeneratorIndex = 0;   // 每次构建从首选生成器开始
+    m_vsGeneratorIndex = m_lastGoodGeneratorIndex;   // 从上次成功生成器开始（避免每次先失败一次）
 
     if (!QFile::exists(scriptsDir + "/CMakeLists.txt")) {
         emit buildFailed(tr("脚本工程不存在：%1/CMakeLists.txt").arg(scriptsDir));
@@ -152,6 +152,7 @@ void ScriptBuilder::onProcessFinished(int exitCode, QProcess::ExitStatus status)
         m_configured = ok;
         m_lastConfigureFailed = !ok;
         if (ok) {
+            m_lastGoodGeneratorIndex = m_vsGeneratorIndex;   // 记住本次成功生成器
             emit buildOutput(tr("-- 配置完成 --"));
             startBuild();
             return;

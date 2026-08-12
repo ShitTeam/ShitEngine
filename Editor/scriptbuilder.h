@@ -66,6 +66,8 @@ private:
     QStringList m_vsGenerators{ QStringLiteral("Visual Studio 17 2022"),
                                 QStringLiteral("Visual Studio 18 2026") };
     int m_vsGeneratorIndex = 0;
+    /// 上次配置成功的生成器下标（跨构建记忆：本机只装 VS18 时不必每次先试 VS17 失败一次）
+    int m_lastGoodGeneratorIndex = 0;
 };
 
 #endif // SCRIPTBUILDER_H
