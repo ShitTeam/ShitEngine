@@ -139,11 +139,9 @@ static void syncSceneSystems(const json& doc, Scene* scene) {
 
 	// 期望集合
 	std::unordered_set<std::string> desired = kDefaultSystemNames;
-	if (doc["systems"].is_array()) {
-		for (const auto& entry : doc["systems"]) {
-			if (entry.is_object() && entry.contains("type") && entry["type"].is_string()) {
-				desired.insert(entry["type"].get<std::string>());
-			}
+	for (const auto& entry : doc["systems"]) {
+		if (entry.is_object() && entry.contains("type") && entry["type"].is_string()) {
+			desired.insert(entry["type"].get<std::string>());
 		}
 	}
 
@@ -153,22 +151,24 @@ static void syncSceneSystems(const json& doc, Scene* scene) {
 		if (kDefaultSystemNames.count(name)) continue; // 默认三系统不操作
 		scene->unregisterSystem(name);
 	}
+	// 立即处理移除队列：确保 hasSystem 不会返回已标记移除的系统（防字段恢复跳过）
+	scene->flushPendingSystemRemovals();
 
-	// 注册缺失的期望系统
-	for (const auto& name : desired) {
-		if (scene->hasSystem(name)) continue;
-		if (kDefaultSystemNames.count(name)) continue; // 默认系统由 Scene::init 注册
-		System* sys = scene->registerSystem(name);
-		if (sys) {
-			// 反序列化字段
-			for (const auto& entry : doc["systems"]) {
-				if (entry.is_object() && entry.value("type", "") == name && entry.contains("fields")) {
-					deserializeSystemFields(sys, entry["fields"]);
-					sys->onFieldChanged("");  // 通知系统所有字段已变更
-				}
-			}
+	// 注册缺失的期望系统 + 恢复字段（含已注册的系统也要恢复字段）
+	for (const auto& entry : doc["systems"]) {
+		if (!entry.is_object()) continue;
+		const std::string name = entry.value("type", "");
+		if (name.empty() || kDefaultSystemNames.count(name)) continue;
+
+		System* sys = nullptr;
+		if (scene->hasSystem(name)) {
+			sys = scene->getSystem(name);  // 已注册（如自愈的 PhysicsSystem2D），复用并恢复字段
 		} else {
-			ST_CORE_WARN("[SceneSerializer] 无法加载系统 \"{}\"（类型未注册或无工厂）", name);
+			sys = scene->registerSystem(name);  // 新注册
+		}
+		if (sys && entry.contains("fields")) {
+			deserializeSystemFields(sys, entry["fields"]);
+			sys->onFieldChanged("");  // 通知系统所有字段已变更
 		}
 	}
 }

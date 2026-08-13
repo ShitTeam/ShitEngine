@@ -26,9 +26,11 @@ namespace Shit {
 PhysicsSystem2D::~PhysicsSystem2D() = default;
 
 		void PhysicsSystem2D::onFieldChanged(const std::string& fieldName) {
-			if (fieldName == "m_gravity") {
+			// 空字符串 = 所有字段已变更（反序列化后统一同步）
+			if (fieldName.empty() || fieldName == "m_gravity") {
 				setGravity(m_gravity);  // 即时同步到 Box2D 世界
-			} else if (fieldName == "m_pixelsPerMeter") {
+			}
+			if (fieldName.empty() || fieldName == "m_pixelsPerMeter") {
 				setPixelsPerMeter(m_pixelsPerMeter);  // 下次 init 生效
 			}
 		}

@@ -167,6 +167,9 @@ bool EnginePreview::reloadProjectPlugins(const QString &configPath,
             scene->unregisterSystem(name);
         }
     }
+    // 立即处理待移除队列：确保系统在 DLL 卸载前被 destroy + 释放
+    // （否则 fromJson 加载对象时组件 onAttach 会广播到 vtable 悬垂的系统 → 崩溃）
+    scene->flushPendingSystemRemovals();
 
     // 3) 卸载旧插件 → 释放 DLL 文件锁
     if (m_plugins) m_plugins->UnloadAll();

@@ -122,6 +122,7 @@ private:
     std::string m_systemsSignature;      ///< 系统列表签名（用于检测变化）
     QWidget *m_scenePanel = nullptr;     ///< 场景系统面板容器
     QVBoxLayout *m_systemLayout = nullptr; ///< 系统面板内布局
+    QFormLayout *m_systemFieldsForm = nullptr; ///< 选中系统的字段编辑表单布局
     QString m_selectedSystemName;        ///< 当前选中的系统名（展开字段编辑）
     QWidget *m_systemFieldsContainer = nullptr; ///< 选中系统的字段编辑容器
     int m_systemFieldCount = 0;          ///< 系统字段数（诊断）

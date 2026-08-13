@@ -141,6 +141,9 @@ template <typename T>
 			/// @brief 卸载指定来源注册的所有系统（插件卸载前调用，防止卸载 DLL 后 vtable 悬垂）
 			void unregisterSystemsBySource(const std::string& source);
 
+			/// @brief 立即处理待移除系统队列（热重载卸载 DLL 前调用，确保 vtable 悬垂前销毁系统）
+			void flushPendingSystemRemovals();
+
 		// --- getter & setter ---
 		const std::string& getName() const { return m_name; }
 		std::vector<std::unique_ptr<GameObject>>& getGameObjects() { return m_gameObjects; }

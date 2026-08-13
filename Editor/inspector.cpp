@@ -287,6 +287,10 @@ void Inspector::clear()
     m_readbacks.clear();
     m_object = nullptr;
     m_selectedSystemName.clear();
+    m_scenePanel = nullptr;         // 重置指针（旧 widget 由 m_form->removeRow 摘除后 Qt 父子关系回收）
+    m_systemFieldsForm = nullptr;
+    m_systemLayout = nullptr;
+    m_systemFieldsContainer = nullptr;
     while (m_form->rowCount() > 0)
         m_form->removeRow(0);
 
@@ -305,8 +309,11 @@ void Inspector::refresh()
     // 系统面板刷新：比较签名，仅变化时重建
     if (m_object == nullptr && m_scene) {
         std::string sig;
-        for (const auto& name : m_scene->getRegisteredSystemTypeNames())
-            sig += name + ":" + std::to_string(m_scene->getSystem(name)->getPriority()) + ";";
+        for (const auto& name : m_scene->getRegisteredSystemTypeNames()) {
+            auto* sys = m_scene->getSystem(name);
+            if (!sys) continue;  // 系统可能在延迟移除队列中，跳过防空指针
+            sig += name + ":" + std::to_string(sys->getPriority()) + ";";
+        }
         if (sig != m_systemsSignature) {
             m_systemsSignature = sig;
             rebuildSystemPanel();
@@ -569,13 +576,14 @@ void Inspector::buildSceneSystemPanel()
         if (sys) {
             auto *fieldsContainer = new QWidget(m_scenePanel);
             m_systemFieldsContainer = fieldsContainer;
-            auto *fieldsLayout = new QVBoxLayout(fieldsContainer);
-            fieldsLayout->setContentsMargins(8, 2, 0, 2);
-            fieldsLayout->setSpacing(2);
+            auto *fieldsFormLayout = new QFormLayout(fieldsContainer);
+            m_systemFieldsForm = fieldsFormLayout;
+            fieldsFormLayout->setContentsMargins(8, 2, 0, 2);
+            fieldsFormLayout->setSpacing(2);
 
             auto *fieldHeader = new QLabel(tr("系统属性"), fieldsContainer);
             fieldHeader->setStyleSheet("font-size: 11px; color: #7a8a9a; padding: 2px 0;");
-            fieldsLayout->addWidget(fieldHeader);
+            fieldsFormLayout->addRow(fieldHeader);
 
             const Shit::TypeInfo *ti = Shit::TypeRegistry::Get(std::type_index(typeid(*sys)));
             if (ti) {
@@ -610,13 +618,12 @@ void Inspector::buildSceneSystemPanel()
 void Inspector::rebuildSystemPanel()
 {
     if (!m_scenePanel) return;
-    if (m_scenePanel) {
-        // 删除旧的系统面板内容
-        m_scenePanel->deleteLater();
-        m_scenePanel = nullptr;
-    }
+    m_readbacks.clear();  // BUG FIX: 清空旧回读，防 refresh 调用已删除控件的 lambda（use-after-free）
+    m_scenePanel->deleteLater();
+    m_scenePanel = nullptr;
     m_systemFieldsContainer = nullptr;
     m_systemLayout = nullptr;
+    m_systemFieldsForm = nullptr;
     while (m_form->rowCount() > 0)
         m_form->removeRow(0);
     buildSceneSystemPanel();
@@ -680,7 +687,7 @@ void Inspector::addSystemFieldRow(const Shit::FieldInfo &field, Shit::System *sy
             val = QString("(%1, %2)").arg(v->x).arg(v->y);
         }
         else if (field.typeName == "std::string") val = QString::fromStdString(*reinterpret_cast<std::string*>(ptr));
-        m_form->addRow(name, new QLabel(val, m_content));
+        m_systemFieldsForm->addRow(name, new QLabel(val, m_content));
         return;
     }
 
@@ -698,7 +705,7 @@ void Inspector::addSystemFieldRow(const Shit::FieldInfo &field, Shit::System *sy
             emit fieldEdited();
         });
         connect(box, &QDoubleSpinBox::editingFinished, this, [this] { emit fieldCommitted(); });
-        m_form->addRow(name, box);
+        m_systemFieldsForm->addRow(name, box);
         m_readbacks.push_back([box, sys, field] {
             box->blockSignals(true);
             box->setValue(*reinterpret_cast<float*>(field.GetFieldPtr(sys)));
@@ -715,7 +722,7 @@ void Inspector::addSystemFieldRow(const Shit::FieldInfo &field, Shit::System *sy
             emit fieldEdited();
         });
         connect(box, &QSpinBox::editingFinished, this, [this] { emit fieldCommitted(); });
-        m_form->addRow(name, box);
+        m_systemFieldsForm->addRow(name, box);
         m_readbacks.push_back([box, sys, field] {
             box->blockSignals(true);
             box->setValue(*reinterpret_cast<int*>(field.GetFieldPtr(sys)));
@@ -731,7 +738,7 @@ void Inspector::addSystemFieldRow(const Shit::FieldInfo &field, Shit::System *sy
             emit fieldEdited();
             emit fieldCommitted();
         });
-        m_form->addRow(name, check);
+        m_systemFieldsForm->addRow(name, check);
         m_readbacks.push_back([check, sys, field] {
             check->blockSignals(true);
             check->setChecked(*reinterpret_cast<bool*>(field.GetFieldPtr(sys)));
@@ -759,7 +766,7 @@ void Inspector::addSystemFieldRow(const Shit::FieldInfo &field, Shit::System *sy
         layout->setContentsMargins(0, 0, 0, 0);
         layout->addWidget(xBox);
         layout->addWidget(yBox);
-        m_form->addRow(name, row);
+        m_systemFieldsForm->addRow(name, row);
         m_readbacks.push_back([xBox, yBox, sys, field] {
             auto *p = reinterpret_cast<Shit::Vector2*>(field.GetFieldPtr(sys));
             xBox->blockSignals(true);
@@ -779,7 +786,7 @@ void Inspector::addSystemFieldRow(const Shit::FieldInfo &field, Shit::System *sy
             emit fieldEdited();
         });
         connect(edit, &QLineEdit::editingFinished, this, [this] { emit fieldCommitted(); });
-        m_form->addRow(name, edit);
+        m_systemFieldsForm->addRow(name, edit);
         m_readbacks.push_back([edit, sys, field] {
             edit->blockSignals(true);
             edit->setText(QString::fromStdString(*reinterpret_cast<std::string*>(field.GetFieldPtr(sys))));
@@ -805,7 +812,7 @@ void Inspector::addSystemFieldRow(const Shit::FieldInfo &field, Shit::System *sy
                 emit fieldEdited();
                 emit fieldCommitted();
             });
-            m_form->addRow(name, combo);
+            m_systemFieldsForm->addRow(name, combo);
             m_readbacks.push_back([combo, sys, field] {
                 const int v = *reinterpret_cast<int*>(field.GetFieldPtr(sys));
                 const int idx = combo->findData(v);
@@ -814,7 +821,7 @@ void Inspector::addSystemFieldRow(const Shit::FieldInfo &field, Shit::System *sy
                 combo->blockSignals(false);
             });
         } else {
-            m_form->addRow(name, new QLabel(QString("<%1>").arg(typeNameOf(field)), m_content));
+            m_systemFieldsForm->addRow(name, new QLabel(QString("<%1>").arg(typeNameOf(field)), m_content));
         }
     }
 }

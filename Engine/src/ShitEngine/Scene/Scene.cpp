@@ -445,4 +445,8 @@ m_pendingRemoveSystems.erase(m_pendingRemoveSystems.begin(), m_pendingRemoveSyst
 				m_pendingRemoveSystems.push_back(typeIdx);
 			}
 		}
+
+		void Scene::flushPendingSystemRemovals() {
+			processPendingRemoveSystems();
+		}
 	}
