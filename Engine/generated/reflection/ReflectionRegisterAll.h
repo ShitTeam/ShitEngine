@@ -17,11 +17,16 @@
 #include "Shit__CircleCollider2D.gen.h"
 #include "Shit__JointType.gen.h"
 #include "Shit__Joint2D.gen.h"
+#include "Shit__PhysicsSystem2D.gen.h"
 #include "Shit__RigidBody2D.gen.h"
+#include "Shit__RenderSystem.gen.h"
+#include "Shit__BehaviorSystem.gen.h"
+#include "Shit__System.gen.h"
 #include "Shit__UIButton.gen.h"
 #include "Shit__UICanvas.gen.h"
 #include "Shit__UIImage.gen.h"
 #include "Shit__UIRendererComponent.gen.h"
+#include "Shit__UIRenderSystem.gen.h"
 #include "Shit__UIText.gen.h"
 #include "Shit__UITextArea.gen.h"
 #include "Shit__UITextBox.gen.h"
@@ -43,11 +48,16 @@ inline void RegisterAllReflectedTypes() {
     Shit::Register_CircleCollider2D();
     Shit::Register_JointType();
     Shit::Register_Joint2D();
+    Shit::Register_PhysicsSystem2D();
     Shit::Register_RigidBody2D();
+    Shit::Register_RenderSystem();
+    Shit::Register_BehaviorSystem();
+    Shit::Register_System();
     Shit::Register_UIButton();
     Shit::Register_UICanvas();
     Shit::Register_UIImage();
     Shit::Register_UIRendererComponent();
+    Shit::Register_UIRenderSystem();
     Shit::Register_UIText();
     Shit::Register_UITextArea();
     Shit::Register_UITextBox();

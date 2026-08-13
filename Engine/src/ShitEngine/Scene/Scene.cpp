@@ -10,6 +10,8 @@
 #include "ShitEngine/Render/RenderSystem.h"
 #include "ShitEngine/System/BehaviorSystem.h"
 #include "ShitEngine/UI/UIRenderSystem.h"
+#include "ShitEngine/Reflection/TypeRegistry.h"
+#include "ShitEngine/Reflection/Macros.h"
 
 namespace Shit {
 	Scene::Scene(const std::string& name) : m_name(name) {
@@ -339,6 +341,108 @@ namespace Shit {
 				m_systemsMap.erase(it);
 			}
 		}
-		m_pendingRemoveSystems.erase(m_pendingRemoveSystems.begin(), m_pendingRemoveSystems.begin() + count);
+m_pendingRemoveSystems.erase(m_pendingRemoveSystems.begin(), m_pendingRemoveSystems.begin() + count);
+		}
+
+		// ── 按字符串名称的系统管理 ──────────────────────────────
+
+		/// 检查一个反射类型是否是 System 派生（沿基类链查找 "System"）
+		namespace {
+			bool isSystemDerived(const Shit::TypeInfo* ti) {
+				for (const Shit::TypeInfo* b = ti; b; b = b->baseType)
+					if (b->name == "System") return true;
+				return false;
+			}
+		}
+
+		System* Scene::registerSystem(const std::string& typeName) {
+			const TypeInfo* ti = TypeRegistry::Get(typeName);
+			if (!ti) {
+				ST_CORE_WARN("[Scene] registerSystem: 类型 \"{}\" 未注册于 TypeRegistry", typeName);
+				return nullptr;
+			}
+			if (!isSystemDerived(ti)) {
+				ST_CORE_WARN("[Scene] registerSystem: \"{}\" 不是 System 派生", typeName);
+				return nullptr;
+			}
+			if (!ti->factory) {
+				ST_CORE_WARN("[Scene] registerSystem: \"{}\" 没有反射工厂（抽象类或未标记 Factory）", typeName);
+				return nullptr;
+			}
+
+			// 幂等
+			if (hasSystem(typeName)) return getSystem(typeName);
+
+			System* sys = static_cast<System*>(ti->Create());
+			if (!sys) {
+				ST_CORE_WARN("[Scene] registerSystem: \"{}\" 工厂创建失败", typeName);
+				return nullptr;
+			}
+
+			const std::type_index typeIdx = ti->typeIndex;
+			sys->setScene(this);
+			m_systemsMap[typeIdx] = std::unique_ptr<System>(sys);
+			m_systems.push_back(sys);
+			m_isSystemsNeedSort = true;
+			sys->init();
+
+			ST_CORE_DEBUG("[Scene] 已按名称注册系统 \"{}\"", typeName);
+			return sys;
+		}
+
+		System* Scene::getSystem(const std::string& typeName) const {
+			const TypeInfo* ti = TypeRegistry::Get(typeName);
+			if (!ti) return nullptr;
+			auto it = m_systemsMap.find(ti->typeIndex);
+			return (it != m_systemsMap.end()) ? it->second.get() : nullptr;
+		}
+
+		bool Scene::hasSystem(const std::string& typeName) const {
+			return getSystem(typeName) != nullptr;
+		}
+
+		void Scene::unregisterSystem(const std::string& typeName) {
+			const TypeInfo* ti = TypeRegistry::Get(typeName);
+			if (!ti) return;
+			m_pendingRemoveSystems.push_back(ti->typeIndex);
+		}
+
+		std::vector<std::string> Scene::getRegisteredSystemTypeNames() const {
+			std::vector<std::string> names;
+			names.reserve(m_systems.size());
+			for (const auto* sys : m_systems) {
+				const TypeInfo* ti = TypeRegistry::Get(std::type_index(typeid(*sys)));
+				if (ti) {
+					names.push_back(ti->name);
+				} else {
+					names.push_back(Shit::DemangleTypeName(typeid(*sys).name()));
+				}
+			}
+			return names;
+		}
+
+		void Scene::setSystemPriority(const std::string& typeName, int priority) {
+			System* sys = getSystem(typeName);
+			if (!sys) {
+				ST_CORE_WARN("[Scene] setSystemPriority: 系统 \"{}\" 未注册", typeName);
+				return;
+			}
+			sys->setPriority(priority);
+			m_isSystemsNeedSort = true;
+		}
+
+		void Scene::unregisterSystemsBySource(const std::string& source) {
+			// 收集需要移除的系统 type_index
+			std::vector<std::type_index> toRemove;
+			for (const auto& [typeIdx, sys] : m_systemsMap) {
+				const TypeInfo* ti = TypeRegistry::Get(typeIdx);
+				if (ti && ti->source == source) {
+					toRemove.push_back(typeIdx);
+				}
+			}
+			// 逐个延迟移除（防迭代中修改 map）
+			for (const auto& typeIdx : toRemove) {
+				m_pendingRemoveSystems.push_back(typeIdx);
+			}
+		}
 	}
-}

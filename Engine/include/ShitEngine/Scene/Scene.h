@@ -110,12 +110,36 @@ namespace Shit {
 			return nullptr;
 		}
 
-		template <typename T>
-		bool hasSystem() {
-			static_assert(std::is_base_of_v<System, T>, "必须继承自 System 基类");
+template <typename T>
+			bool hasSystem() {
+				static_assert(std::is_base_of_v<System, T>, "必须继承自 System 基类");
 
-			return m_systemsMap.contains(std::type_index(typeid(T)));
-		}
+				return m_systemsMap.contains(std::type_index(typeid(T)));
+			}
+
+			// ── 按字符串名称的系统管理（供编辑器运行时使用） ──
+
+			/// @brief 按类型名注册系统（通过反射 Factory 创建实例）。幂等（已有则返回现有）。
+			/// 失败（类型未注册/无工厂/非 System 派生）返回 nullptr 并 WARN。
+			System* registerSystem(const std::string& typeName);
+
+			/// @brief 按类型名查询系统（返回 nullptr 表示未注册）
+			System* getSystem(const std::string& typeName) const;
+
+			/// @brief 按类型名判断系统是否已注册
+			bool hasSystem(const std::string& typeName) const;
+
+			/// @brief 按类型名延迟移除系统
+			void unregisterSystem(const std::string& typeName);
+
+			/// @brief 返回当前已注册系统的类型名列表（按优先级排序）
+			std::vector<std::string> getRegisteredSystemTypeNames() const;
+
+			/// @brief 调整系统优先级（即时生效，下一帧 update 前重排序）
+			void setSystemPriority(const std::string& typeName, int priority);
+
+			/// @brief 卸载指定来源注册的所有系统（插件卸载前调用，防止卸载 DLL 后 vtable 悬垂）
+			void unregisterSystemsBySource(const std::string& source);
 
 		// --- getter & setter ---
 		const std::string& getName() const { return m_name; }

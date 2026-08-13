@@ -159,6 +159,15 @@ bool EnginePreview::reloadProjectPlugins(const QString &configPath,
     // 2) 销毁场景对象（组件析构调用旧 DLL 代码，必须在 FreeLibrary 前完成）
     clearSceneObjects();
 
+    // 2.5) 卸载前清理插件注册的系统（防止 DLL 卸载后 vtable 悬垂）
+    // 遍历场景系统，卸载所有 TypeInfo.source 非空（来自插件）的系统
+    for (const auto& name : scene->getRegisteredSystemTypeNames()) {
+        const auto* ti = Shit::TypeRegistry::Get(name);
+        if (ti && !ti->source.empty()) {
+            scene->unregisterSystem(name);
+        }
+    }
+
     // 3) 卸载旧插件 → 释放 DLL 文件锁
     if (m_plugins) m_plugins->UnloadAll();
     m_plugins = std::make_unique<Shit::PluginManager>();

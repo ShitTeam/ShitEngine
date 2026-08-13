@@ -23,9 +23,17 @@ namespace Shit {
 		m_worldGeneration = 0;
 	}
 
-	PhysicsSystem2D::~PhysicsSystem2D() = default;
+PhysicsSystem2D::~PhysicsSystem2D() = default;
 
-	void PhysicsSystem2D::init() {
+		void PhysicsSystem2D::onFieldChanged(const std::string& fieldName) {
+			if (fieldName == "m_gravity") {
+				setGravity(m_gravity);  // 即时同步到 Box2D 世界
+			} else if (fieldName == "m_pixelsPerMeter") {
+				setPixelsPerMeter(m_pixelsPerMeter);  // 下次 init 生效
+			}
+		}
+
+		void PhysicsSystem2D::init() {
 		if (m_initialized) return;
 
 		// 告诉 Box2D 使用像素作为长度单位（必须在创建任何 Box2D 对象之前调用）

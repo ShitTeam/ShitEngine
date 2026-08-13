@@ -18,8 +18,9 @@ namespace Shit {
 	 * UIRendererComponent 的 onAttach / onDetach 自动注册 / 注销。
 	 * priority 默认 200，晚于 RenderSystem(100)，确保 UI 绘制在游戏世界之后。
 	 */
-	class SHIT_API UIRenderSystem final : public System {
-	public:
+class SHIT_API SHIT_REFLECT(WhiteList) UIRenderSystem final : public System {
+    SHIT_REFLECT_BODY(UIRenderSystem)
+public:
 		UIRenderSystem(int priority = 200);
 		~UIRenderSystem() override;
 

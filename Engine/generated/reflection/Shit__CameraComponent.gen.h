@@ -17,7 +17,7 @@ inline bool Register_CameraComponent() {
             &Shit::CameraComponent::m_priority, "int")
         .Meta(Shit::FieldMeta{.displayName = "Priority", .tooltip = "渲染优先级（小值先画）"})
         .Field("m_viewportRatio",
-            &Shit::CameraComponent::m_viewportRatio, "SDL_FRect")
+            &Shit::CameraComponent::m_viewportRatio, "int")
         .Meta(Shit::FieldMeta{.displayName = "Viewport Ratio", .tooltip = "相对于逻辑分辨率的视口区域 (0~1)"})
         .Field("m_isEnabled",
             &Shit::CameraComponent::m_isEnabled, "bool")

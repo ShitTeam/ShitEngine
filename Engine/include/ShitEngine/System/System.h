@@ -1,5 +1,6 @@
 #pragma once
 #include "ShitEngine/Core/Core.h"
+#include "ShitEngine/Reflection/Macros.h"
 
 
 namespace Shit {
@@ -11,8 +12,12 @@ namespace Shit {
      * 所有自定义系统必须继承此类并实现 update() 与 destroy()。
      * 系统按 priority 值排序，小值先执行。
      * 通过 Scene::registerSystem<T>() 注册到场景。
+     *
+     * WhiteList 模式：无启用字段，仅提供反射基类链锚点
+     *（子类可 SHIT_REFLECT 暴露字段，使编辑器可编辑系统属性）。
      */
-    class SHIT_API System {
+    class SHIT_API SHIT_REFLECT(WhiteList) System {
+        SHIT_REFLECT_BODY(System)
     public:
         System(int priority = 0);
         virtual ~System();
@@ -20,6 +25,9 @@ namespace Shit {
         virtual void init();        ///< 初始化（可覆写）
         virtual void update() = 0;    ///< 每帧更新（纯虚）
         virtual void destroy() = 0;   ///< 销毁（纯虚）
+
+        /// @brief 反射字段被编辑器直写后回调（供子系统把字段变更实时同步到运行时状态）
+        virtual void onFieldChanged(const std::string& fieldName) { (void)fieldName; }
 
         // --- 组件生命周期回调（解耦：组件不再查具体系统类型，由 Scene 广播给所有系统） ---
         /// @brief 组件挂载时调用。返回 true 表示本系统认领并处理了该组件（组件据此确定已注册）。
@@ -35,7 +43,9 @@ namespace Shit {
         void setPriority(int priority) { m_priority = priority; }
 
     protected:
+        SHIT_META(Disable)
         int m_priority;          ///< 优先级（小值先执行）
+        SHIT_META(Disable)
         Scene* m_scene = nullptr; ///< 所属场景
 
         /// @brief 内部：把认领过的组件标记为未注册（系统销毁/注销时调用）。

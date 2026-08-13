@@ -1,6 +1,7 @@
 #include "inspector.h"
 
 #include "componentmenu.h"
+#include "systemmenu.h"
 #include "dnd.h"
 #include "animatoreditorwidget.h"
 #include "animatorwidget.h"
@@ -9,6 +10,7 @@
 #include <ShitEngine/Core/EngineContext.h>
 #include <ShitEngine/Component/AnimationComponent.h>
 #include <ShitEngine/Animation/Animator.h>
+#include <ShitEngine/System/System.h>
 
 #include <QApplication>
 #include <QCheckBox>
@@ -284,17 +286,32 @@ void Inspector::clear()
 {
     m_readbacks.clear();
     m_object = nullptr;
+    m_selectedSystemName.clear();
     while (m_form->rowCount() > 0)
         m_form->removeRow(0);
 
-    auto *placeholder = new QLabel(tr("未选中对象\n\n选中场景中的对象后，\n在此编辑其组件属性。"), m_content);
-    placeholder->setAlignment(Qt::AlignCenter);
-    placeholder->setWordWrap(true);
-    m_form->addRow(placeholder);
+    if (m_scene) {
+        buildSceneSystemPanel();
+    } else {
+        auto *placeholder = new QLabel(tr("未选中对象\n\n选中场景中的对象后，\n在此编辑其组件属性。"), m_content);
+        placeholder->setAlignment(Qt::AlignCenter);
+        placeholder->setWordWrap(true);
+        m_form->addRow(placeholder);
+    }
 }
 
 void Inspector::refresh()
 {
+    // 系统面板刷新：比较签名，仅变化时重建
+    if (m_object == nullptr && m_scene) {
+        std::string sig;
+        for (const auto& name : m_scene->getRegisteredSystemTypeNames())
+            sig += name + ":" + std::to_string(m_scene->getSystem(name)->getPriority()) + ";";
+        if (sig != m_systemsSignature) {
+            m_systemsSignature = sig;
+            rebuildSystemPanel();
+        }
+    }
     for (auto &readback : m_readbacks)
         readback();
 }
@@ -445,6 +462,361 @@ void Inspector::applyEditLock()
     // 统一递归禁用表单（含字段控件/移除按钮/Add Component/对象名栏/引用控件）；
     // 禁用控件仍可被回读刷新 setText/setValue（blockSignals 已防回环），运行时值实时可见
     if (m_content) m_content->setEnabled(!m_playMode);
+}
+
+void Inspector::setScene(Shit::Scene *scene)
+{
+    m_scene = scene;
+    m_systemsSignature.clear();
+    // 当前正显示未选中态 → 重绘
+    if (!m_object) {
+        clear();
+        if (m_playMode) applyEditLock();
+    }
+}
+
+void Inspector::buildSceneSystemPanel()
+{
+    if (m_scenePanel) {
+        m_scenePanel->deleteLater();
+        m_scenePanel = nullptr;
+    }
+    m_systemFieldsContainer = nullptr;
+    m_systemLayout = nullptr;
+
+    m_scenePanel = new QWidget(m_content);
+    auto *outerLayout = new QVBoxLayout(m_scenePanel);
+    outerLayout->setContentsMargins(0, 0, 0, 0);
+    outerLayout->setSpacing(4);
+
+    auto *header = new QLabel(tr("场景系统"), m_scenePanel);
+    header->setStyleSheet("font-weight: bold; font-size: 13px; color: #b0c4d8; padding: 4px 0;");
+    outerLayout->addWidget(header);
+
+    auto *sep = new QFrame(m_scenePanel);
+    sep->setFrameShape(QFrame::HLine);
+    sep->setStyleSheet("color: #2a3540;");
+    outerLayout->addWidget(sep);
+
+    m_systemLayout = new QVBoxLayout();
+    m_systemLayout->setSpacing(2);
+    m_systemLayout->setContentsMargins(0, 0, 0, 0);
+
+    // 每系统一行
+    for (const auto& name : m_scene->getRegisteredSystemTypeNames()) {
+        auto* sys = m_scene->getSystem(name);
+        if (!sys) continue;
+
+        auto *row = new QWidget(m_scenePanel);
+        auto *hlay = new QHBoxLayout(row);
+        hlay->setContentsMargins(2, 1, 2, 1);
+        hlay->setSpacing(4);
+
+        // 系统名（可点击选中展开字段编辑）
+        auto *nameBtn = new QPushButton(QString::fromStdString(name), row);
+        nameBtn->setFlat(true);
+        nameBtn->setCursor(Qt::PointingHandCursor);
+        nameBtn->setStyleSheet(
+            "QPushButton { text-align: left; border: none; color: #b0c4d8; padding: 2px 4px; }"
+            "QPushButton:hover { background: rgba(122,192,255,0.1); }");
+        QString sysName = QString::fromStdString(name);
+        connect(nameBtn, &QPushButton::clicked, this, [this, sysName] {
+            m_selectedSystemName = (m_selectedSystemName == sysName) ? QString() : sysName;
+            rebuildSystemPanel();
+        });
+        hlay->addWidget(nameBtn, 1);
+
+        // 优先级 SpinBox
+        auto *spin = new QSpinBox(row);
+        spin->setRange(-1000, 1000);
+        spin->setValue(sys->getPriority());
+        spin->setFixedWidth(60);
+        spin->setToolTip(tr("优先级（越小越先执行）"));
+        std::string sysTypeName = name; // capture for lambda
+        connect(spin, &QSpinBox::valueChanged, this, [this, sysTypeName](int v) {
+            emit fieldEdited();  // undo begin
+            setSystemPriority(sysTypeName, v);
+            emit systemPriorityChanged();
+        });
+        hlay->addWidget(spin);
+
+        // 移除按钮
+        auto *removeBtn = new QPushButton(tr("✕"), row);
+        removeBtn->setFixedWidth(24);
+        removeBtn->setCursor(Qt::PointingHandCursor);
+        removeBtn->setStyleSheet(
+            "QPushButton { border: none; color: #7a8a9a; }"
+            "QPushButton:hover { color: #ff6b6b; }");
+        connect(removeBtn, &QPushButton::clicked, this, [this, sysTypeName] {
+            emit fieldEdited();  // undo begin
+            removeSystemFromScene(sysTypeName);
+            emit systemRemoved();
+        });
+        hlay->addWidget(removeBtn);
+
+        // 选中高亮
+        if (m_selectedSystemName == QString::fromStdString(name)) {
+            row->setStyleSheet("background: rgba(122,192,255,0.12);");
+        }
+
+        m_systemLayout->addWidget(row);
+    }
+    outerLayout->addLayout(m_systemLayout);
+
+    // 选中系统的字段编辑
+    if (!m_selectedSystemName.isEmpty()) {
+        auto *sys = m_scene->getSystem(m_selectedSystemName.toStdString());
+        if (sys) {
+            auto *fieldsContainer = new QWidget(m_scenePanel);
+            m_systemFieldsContainer = fieldsContainer;
+            auto *fieldsLayout = new QVBoxLayout(fieldsContainer);
+            fieldsLayout->setContentsMargins(8, 2, 0, 2);
+            fieldsLayout->setSpacing(2);
+
+            auto *fieldHeader = new QLabel(tr("系统属性"), fieldsContainer);
+            fieldHeader->setStyleSheet("font-size: 11px; color: #7a8a9a; padding: 2px 0;");
+            fieldsLayout->addWidget(fieldHeader);
+
+            const Shit::TypeInfo *ti = Shit::TypeRegistry::Get(std::type_index(typeid(*sys)));
+            if (ti) {
+                for (const auto& field : ti->fields) {
+                    addSystemFieldRow(field, sys);
+                }
+            }
+            outerLayout->addWidget(fieldsContainer);
+        }
+    }
+
+    // 添加系统按钮
+    auto *addRow = new QWidget(m_scenePanel);
+    auto *addLayout = new QHBoxLayout(addRow);
+    addLayout->setContentsMargins(0, 4, 0, 0);
+    addLayout->addStretch(1);
+    auto *addBtn = new QPushButton(tr("添加系统"), addRow);
+    addBtn->setCursor(Qt::PointingHandCursor);
+    addBtn->setStyleSheet(
+        "QPushButton { border: 1px dashed #3a4a5a; border-radius: 3px; color: #7a8a9a;"
+        "              background: transparent; padding: 5px 12px; }"
+        "QPushButton:hover { border-color: #7ac0ff; color: #d0e4f5; }");
+    connect(addBtn, &QPushButton::clicked, this, &Inspector::showAddSystemMenu);
+    addLayout->addWidget(addBtn);
+    addLayout->addStretch(1);
+    outerLayout->addWidget(addRow);
+
+    outerLayout->addStretch(1);
+    m_form->addRow(m_scenePanel);
+}
+
+void Inspector::rebuildSystemPanel()
+{
+    if (!m_scenePanel) return;
+    if (m_scenePanel) {
+        // 删除旧的系统面板内容
+        m_scenePanel->deleteLater();
+        m_scenePanel = nullptr;
+    }
+    m_systemFieldsContainer = nullptr;
+    m_systemLayout = nullptr;
+    while (m_form->rowCount() > 0)
+        m_form->removeRow(0);
+    buildSceneSystemPanel();
+    if (m_playMode) applyEditLock();
+}
+
+void Inspector::showAddSystemMenu()
+{
+    if (!m_scene) return;
+    auto *menu = buildAddSystemMenu(this, m_scene,
+        [this](const Shit::TypeInfo *type) {
+            addSystemToScene(type);
+        });
+    menu->exec(QCursor::pos());
+    delete menu;
+}
+
+void Inspector::addSystemToScene(const Shit::TypeInfo *type)
+{
+    if (!m_scene || !type) return;
+    emit fieldEdited();  // undo begin
+    m_scene->registerSystem(type->name);
+    m_systemsSignature.clear();
+    rebuildSystemPanel();
+    emit systemAdded();
+}
+
+void Inspector::removeSystemFromScene(const std::string &typeName)
+{
+    if (!m_scene) return;
+    m_scene->unregisterSystem(typeName);
+    if (m_selectedSystemName == QString::fromStdString(typeName))
+        m_selectedSystemName.clear();
+    m_systemsSignature.clear();
+    rebuildSystemPanel();
+    // 注意：undo commit 由调用者（systemAdded/systemRemoved）负责
+}
+
+void Inspector::setSystemPriority(const std::string &typeName, int priority)
+{
+    if (!m_scene) return;
+    m_scene->setSystemPriority(typeName, priority);
+    m_systemsSignature.clear();
+    // undo commit 由调用者（systemPriorityChanged 信号）负责
+}
+
+void Inspector::addSystemFieldRow(const Shit::FieldInfo &field, Shit::System *sys)
+{
+    // 复用 addFieldRow 的字段编辑逻辑，但用 System* 替代 Component*
+    const bool readOnly = metaOf(field) && metaOf(field)->readOnly;
+    const QString name = displayNameOf(field);
+    if (readOnly) {
+        QString val = QString("<%1>").arg(QString::fromStdString(field.typeName));
+        // 尝试读取
+        void *ptr = field.GetFieldPtr(sys);
+        if (field.typeName == "float") val = QString::number(*reinterpret_cast<float*>(ptr));
+        else if (field.typeName == "int") val = QString::number(*reinterpret_cast<int*>(ptr));
+        else if (field.typeName == "bool") val = *reinterpret_cast<bool*>(ptr) ? tr("是") : tr("否");
+        else if (field.typeName == "Vector2") {
+            auto *v = reinterpret_cast<Shit::Vector2*>(ptr);
+            val = QString("(%1, %2)").arg(v->x).arg(v->y);
+        }
+        else if (field.typeName == "std::string") val = QString::fromStdString(*reinterpret_cast<std::string*>(ptr));
+        m_form->addRow(name, new QLabel(val, m_content));
+        return;
+    }
+
+    if (field.typeName == "float") {
+        auto *box = new QDoubleSpinBox(m_content);
+        const FieldMeta *m = metaOf(field);
+        box->setRange(m && m->range.min != m->range.max ? m->range.min : -1e6,
+                      m && m->range.min != m->range.max ? m->range.max : 1e6);
+        box->setSingleStep(m && m->step > 0.0f ? m->step : 0.1f);
+        box->setDecimals(3);
+        box->setValue(*reinterpret_cast<float*>(field.GetFieldPtr(sys)));
+        connect(box, &QDoubleSpinBox::valueChanged, this, [this, sys, field](double v) {
+            *reinterpret_cast<float*>(field.GetFieldPtr(sys)) = static_cast<float>(v);
+            sys->onFieldChanged(field.name);
+            emit fieldEdited();
+        });
+        connect(box, &QDoubleSpinBox::editingFinished, this, [this] { emit fieldCommitted(); });
+        m_form->addRow(name, box);
+        m_readbacks.push_back([box, sys, field] {
+            box->blockSignals(true);
+            box->setValue(*reinterpret_cast<float*>(field.GetFieldPtr(sys)));
+            box->blockSignals(false);
+        });
+    }
+    else if (field.typeName == "int" && field.size == sizeof(int)) {
+        auto *box = new QSpinBox(m_content);
+        box->setRange(std::numeric_limits<int>::min(), std::numeric_limits<int>::max());
+        box->setValue(*reinterpret_cast<int*>(field.GetFieldPtr(sys)));
+        connect(box, &QSpinBox::valueChanged, this, [this, sys, field](int v) {
+            *reinterpret_cast<int*>(field.GetFieldPtr(sys)) = v;
+            sys->onFieldChanged(field.name);
+            emit fieldEdited();
+        });
+        connect(box, &QSpinBox::editingFinished, this, [this] { emit fieldCommitted(); });
+        m_form->addRow(name, box);
+        m_readbacks.push_back([box, sys, field] {
+            box->blockSignals(true);
+            box->setValue(*reinterpret_cast<int*>(field.GetFieldPtr(sys)));
+            box->blockSignals(false);
+        });
+    }
+    else if (field.typeName == "bool") {
+        auto *check = new QCheckBox(m_content);
+        check->setChecked(*reinterpret_cast<bool*>(field.GetFieldPtr(sys)));
+        connect(check, &QCheckBox::toggled, this, [this, sys, field](bool on) {
+            *reinterpret_cast<bool*>(field.GetFieldPtr(sys)) = on;
+            sys->onFieldChanged(field.name);
+            emit fieldEdited();
+            emit fieldCommitted();
+        });
+        m_form->addRow(name, check);
+        m_readbacks.push_back([check, sys, field] {
+            check->blockSignals(true);
+            check->setChecked(*reinterpret_cast<bool*>(field.GetFieldPtr(sys)));
+            check->blockSignals(false);
+        });
+    }
+    else if (field.typeName == "Vector2") {
+        auto *p = reinterpret_cast<Shit::Vector2*>(field.GetFieldPtr(sys));
+        auto *xBox = makeSpin(p->x);
+        auto *yBox = makeSpin(p->y);
+        connect(xBox, &QDoubleSpinBox::valueChanged, this, [this, sys, field](double v) {
+            reinterpret_cast<Shit::Vector2*>(field.GetFieldPtr(sys))->x = static_cast<float>(v);
+            sys->onFieldChanged(field.name);
+            emit fieldEdited();
+        });
+        connect(yBox, &QDoubleSpinBox::valueChanged, this, [this, sys, field](double v) {
+            reinterpret_cast<Shit::Vector2*>(field.GetFieldPtr(sys))->y = static_cast<float>(v);
+            sys->onFieldChanged(field.name);
+            emit fieldEdited();
+        });
+        connect(xBox, &QDoubleSpinBox::editingFinished, this, [this] { emit fieldCommitted(); });
+        connect(yBox, &QDoubleSpinBox::editingFinished, this, [this] { emit fieldCommitted(); });
+        auto *row = new QWidget(m_content);
+        auto *layout = new QHBoxLayout(row);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->addWidget(xBox);
+        layout->addWidget(yBox);
+        m_form->addRow(name, row);
+        m_readbacks.push_back([xBox, yBox, sys, field] {
+            auto *p = reinterpret_cast<Shit::Vector2*>(field.GetFieldPtr(sys));
+            xBox->blockSignals(true);
+            yBox->blockSignals(true);
+            xBox->setValue(p->x);
+            yBox->setValue(p->y);
+            xBox->blockSignals(false);
+            yBox->blockSignals(false);
+        });
+    }
+    else if (field.typeName == "std::string") {
+        auto *p = reinterpret_cast<std::string*>(field.GetFieldPtr(sys));
+        auto *edit = new QLineEdit(QString::fromStdString(*p), m_content);
+        connect(edit, &QLineEdit::textChanged, this, [this, sys, field](const QString &text) {
+            *reinterpret_cast<std::string*>(field.GetFieldPtr(sys)) = text.toStdString();
+            sys->onFieldChanged(field.name);
+            emit fieldEdited();
+        });
+        connect(edit, &QLineEdit::editingFinished, this, [this] { emit fieldCommitted(); });
+        m_form->addRow(name, edit);
+        m_readbacks.push_back([edit, sys, field] {
+            edit->blockSignals(true);
+            edit->setText(QString::fromStdString(*reinterpret_cast<std::string*>(field.GetFieldPtr(sys))));
+            edit->blockSignals(false);
+        });
+    }
+    else {
+        // 枚举或未知类型：只读展示
+        const Shit::TypeInfo *enumType = Shit::TypeRegistry::Get(field.typeName);
+        if (enumType && !enumType->enumValues.empty()) {
+            auto *combo = new QComboBox(m_content);
+            const int cur = *reinterpret_cast<int*>(field.GetFieldPtr(sys));
+            int sel = 0;
+            for (size_t i = 0; i < enumType->enumValues.size(); ++i) {
+                combo->addItem(QString::fromStdString(enumType->enumValues[i].name),
+                               static_cast<int>(enumType->enumValues[i].value));
+                if (enumType->enumValues[i].value == cur) sel = static_cast<int>(i);
+            }
+            combo->setCurrentIndex(sel);
+            connect(combo, &QComboBox::currentIndexChanged, this, [this, sys, field, combo]() {
+                *reinterpret_cast<int*>(field.GetFieldPtr(sys)) = combo->currentData().toInt();
+                sys->onFieldChanged(field.name);
+                emit fieldEdited();
+                emit fieldCommitted();
+            });
+            m_form->addRow(name, combo);
+            m_readbacks.push_back([combo, sys, field] {
+                const int v = *reinterpret_cast<int*>(field.GetFieldPtr(sys));
+                const int idx = combo->findData(v);
+                combo->blockSignals(true);
+                combo->setCurrentIndex(idx >= 0 ? idx : 0);
+                combo->blockSignals(false);
+            });
+        } else {
+            m_form->addRow(name, new QLabel(QString("<%1>").arg(typeNameOf(field)), m_content));
+        }
+    }
 }
 
 void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)

@@ -208,6 +208,19 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_inspector, &Inspector::objectRenamed, this, [this] { undoCommit(tr("重命名")); });
     connect(m_inspector, &Inspector::componentRemoveBlocked, this,
             [this](const QString &reason) { m_log->appendMessage(reason, Qt::red); });
+    // 场景系统操作（fieldEdited 已开启事务，此处提交 + dirty）
+    connect(m_inspector, &Inspector::systemAdded, this, [this] {
+        undoCommit(tr("添加系统"));
+        setDirty(true);
+    });
+    connect(m_inspector, &Inspector::systemRemoved, this, [this] {
+        undoCommit(tr("移除系统"));
+        setDirty(true);
+    });
+    connect(m_inspector, &Inspector::systemPriorityChanged, this, [this] {
+        undoCommit(tr("调整系统优先级"));
+        setDirty(true);
+    });
     connect(m_sceneTree, &SceneTree::sceneActionStarted, this, [this] { undoBegin(); });
     connect(m_sceneTree, &SceneTree::sceneEdited, this, [this] {
         undoCommit(tr("场景结构编辑"));
@@ -267,10 +280,11 @@ MainWindow::MainWindow(QWidget *parent)
         m_sceneTree->setScene(m_preview->getScene());
         m_sceneViewport->setEditScene(m_preview->getScene()); // 编辑器交互（平移/缩放/Gizmo）
         // 场景同步基准：初始绑定视为已同步（首次 tick 不无谓重建）
-        if (Shit::Scene *sc = m_preview->getScene(); sc) {
-            m_lastScene = sc;
-            m_lastSceneGeneration = sc->getGeneration();
-        }
+if (Shit::Scene *sc = m_preview->getScene(); sc) {
+	            m_lastScene = sc;
+	            m_lastSceneGeneration = sc->getGeneration();
+	            m_inspector->setScene(sc);
+	        }
         setPlaying(m_playAction->isChecked());   // 默认停止态：暂停预览逻辑
 
         // P14：启动时自动恢复上次打开的项目（静默；项目损坏/被删则忽略，不影响启动）
@@ -1025,6 +1039,7 @@ void MainWindow::syncSceneSelection()
         return;
     m_lastScene = scene;
     m_lastSceneGeneration = scene->getGeneration();
+    m_inspector->setScene(scene);  // 场景变化时通知检查器刷新系统面板
 
     // 场景内容已变（含整体替换）：视口也用当前场景，避免持有已销毁场景的 m_editScene
     m_sceneViewport->setEditScene(scene);
@@ -1337,8 +1352,12 @@ void MainWindow::exitPlayMode()
     // Input::GetMousePosition 一直返回播放期最后一次注入值（陈旧坐标）
     Shit::Input::ResetState();
     // 恢复运行前快照：运行期间的属性/对象改动全部回退（保留编辑器相机）
-    if (m_hasRunSnapshot && !m_runSnapshot.empty())
+    if (m_hasRunSnapshot && !m_runSnapshot.empty()) {
         applySnapshot(m_runSnapshot);
+        // 播放态快照恢复后同步场景指针（系统列表可能已变）
+        if (auto *sc = m_preview ? m_preview->getScene() : nullptr)
+            m_inspector->setScene(sc);
+    }
     m_hasRunSnapshot = false;
     m_playPendingBuild = false;
     // P25d：解锁编辑（applySnapshot 重建检查器后调用，控件默认启用态）

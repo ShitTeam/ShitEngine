@@ -15,8 +15,9 @@ namespace Shit {
 	 * 每帧按优先级排序相机 → 按 Z-Index 排序渲染器 → 逐个相机裁剪渲染。
 	 * RendererComponent 的 onAttach / onDetach 自动调用 register / unregister。
 	 */
-	class SHIT_API RenderSystem final : public System {
-	public:
+class SHIT_API SHIT_REFLECT(WhiteList) RenderSystem final : public System {
+    SHIT_REFLECT_BODY(RenderSystem)
+public:
 		RenderSystem(int priority = 100);
 		~RenderSystem() override;
 

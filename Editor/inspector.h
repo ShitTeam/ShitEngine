@@ -1,17 +1,26 @@
 #ifndef INSPECTOR_H
 #define INSPECTOR_H
 
+#include <ShitEngine/Scene/Scene.h>
+
 #include <QWidget>
 
 #include <functional>
+#include <string>
 #include <vector>
 
 class QFormLayout;
 class QScrollArea;
+class QPushButton;
+class QSpinBox;
+class QWidget;
+class QVBoxLayout;
 
 namespace Shit {
 class GameObject;
 class Component;
+class Scene;
+class System;
 struct FieldInfo;
 struct TypeInfo;
 }
@@ -39,6 +48,9 @@ public:
     /// 停止后自动解锁；重建表单（setGameObject）时按当前状态重新应用。
     void setPlayMode(bool playing);
 
+    /// 设置当前场景（供场景系统面板在无选中对象时显示）
+    void setScene(Shit::Scene *scene);
+
 signals:
     /// 诊断：每次重建时报告渲染了 n 个组件 / n 个字段（供日志定位）
     void buildInfo(int components, int fields);
@@ -58,6 +70,13 @@ signals:
     void openAnimatorEditorRequested();
     /// 用户请求打开 Animation 帧动画编辑窗口（AnimationComponent 的入口按钮触发，由 mainwindow 显示 Dock）
     void openAnimationEditorRequested();
+
+    /// 通过场景系统面板添加了系统（撤销提交点，标签"添加系统"）
+    void systemAdded();
+    /// 通过场景系统面板移除了系统（撤销提交点，标签"移除系统"）
+    void systemRemoved();
+    /// 场景系统优先级被调整（撤销提交点，标签"调整系统优先级"）
+    void systemPriorityChanged();
 
 private:
     /// 为单个字段生成一行编辑控件
@@ -89,6 +108,23 @@ private:
     int m_fieldCount = 0;      ///< 本次构建渲染的字段数（诊断）
     bool m_playMode = false;   ///< 播放态编辑锁（setPlayMode 写入，setGameObject 重建时重新应用）
     void applyEditLock();      ///< 按 m_playMode 统一禁用/启用表单控件
+
+    // ── 场景系统面板 ──
+    void buildSceneSystemPanel();  ///< 在 clear() 未选中态时构建场景系统面板
+    void rebuildSystemPanel();     ///< refresh 时按签名重建系统面板
+    void showAddSystemMenu();      ///< 弹出添加系统菜单
+    void addSystemToScene(const Shit::TypeInfo *type);  ///< 向场景添加系统
+    void removeSystemFromScene(const std::string &typeName);  ///< 从场景移除系统
+    void setSystemPriority(const std::string &typeName, int priority);  ///< 调整系统优先级
+    void addSystemFieldRow(const Shit::FieldInfo &field, Shit::System *sys);  ///< 系统字段编辑行
+
+    Shit::Scene *m_scene = nullptr;      ///< 当前场景（供系统面板使用）
+    std::string m_systemsSignature;      ///< 系统列表签名（用于检测变化）
+    QWidget *m_scenePanel = nullptr;     ///< 场景系统面板容器
+    QVBoxLayout *m_systemLayout = nullptr; ///< 系统面板内布局
+    QString m_selectedSystemName;        ///< 当前选中的系统名（展开字段编辑）
+    QWidget *m_systemFieldsContainer = nullptr; ///< 选中系统的字段编辑容器
+    int m_systemFieldCount = 0;          ///< 系统字段数（诊断）
 };
 
 #endif // INSPECTOR_H

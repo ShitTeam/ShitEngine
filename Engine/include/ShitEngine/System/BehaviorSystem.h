@@ -1,5 +1,6 @@
 #pragma once
 #include "System.h"
+#include "ShitEngine/Reflection/Macros.h"
 
 namespace Shit {
     class Behavior;
@@ -10,7 +11,8 @@ namespace Shit {
      * 每帧遍历已注册的 Behavior 组件，驱动其 onStart / onUpdate。
      * Behavior 的 onAttach / onDetach 会自动调用 register / unregister。
      */
-    class SHIT_API BehaviorSystem final : public System {
+    class SHIT_API SHIT_REFLECT(WhiteList) BehaviorSystem final : public System {
+        SHIT_REFLECT_BODY(BehaviorSystem)
     public:
         BehaviorSystem(int priority = 0);
         ~BehaviorSystem() override;
