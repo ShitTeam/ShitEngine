@@ -7,7 +7,12 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QCoreApplication>
+#include <QDir>
 #include <QDoubleSpinBox>
+#include <QDragEnterEvent>
+#include <QDropEvent>
+#include <QFile>
+#include <QFileDialog>
 #include <QFileInfo>
 #include <QGridLayout>
 #include <QHBoxLayout>
@@ -16,12 +21,17 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
+#include <QMimeData>
+#include <QMessageBox>
 #include <QPixmap>
 #include <QScrollArea>
 #include <QSpinBox>
 #include <QSplitter>
 #include <QToolButton>
+#include <QUrl>
 #include <QVBoxLayout>
+
+#include <nlohmann/json.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -73,6 +83,7 @@ QString condTypeName(Shit::AnimatorConditionType t)
 AnimatorDock::AnimatorDock(QWidget *parent)
     : QWidget(parent)
 {
+    setAcceptDrops(true);   // 方案 A：支持 .anim 资产拖入剪辑资产行
     // ── 工具栏：添加/删除状态、添加转换 ──
     auto *addStateBtn = new QToolButton(this); addStateBtn->setText(tr("+ 状态"));
     auto *delStateBtn = new QToolButton(this); delStateBtn->setText(tr("− 状态"));
@@ -139,6 +150,28 @@ AnimatorDock::AnimatorDock(QWidget *parent)
     auto *stateGrid = new QGridLayout;
     int r = 0;
     stateGrid->addWidget(new QLabel(tr("名称"), this), r, 0); stateGrid->addWidget(m_stateNameEdit, r, 1); stateGrid->addWidget(m_stateEntryCheck, r, 2); ++r;
+    // 方案 A：剪辑资产行（引用的 .anim 文件；空 = 内嵌剪辑）
+    m_assetPathEdit = new QLineEdit(this);
+    m_assetPathEdit->setPlaceholderText(tr(".anim 资产路径（空 = 内嵌剪辑）"));
+    m_assetPathEdit->setAcceptDrops(false);
+    m_assetBrowseBtn = new QToolButton(this); m_assetBrowseBtn->setText(tr("浏览…"));
+    m_assetOpenBtn = new QToolButton(this); m_assetOpenBtn->setText(tr("打开"));
+    m_assetClearBtn = new QToolButton(this); m_assetClearBtn->setText(tr("清除"));
+    auto *assetBtnRow = new QHBoxLayout;
+    assetBtnRow->setContentsMargins(0, 0, 0, 0);
+    assetBtnRow->addWidget(m_assetPathEdit, 1);
+    assetBtnRow->addWidget(m_assetBrowseBtn);
+    assetBtnRow->addWidget(m_assetOpenBtn);
+    assetBtnRow->addWidget(m_assetClearBtn);
+    stateGrid->addWidget(new QLabel(tr("剪辑资产"), this), r, 0);
+    auto *assetHost = new QWidget(this);
+    auto *assetHostLayout = new QVBoxLayout(assetHost);
+    assetHostLayout->setContentsMargins(0, 0, 0, 0);
+    assetHostLayout->addLayout(assetBtnRow);
+    m_assetHint = new QLabel(tr("内嵌剪辑（在下方点选帧编辑）"), this);
+    m_assetHint->setStyleSheet("color:#9aa7b4;");
+    assetHostLayout->addWidget(m_assetHint);
+    stateGrid->addWidget(assetHost, r, 1, 1, 2); ++r;
     stateGrid->addWidget(new QLabel(tr("纹理"), this), r, 0); stateGrid->addWidget(m_texEdit, r, 1, 1, 2); ++r;
     stateGrid->addWidget(new QLabel(tr("行/列"), this), r, 0); stateGrid->addWidget(m_rowsSpin, r, 1); stateGrid->addWidget(m_colsSpin, r, 2); ++r;
     stateGrid->addWidget(new QLabel(tr("帧宽/高"), this), r, 0); stateGrid->addWidget(m_fwSpin, r, 1); stateGrid->addWidget(m_fhSpin, r, 2); ++r;
@@ -218,6 +251,11 @@ AnimatorDock::AnimatorDock(QWidget *parent)
     // 状态属性连接
     connect(m_stateNameEdit, &QLineEdit::editingFinished, this, &AnimatorDock::onStateNameEdited);
     connect(m_stateEntryCheck, &QCheckBox::toggled, this, &AnimatorDock::onStateEntryToggled);
+    // 剪辑资产（方案 A）
+    connect(m_assetPathEdit, &QLineEdit::editingFinished, this, &AnimatorDock::onAssetTextEdited);
+    connect(m_assetBrowseBtn, &QToolButton::clicked, this, &AnimatorDock::onAssetBrowse);
+    connect(m_assetOpenBtn, &QToolButton::clicked, this, &AnimatorDock::onAssetOpenInWindow);
+    connect(m_assetClearBtn, &QToolButton::clicked, this, &AnimatorDock::onAssetClear);
     connect(m_texEdit, &QLineEdit::editingFinished, this, &AnimatorDock::onClipTexEdited);
     connect(m_rowsSpin, qOverload<int>(&QSpinBox::valueChanged), this, &AnimatorDock::onClipGridChanged);
     connect(m_colsSpin, qOverload<int>(&QSpinBox::valueChanged), this, &AnimatorDock::onClipGridChanged);
@@ -248,6 +286,65 @@ void AnimatorDock::bindAnimator(Shit::Animator *animator)
     m_paramSel = -1;
     m_graph->setAnimator(animator);
     refresh();
+}
+
+void AnimatorDock::setProjectRoot(const QString &root)
+{
+    m_projectRoot = root;
+    refreshClipWidgets();
+}
+
+// ═══════════════════════════════════════════════════════════
+// 相对路径辅助（基准 = 项目根；无项目/不在项目内则原样）
+// ═══════════════════════════════════════════════════════════
+
+QString AnimatorDock::toRelativePath(const QString &abs) const
+{
+    if (abs.isEmpty() || m_projectRoot.isEmpty()) return abs;
+    QFileInfo fileInfo(abs);
+    if (!fileInfo.isAbsolute()) return abs;
+    const QString rel = QDir(m_projectRoot).relativeFilePath(abs);
+    // 相对路径不允许以 ".." 开头（越出项目根则保留绝对路径）
+    if (rel.startsWith(QStringLiteral("../")) || rel == QStringLiteral("..")) return abs;
+    return rel;
+}
+
+QString AnimatorDock::toAbsolutePath(const QString &rel) const
+{
+    if (rel.isEmpty() || m_projectRoot.isEmpty()) return rel;
+    QFileInfo info(rel);
+    if (info.isAbsolute()) return rel;
+    return m_projectRoot + "/" + rel;
+}
+
+bool AnimatorDock::loadClipFromFile(const QString &path, Shit::AnimationClip &out)
+{
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly)) return false;
+    const QByteArray data = f.readAll();
+    f.close();
+    try {
+        nlohmann::json j = nlohmann::json::parse(data.constData());
+        return out.fromJson(j);
+    } catch (const std::exception &) {
+        return false;
+    }
+}
+
+void AnimatorDock::setSelectedStateAsset(const QString &absPath, bool withClip)
+{
+    if (!m_animator || m_selState < 0) return;
+    Shit::AnimatorState s = *m_animator->stateAt(m_selState);
+    s.assetPath = absPath.toStdString();
+    if (withClip) {
+        Shit::AnimationClip clip;
+        if (!absPath.isEmpty() && loadClipFromFile(absPath, clip)) s.clip = clip;
+    }
+    if (m_animator->setState(m_selState, s)) {
+        emit changed();
+        refreshClipWidgets();
+        rebuildFrameGrid();
+    }
 }
 
 void AnimatorDock::refresh()
@@ -450,11 +547,28 @@ void AnimatorDock::refreshClipWidgets()
 {
     const Shit::AnimatorState *s = m_animator && m_selState >= 0 ? m_animator->stateAt(m_selState) : nullptr;
     const bool valid = s != nullptr;
+    const bool hasAsset = s && !s->assetPath.empty();
+    // 剪辑资产行
+    m_assetPathEdit->setEnabled(valid);
+    m_assetBrowseBtn->setEnabled(valid);
+    m_assetOpenBtn->setEnabled(valid && hasAsset);
+    m_assetClearBtn->setEnabled(valid && hasAsset);
+    if (!s) {
+        m_assetHint->setText(tr("内嵌剪辑（在下方点选帧编辑）"));
+    } else if (hasAsset) {
+        m_assetHint->setText(tr("本状态由 .anim 资产驱动，下方内嵌剪辑禁用"));
+    } else {
+        m_assetHint->setText(tr("内嵌剪辑（在下方点选帧编辑）"));
+    }
+    if (!m_assetPathEdit->hasFocus())
+        m_assetPathEdit->setText(hasAsset ? toRelativePath(QString::fromStdString(s->assetPath)) : QString());
+    // 内嵌剪辑编辑区：有资产则禁用
+    const bool inlineEnabled = valid && !hasAsset;
     for (QWidget *w : std::initializer_list<QWidget*>{
              m_texEdit, m_rowsSpin, m_colsSpin, m_fwSpin, m_fhSpin, m_durSpin })
-        w->setEnabled(valid);
-    m_loopCheck->setEnabled(valid);
-    m_clearFramesBtn->setEnabled(valid);
+        w->setEnabled(inlineEnabled);
+    m_loopCheck->setEnabled(inlineEnabled);
+    m_clearFramesBtn->setEnabled(inlineEnabled);
     if (!s) { m_framesHint->setText(tr("在图中选中状态后编辑剪辑")); return; }
     const Shit::AnimationClip &clip = s->clip;
     if (!m_texEdit->hasFocus()) m_texEdit->setText(QString::fromStdString(clip.texturePath));
@@ -470,6 +584,8 @@ void AnimatorDock::refreshClipWidgets()
 void AnimatorDock::writeClipFromWidgets()
 {
     if (!m_animator || m_selState < 0) return;
+    const Shit::AnimatorState *cur = m_animator->stateAt(m_selState);
+    if (cur && !cur->assetPath.empty()) return;  // 资产驱动：内嵌剪辑被锁定
     Shit::AnimatorState s = *m_animator->stateAt(m_selState);
     s.clip.texturePath = m_texEdit->text().trimmed().toStdString();
     s.clip.rows = m_rowsSpin->value();
@@ -506,9 +622,95 @@ void AnimatorDock::onClipGridChanged() { writeClipFromWidgets(); rebuildFrameGri
 void AnimatorDock::onClipDurationChanged(double) { writeClipFromWidgets(); }
 void AnimatorDock::onClipLoopToggled(bool) { writeClipFromWidgets(); }
 
+// ═══════════════════════════════════════════════════════════
+// 剪辑资产（方案 A：Animator 状态引用 .anim 资产）
+// ═══════════════════════════════════════════════════════════
+
+void AnimatorDock::onAssetTextEdited()
+{
+    if (!m_animator || m_selState < 0) return;
+    const QString text = m_assetPathEdit->text().trimmed();
+    QString abs = toAbsolutePath(text);
+    if (abs.isEmpty()) {
+        // 清空资产 → 回到内嵌剪辑（clip 保留）
+        Shit::AnimatorState s = *m_animator->stateAt(m_selState);
+        s.assetPath.clear();
+        if (m_animator->setState(m_selState, s)) { emit changed(); refreshClipWidgets(); rebuildFrameGrid(); }
+        return;
+    }
+    if (!QFileInfo::exists(abs)) { refreshClipWidgets(); return; }  // 路径无效，回退显示
+    setSelectedStateAsset(abs, /*withClip=*/true);
+}
+
+void AnimatorDock::onAssetBrowse()
+{
+    if (!m_animator || m_selState < 0) return;
+    QString initialDir = m_projectRoot.isEmpty() ? QString() : m_projectRoot + "/Assets";
+    const QString path = QFileDialog::getOpenFileName(this, tr("选择动画剪辑资产"), initialDir,
+                                                      tr("ShitEngine 动画 (*.anim)"));
+    if (path.isEmpty()) return;
+    setSelectedStateAsset(QFileInfo(path).absoluteFilePath(), /*withClip=*/true);
+}
+
+void AnimatorDock::onAssetOpenInWindow()
+{
+    if (!m_animator || m_selState < 0) return;
+    const Shit::AnimatorState *s = m_animator->stateAt(m_selState);
+    if (!s || s->assetPath.empty()) return;
+    const QString abs = toAbsolutePath(QString::fromStdString(s->assetPath));
+    if (!QFileInfo::exists(abs)) {
+        QMessageBox::warning(this, tr("资产缺失"), tr("无法打开 .anim 资产：%1").arg(abs));
+        return;
+    }
+    emit openAssetRequested(abs);
+}
+
+void AnimatorDock::onAssetClear()
+{
+    if (!m_animator || m_selState < 0) return;
+    const Shit::AnimatorState *s = m_animator->stateAt(m_selState);
+    if (!s || s->assetPath.empty()) return;
+    Shit::AnimatorState ns = *s;
+    ns.assetPath.clear();
+    if (m_animator->setState(m_selState, ns)) { emit changed(); refreshClipWidgets(); rebuildFrameGrid(); }
+}
+
+void AnimatorDock::dragEnterEvent(QDragEnterEvent *event)
+{
+    // 仅当拖入内容含 .anim 文件 URL 且当前选中状态时接受
+    if (m_animator && m_selState >= 0 && event->mimeData()->hasUrls()) {
+        for (const QUrl &url : event->mimeData()->urls()) {
+            if (QFileInfo(url.toLocalFile()).suffix().compare(QStringLiteral("anim"), Qt::CaseInsensitive) == 0) {
+                event->acceptProposedAction();
+                return;
+            }
+        }
+    }
+    event->ignore();
+}
+
+void AnimatorDock::dropEvent(QDropEvent *event)
+{
+    if (!m_animator || m_selState < 0 || !event->mimeData()->hasUrls()) {
+        event->ignore();
+        return;
+    }
+    for (const QUrl &url : event->mimeData()->urls()) {
+        const QString p = url.toLocalFile();
+        if (QFileInfo(p).suffix().compare(QStringLiteral("anim"), Qt::CaseInsensitive) == 0) {
+            setSelectedStateAsset(QFileInfo(p).absoluteFilePath(), /*withClip=*/true);
+            event->acceptProposedAction();
+            return;
+        }
+    }
+    event->ignore();
+}
+
 void AnimatorDock::onClearFrames()
 {
     if (!m_animator || m_selState < 0) return;
+    const Shit::AnimatorState *cur = m_animator->stateAt(m_selState);
+    if (cur && !cur->assetPath.empty()) return;
     Shit::AnimatorState s = *m_animator->stateAt(m_selState);
     s.clip.frames.clear();
     if (m_animator->setState(m_selState, s)) { emit changed(); refreshFrameHighlights(); m_framesHint->setText(tr("帧数 0")); }
@@ -517,6 +719,8 @@ void AnimatorDock::onClearFrames()
 void AnimatorDock::onFrameClicked(int tileId)
 {
     if (!m_animator || m_selState < 0) return;
+    const Shit::AnimatorState *cur = m_animator->stateAt(m_selState);
+    if (cur && !cur->assetPath.empty()) return;
     Shit::AnimatorState s = *m_animator->stateAt(m_selState);
     auto it = std::find(s.clip.frames.begin(), s.clip.frames.end(), tileId);
     if (it != s.clip.frames.end()) s.clip.frames.erase(it);
@@ -527,6 +731,8 @@ void AnimatorDock::onFrameClicked(int tileId)
 void AnimatorDock::rebuildFrameGrid()
 {
     const Shit::AnimatorState *s = m_animator && m_selState >= 0 ? m_animator->stateAt(m_selState) : nullptr;
+    // 资产驱动状态不提供内嵌点选帧
+    if (s && !s->assetPath.empty()) { clearFrameGrid(); return; }
     if (!s || s->clip.cols <= 0 || s->clip.rows <= 0 || s->clip.frameWidth <= 0 || s->clip.frameHeight <= 0) {
         clearFrameGrid();
         return;

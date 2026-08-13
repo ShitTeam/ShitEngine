@@ -106,7 +106,8 @@ namespace Shit
         SHIT_META(Disable)
         std::vector<AnimationClip> m_clips;
         // P28：序列化载体——所有剪辑的 JSON 数组字符串
-        SHIT_META(({.displayName = "Animation Clips", .tooltip = "序列化载体，由编辑器维护（JSON）", .readOnly = true}))
+        // 注意：不能标 readOnly——readOnly 字段会被 Prefab 序列化跳过，导致剪辑数据丢失
+        SHIT_META(({.displayName = "Animation Clips", .tooltip = "序列化载体，由编辑器维护（JSON）"}))
         std::string m_clipsData;
 
         SHIT_META(({.displayName = "Current Animation", .readOnly = true}))

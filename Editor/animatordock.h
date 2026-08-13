@@ -8,6 +8,8 @@
 class QCheckBox;
 class QComboBox;
 class QDoubleSpinBox;
+class QDragEnterEvent;
+class QDropEvent;
 class QLabel;
 class QLineEdit;
 class QListWidget;
@@ -16,7 +18,7 @@ class QToolButton;
 
 class AnimatorGraphView;
 
-namespace Shit { class Animator; class GameObject; }
+namespace Shit { class Animator; class GameObject; struct AnimationClip; }
 
 /// Unity 风格 Animator 窗口（P28）：独立 Dock 面板。
 /// 布局：中央状态机图（AnimatorGraphView）+ 右侧参数面板 + 底部属性面板。
@@ -35,10 +37,14 @@ public:
     void setGameObject(Shit::GameObject *object);
     /// 每帧刷新（由 mainwindow 驱动）
     void refresh();
+    /// 设置项目根目录（相对路径基准；空 = 无项目，路径存绝对）
+    void setProjectRoot(const QString &root);
 
 signals:
     /// 状态机数据被修改（撤销 begin/commit 由 mainwindow 接线）
     void changed();
+    /// 请求在 Animation 窗口打开指定 .anim 资产（mainwindow 接线）
+    void openAssetRequested(const QString &path);
 
 private slots:
     // 参数
@@ -60,6 +66,11 @@ private slots:
     void onClipLoopToggled(bool on);
     void onFrameClicked(int tileId);
     void onClearFrames();
+    // 剪辑资产（方案 A：Animator 状态引用 .anim 资产）
+    void onAssetTextEdited();
+    void onAssetBrowse();
+    void onAssetOpenInWindow();
+    void onAssetClear();
     // 转换（工具栏按钮 + 属性面板）
     void onAddTransition();
     void onRemoveTransition();
@@ -67,6 +78,11 @@ private slots:
     void onToChanged(int index);
     void onAddCondition();
     void onRemoveCondition();
+
+protected:
+    /// 资产路径编辑框：接受 .anim 文件拖入（资源面板拖到该行）
+    void dragEnterEvent(QDragEnterEvent *event) override;
+    void dropEvent(QDropEvent *event) override;
 
 private:
     void bindAnimator(Shit::Animator *animator);
@@ -81,8 +97,17 @@ private:
     void writeClipFromWidgets();
     void rebuildConditionList();
     void refreshConditionWidgets();
+    /// 从 .anim 文件读取 AnimationClip；失败返回 false（不弹框）
+    bool loadClipFromFile(const QString &path, Shit::AnimationClip &out);
+    /// 绝对路径 → 相对项目根（无项目或不在项目内则原样）
+    QString toRelativePath(const QString &abs) const;
+    /// 相对项目根 → 绝对路径
+    QString toAbsolutePath(const QString &rel) const;
+    /// 设置当前状态资产路径（写 assetPath + 可选更新 clip）并刷新
+    void setSelectedStateAsset(const QString &absPath, bool withClip);
 
     Shit::Animator *m_animator = nullptr;
+    QString m_projectRoot;   ///< 相对路径基准（空 = 无项目）
 
     AnimatorGraphView *m_graph = nullptr;
 
@@ -96,6 +121,13 @@ private:
     // 状态属性
     QLineEdit *m_stateNameEdit = nullptr;
     QCheckBox *m_stateEntryCheck = nullptr;
+    // 剪辑资产行（方案 A）
+    QLineEdit *m_assetPathEdit = nullptr;
+    QToolButton *m_assetBrowseBtn = nullptr;
+    QToolButton *m_assetOpenBtn = nullptr;
+    QToolButton *m_assetClearBtn = nullptr;
+    QLabel *m_assetHint = nullptr;
+    // 内嵌剪辑编辑区
     QLineEdit *m_texEdit = nullptr;
     QSpinBox *m_rowsSpin = nullptr;
     QSpinBox *m_colsSpin = nullptr;

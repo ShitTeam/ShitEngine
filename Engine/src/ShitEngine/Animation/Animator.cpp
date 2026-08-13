@@ -63,6 +63,7 @@ namespace Shit {
         j["graphX"] = s.graphX;
         j["graphY"] = s.graphY;
         j["clip"] = s.clip.toJson();
+        j["assetPath"] = s.assetPath;
         return j;
     }
     static bool stateFromJson(const nlohmann::json& j, AnimatorState& s) {
@@ -73,6 +74,7 @@ namespace Shit {
             if (j.contains("graphX") && j["graphX"].is_number()) s.graphX = j["graphX"].get<float>();
             if (j.contains("graphY") && j["graphY"].is_number()) s.graphY = j["graphY"].get<float>();
             if (j.contains("clip") && j["clip"].is_object()) s.clip.fromJson(j["clip"]);
+            if (j.contains("assetPath") && j["assetPath"].is_string()) s.assetPath = j["assetPath"].get<std::string>();
             return true;
         } catch (...) { return false; }
     }
@@ -130,8 +132,7 @@ namespace Shit {
         if (m_currentAnimation) {
             m_animTime += Time::GetDeltaTime();
             if (!m_currentAnimation->isLooping()) {
-                float total = static_cast<float>(m_currentAnimation->getFrameCount())
-                              * m_currentAnimation->getDuration();
+                const float total = m_currentAnimation->getTotalDuration();
                 if (total > 0.0f && m_animTime >= total)
                     m_animTime = total;
             }
@@ -401,6 +402,9 @@ namespace Shit {
         auto anim = std::make_unique<Animation>(clip.duration, clip.loop);
         for (int idx : clip.frames)
             anim->addFrame(sheet.getFrameRect(idx));
+        // 逐帧独立时长（P29 Dope Sheet）：长度匹配时传给运行时
+        if (clip.frameDurations.size() == clip.frames.size())
+            anim->setFrameDurations(clip.frameDurations);
         m_currentAnimation = std::move(anim);
         applyCurrentFrame();
     }

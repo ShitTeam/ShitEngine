@@ -9,7 +9,7 @@ inline bool Register_Animator() {
         .Base("Behavior")
         .Field("m_animatorData",
             &Shit::Animator::m_animatorData, "std::string")
-        .Meta(Shit::FieldMeta{.displayName = "Animator Data", .tooltip = "状态机序列化载体（JSON），由编辑器维护", .readOnly = true})
+        .Meta(Shit::FieldMeta{.displayName = "Animator Data", .tooltip = "状态机序列化载体（JSON），由编辑器维护"})
         .Field("m_currentStateDisplay",
             &Shit::Animator::m_currentStateDisplay, "std::string")
         .Meta(Shit::FieldMeta{.displayName = "Current State", .readOnly = true})

@@ -3,10 +3,12 @@
 #include "componentmenu.h"
 #include "dnd.h"
 #include "animatoreditorwidget.h"
+#include "animatorwidget.h"
 
 #include <ShitEngine.h>
 #include <ShitEngine/Core/EngineContext.h>
 #include <ShitEngine/Component/AnimationComponent.h>
+#include <ShitEngine/Animation/Animator.h>
 
 #include <QApplication>
 #include <QCheckBox>
@@ -374,7 +376,8 @@ void Inspector::setGameObject(Shit::GameObject *object)
         }
         m_form->addRow(row);
 
-        // P28：AnimationComponent 渲染专用剪辑编辑器（跳过反射字段：m_clipsData 只读载体）
+        // P29（方案 A）：AnimationComponent 渲染入口控件——「打开 Animation 窗口」按钮，
+        // 帧动画编辑统一收敛到 AnimationDock（跳过反射字段：m_clipsData 只读载体）
         if (normalizeTypeName(typeInfo->name) == "AnimationComponent") {
             auto *animator = new AnimatorEditorWidget(static_cast<Shit::AnimationComponent *>(component), m_content);
             // 包装成整行（不占 label 列）
@@ -384,10 +387,23 @@ void Inspector::setGameObject(Shit::GameObject *object)
             animLayout->addWidget(animator);
             m_form->addRow(animRow);
             m_readbacks.push_back([animator] { animator->refresh(); });
-            connect(animator, &AnimatorEditorWidget::changed, this, [this] {
-                emit fieldEdited();      // undo begin + dirty
-                emit fieldCommitted();   // undo commit（剪辑编辑为一次性提交）
-            });
+            // 入口按钮 → 请求打开独立帧动画窗口
+            connect(animator, &AnimatorEditorWidget::openEditorRequested, this,
+                    &Inspector::openAnimationEditorRequested);
+        }
+        // P28（方案 A）：Animator 渲染入口控件——「打开 Animator 窗口」按钮，编辑统一收敛到 AnimatorDock
+        // （跳过反射字段：m_animatorData 序列化载体，避免与状态机编辑逻辑冲突）
+        else if (normalizeTypeName(typeInfo->name) == "Animator") {
+            auto *animator = new AnimatorWidget(static_cast<Shit::Animator *>(component), m_content);
+            auto *animRow = new QWidget(m_content);
+            auto *animLayout = new QVBoxLayout(animRow);
+            animLayout->setContentsMargins(0, 0, 0, 0);
+            animLayout->addWidget(animator);
+            m_form->addRow(animRow);
+            m_readbacks.push_back([animator] { animator->refresh(); });
+            // 入口按钮 → 请求打开独立状态机窗口（状态机编辑统一收敛到 AnimatorDock）
+            connect(animator, &AnimatorWidget::openEditorRequested, this,
+                    &Inspector::openAnimatorEditorRequested);
         }
         else {
             for (const Shit::FieldInfo &field : typeInfo->fields) {

@@ -47,6 +47,7 @@
 #include "assetsdock.h"
 #include "tilesetdock.h"
 #include "animatordock.h"
+#include "animationdock.h"
 #include "undostack.h"
 #include "project.h"
 #include "projectwizard.h"
@@ -113,6 +114,7 @@ MainWindow::MainWindow(QWidget *parent)
     , m_preview(nullptr)
     , m_tileset(nullptr)
     , m_animatorDock(nullptr)
+    , m_animationDock(nullptr)
     , m_settings(QStringLiteral("ShitTeam"), QStringLiteral("ShitEngineEditor"))
 {
     ui->setupUi(this);
@@ -174,6 +176,10 @@ MainWindow::MainWindow(QWidget *parent)
     });
     connect(m_inspector, &Inspector::fieldEdited, this, [this] { undoBegin(); });
     connect(m_inspector, &Inspector::fieldCommitted, this, [this] { undoCommit(tr("编辑属性")); });
+    // 方案 A：检查器 Animator 入口按钮 → 显示并聚焦状态机 Dock
+    connect(m_inspector, &Inspector::openAnimatorEditorRequested, this, &MainWindow::openAnimatorEditor);
+    // P29：检查器 AnimationComponent 入口按钮 → 显示并聚焦帧动画 Dock
+    connect(m_inspector, &Inspector::openAnimationEditorRequested, this, &MainWindow::openAnimationEditor);
     // P27 增强：瓦片面板选瓦片 → 视口画笔（-2 无选择不刷；-1 橡皮）
     connect(m_tileset, &TilesetDock::tileSelected, m_sceneViewport, &Viewport::setPaintTileId);
     // P28：Animator 状态机窗口编辑 → 撤销 + dirty
@@ -181,6 +187,20 @@ MainWindow::MainWindow(QWidget *parent)
         undoBegin();
         undoCommit(tr("编辑状态机"));
     });
+    // P29：Animation 帧动画窗口编辑 .anim → 标脏（标题栏 *）
+    connect(m_animationDock, &AnimationDock::changed, this, [this] { setDirty(true); });
+    // 方案 A：Animator 状态 → 在 Animation 窗口打开其 .anim 资产
+    connect(m_animatorDock, &AnimatorDock::openAssetRequested, this, [this](const QString &path) {
+        if (m_animationDock->openFile(path)) {
+            m_log->appendMessage(tr("已在 Animation 窗口打开：%1").arg(path));
+        } else {
+            m_log->appendMessage(tr("打开动画剪辑失败：%1").arg(path), Qt::red);
+            return;
+        }
+        openAnimationEditor();
+    });
+    // 方案 A：Animation 窗口保存 .anim → 同步引用该资产的 Animator 状态
+    connect(m_animationDock, &AnimationDock::saved, this, &MainWindow::reloadAnimatorAsset);
     // 检查器底部 Add Component 添加组件：undo 事务已由 fieldEdited 开启，此处提交
     connect(m_inspector, &Inspector::componentAdded, this, [this] { undoCommit(tr("添加组件")); });
     // 检查器组件头「✕」移除组件 / 顶部名称栏重命名（同前：fieldEdited 已开启事务，此处提交）
@@ -205,7 +225,8 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_assets, &AssetsDock::prefabOpenRequested, this, &MainWindow::onPrefabOpenRequested);
     connect(m_sceneTree, &SceneTree::prefabSaveRequested, this, &MainWindow::onSaveObjectAsPrefab);
     // P28：.anim 剪辑资产 → 应用到选中对象的 Animator 状态
-    connect(m_assets, &AssetsDock::animOpenRequested, this, &MainWindow::onAnimOpenRequested);
+    // P29：改为在 Animation 窗口打开（制作/编辑 .anim 资产）；如需应用到 Animator 状态仍可用 onAnimOpenRequested
+    connect(m_assets, &AssetsDock::animOpenRequested, this, &MainWindow::onAnimationOpenRequested);
 
     // 单一引擎预览：共享场景，双视口同源（编辑一处，双视图同步）
     m_preview = new EnginePreview(this);
@@ -325,6 +346,15 @@ void MainWindow::createDocks()
     m_docks.push_back(animatorDockW);
     tabifyDockWidget(inspectorDock, animatorDockW);
     inspectorDock->raise();   // 默认显示检查器，选中 Animator 对象后用户切到 Animator 页
+
+    // P29：Animation 帧动画窗口（Unity 风格 .anim 资产编辑器；与检查器在右侧标签叠放）
+    auto *animationDockW = new QDockWidget(tr("Animation"), this);
+    animationDockW->setObjectName("animationDock");
+    m_animationDock = new AnimationDock(animationDockW);
+    animationDockW->setWidget(m_animationDock);
+    addDockWidget(Qt::RightDockWidgetArea, animationDockW);
+    m_docks.push_back(animationDockW);
+    tabifyDockWidget(inspectorDock, animationDockW);
 
     // 底部：资源面板 + 日志，标签页叠放（同区域 Tab 合并；拖标题栏可拆回独立）
     auto *assetsDock = new QDockWidget(tr("资源"), this);
@@ -696,10 +726,11 @@ void MainWindow::onSaveObjectAsPrefab(Shit::GameObject *object)
     }
     const nlohmann::json doc = Shit::SceneSerializer::toJson(object);
     const QString base = QString::fromStdString(object->getName()).replace(' ', '_');
-    const QString dir = m_assets->projectDir().isEmpty()
-        ? QCoreApplication::applicationDirPath() : m_assets->projectDir();
+    // 默认存到项目 Assets/ 目录（Unity 语义：预置属于资产）；无项目回退到资源窗口根或 exe 目录
+    const QString assetsDir = hasProject() ? m_project.assetsDir()
+        : (m_assets->projectDir().isEmpty() ? QCoreApplication::applicationDirPath() : m_assets->projectDir());
     const QString path = QFileDialog::getSaveFileName(this, tr("存为预置"),
-        dir + "/" + base + ".prefab", tr("ShitEngine 预置 (*.prefab)"));
+        assetsDir + "/" + base + ".prefab", tr("ShitEngine 预置 (*.prefab)"));
     if (path.isEmpty()) return;
 
     QFile file(path);
@@ -764,6 +795,108 @@ void MainWindow::onAnimOpenRequested(const QString &path)
         undoCommit(tr("应用动画剪辑"));
         m_inspector->setGameObject(sel);  // 重绑检查器，立即反映新剪辑
     }
+}
+
+void MainWindow::reloadAnimatorAsset(const QString &path)
+{
+    // 方案 A：Animation 窗口保存 .anim → 把新剪辑同步回所有引用该资产的 Animator 状态。
+    // 遍历选中对象 Animator 的状态，assetPath（相对项目根解析）匹配的文件重新读入并 setState。
+    Shit::GameObject *sel = m_sceneTree->selectedObject();
+    Shit::Animator *animator = sel ? sel->getComponent<Shit::Animator>() : nullptr;
+    if (!animator) return;
+
+    // 保存路径可能是相对（project config 或相对资产）——统一转绝对比对
+    const QString savedAbs = QFileInfo(path).absoluteFilePath();
+    const QString root = hasProject() ? m_project.rootDir() : QString();
+
+    bool changedAny = false;
+    for (int i = 0; i < animator->stateCount(); ++i) {
+        const Shit::AnimatorState *st = animator->stateAt(i);
+        if (!st || st->assetPath.empty()) continue;
+        QString assetRel = QString::fromStdString(st->assetPath);
+        QString assetAbs = QFileInfo(assetRel).isAbsolute()
+            ? QFileInfo(assetRel).absoluteFilePath()
+            : (root.isEmpty() ? assetRel : QFileInfo(root + "/" + assetRel).absoluteFilePath());
+        if (assetAbs.compare(savedAbs, Qt::CaseInsensitive) != 0) continue;
+
+        // 重新读 .anim 覆盖 clip
+        Shit::AnimationClip clip;
+        QFile f(savedAbs);
+        if (!f.open(QIODevice::ReadOnly)) continue;
+        const QByteArray data = f.readAll();
+        f.close();
+        bool ok = false;
+        try {
+            nlohmann::json j = nlohmann::json::parse(data.constData());
+            ok = clip.fromJson(j);
+        } catch (const std::exception &) { ok = false; }
+        if (!ok) continue;
+
+        Shit::AnimatorState ns = *st;
+        ns.clip = clip;
+        if (animator->setState(i, ns)) changedAny = true;
+    }
+    if (changedAny) {
+        m_animatorDock->refresh();
+        if (sel) m_inspector->setGameObject(sel);  // 重绑检查器，反映新剪辑
+    }
+}
+
+void MainWindow::openAnimatorEditor()
+{
+    // AnimatorDock 的父级即其所属 QDockWidget（createDocks 中 new AnimatorDock(animatorDockW)）
+    auto *dockWidget = qobject_cast<QDockWidget *>(m_animatorDock->parentWidget());
+    if (!dockWidget) return;
+
+    // QDockWidget 被关闭（✕）后 Qt 会把它从 dock 区域摘除；再次 show() 只会回到浮动窗，
+    // 不会自动吸附。这里先检查它是否已不在 dock 区域，若是则重新加回右侧并与检查器叠放（tab）。
+    const bool attached = !dockWidget->isFloating() && dockWidget->isVisible();
+    if (!attached) {
+        QDockWidget *inspectorDock = nullptr;
+        for (QDockWidget *d : m_docks) {
+            if (d->objectName() == QStringLiteral("inspectorDock")) { inspectorDock = d; break; }
+        }
+        if (inspectorDock) {
+            addDockWidget(Qt::RightDockWidgetArea, dockWidget);
+            tabifyDockWidget(inspectorDock, dockWidget);
+        }
+    }
+
+    dockWidget->show();
+    dockWidget->raise();
+    m_animatorDock->setFocus();
+}
+
+void MainWindow::openAnimationEditor()
+{
+    auto *dockWidget = qobject_cast<QDockWidget *>(m_animationDock->parentWidget());
+    if (!dockWidget) return;
+    // 若已从 dock 区域脱离（关闭/浮窗）→ 重新吸附回右侧并与检查器叠放（同 openAnimatorEditor）
+    const bool attached = !dockWidget->isFloating() && dockWidget->isVisible();
+    if (!attached) {
+        QDockWidget *inspectorDock = nullptr;
+        for (QDockWidget *d : m_docks) {
+            if (d->objectName() == QStringLiteral("inspectorDock")) { inspectorDock = d; break; }
+        }
+        if (inspectorDock) {
+            addDockWidget(Qt::RightDockWidgetArea, dockWidget);
+            tabifyDockWidget(inspectorDock, dockWidget);
+        }
+    }
+    dockWidget->show();
+    dockWidget->raise();
+    m_animationDock->setFocus();
+}
+
+void MainWindow::onAnimationOpenRequested(const QString &path)
+{
+    if (m_animationDock->openFile(path)) {
+        m_log->appendMessage(tr("已在 Animation 窗口打开：%1").arg(path));
+    } else {
+        m_log->appendMessage(tr("打开动画剪辑失败：%1").arg(path), Qt::red);
+        return;
+    }
+    openAnimationEditor();
 }
 
 void MainWindow::onPrefabDropped(const QString &path, float logicalX, float logicalY)
@@ -1323,8 +1456,10 @@ void MainWindow::enterProject(const Project &project)
         if (!geo.isEmpty()) restoreGeometry(geo);
     }
 
-    // 4) 资源面板绑定项目 Assets/；最近场景切到项目级列表
-    m_assets->applyProjectDir(project.assetsDir());
+    // 4) 资源窗口绑定整个项目根（Unity 式：树里可见 Assets/ Scenes/ Scripts/）；
+    //    最近场景切到项目级列表；Animator 相对路径基准设为项目根
+    m_assets->applyProjectDir(project.rootDir());
+    m_animatorDock->setProjectRoot(project.rootDir());
     updateRecentMenu();
 
     // 5) 插件 + 场景：卸载旧插件（项目脚本库）→ 加载本项目插件 → 载入项目场景
@@ -1372,6 +1507,7 @@ void MainWindow::closeProjectInternal()
     m_project = Project();
 
     m_assets->applyProjectDir(m_settings.value("projectDir").toString());
+    m_animatorDock->setProjectRoot(QString());   // 无项目：资产路径存绝对
     updateRecentMenu();          // 最近场景回退到全局列表
     updateProjectMenus();
     updateWindowTitle();

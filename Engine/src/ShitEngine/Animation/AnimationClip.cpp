@@ -22,6 +22,7 @@ namespace Shit {
         j["loop"] = loop;
         j["isDefault"] = isDefault;
         j["frames"] = frames;
+        if (!frameDurations.empty()) j["frameDurations"] = frameDurations;
         return j;
     }
 
@@ -43,6 +44,13 @@ namespace Shit {
                 frames.clear();
                 for (const auto& f : j["frames"])
                     if (f.is_number_integer()) frames.push_back(f.get<int>());
+            }
+            if (j.contains("frameDurations") && j["frameDurations"].is_array()) {
+                frameDurations.clear();
+                for (const auto& d : j["frameDurations"])
+                    if (d.is_number()) frameDurations.push_back(d.get<float>());
+                // 长度与帧数不匹配则丢弃（避免脏数据影响播放）
+                if (frameDurations.size() != frames.size()) frameDurations.clear();
             }
             return true;
         } catch (const std::exception&) {

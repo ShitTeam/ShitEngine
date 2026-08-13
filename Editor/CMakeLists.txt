@@ -44,6 +44,10 @@ set(PROJECT_SOURCES
         animatorgraphview.h
         animatordock.cpp
         animatordock.h
+        dopesheetwidget.cpp
+        dopesheetwidget.h
+        animationdock.cpp
+        animationdock.h
         project.cpp
         project.h
         projectwizard.cpp

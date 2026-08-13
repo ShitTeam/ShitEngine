@@ -54,6 +54,10 @@ signals:
     void objectRenamed();
     /// 组件移除被拒绝（如 Transform / scene_camera 相机是基础设施）
     void componentRemoveBlocked(const QString &reason);
+    /// 用户请求打开 Animator 状态机编辑窗口（Animator 组件的入口按钮触发，由 mainwindow 显示 Dock）
+    void openAnimatorEditorRequested();
+    /// 用户请求打开 Animation 帧动画编辑窗口（AnimationComponent 的入口按钮触发，由 mainwindow 显示 Dock）
+    void openAnimationEditorRequested();
 
 private:
     /// 为单个字段生成一行编辑控件

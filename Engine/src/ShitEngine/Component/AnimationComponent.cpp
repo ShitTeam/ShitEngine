@@ -56,8 +56,7 @@ namespace Shit {
         // 非循环动画播到末尾：停在最后一帧并结束播放
         // 结束判断放在时间递增之后，保证播放时长严格等于 totalLen
         if (!m_currentAnimation->isLooping()) {
-            float totalLen = static_cast<float>(m_currentAnimation->getFrameCount())
-                             * m_currentAnimation->getDuration();
+            const float totalLen = m_currentAnimation->getTotalDuration();
             if (totalLen > 0.0f && m_currentTime >= totalLen) {
                 m_currentTime = totalLen;  // clamp 到末帧
                 applyCurrentFrame();
@@ -204,6 +203,9 @@ namespace Shit {
             auto anim = std::make_unique<Animation>(clip.duration, clip.loop);
             for (int idx : clip.frames)
                 anim->addFrame(sheet.getFrameRect(idx));
+            // 逐帧独立时长（P29 Dope Sheet）：长度匹配时传给运行时
+            if (clip.frameDurations.size() == clip.frames.size())
+                anim->setFrameDurations(clip.frameDurations);
             m_animations[clip.name] = std::move(anim);
         }
     }

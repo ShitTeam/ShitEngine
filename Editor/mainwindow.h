@@ -30,6 +30,7 @@ class EnginePreview;
 class AssetsDock;
 class TilesetDock;
 class AnimatorDock;
+class AnimationDock;
 
 namespace Shit { class Scene; class GameObject; }   ///< 播放中场景同步成员用（仅指针，不要求完整类型）
 
@@ -74,6 +75,7 @@ private slots:
     void onPrefabDropped(const QString &path, float logicalX, float logicalY); ///< .prefab 拖入视口 → 实例化（P25c）
     void onPrefabOpenRequested(const QString &path);  ///< 资产面板双击 .prefab → 实例化（P25c）
     void onAnimOpenRequested(const QString &path);    ///< 资产面板双击 .anim → 应用剪辑到选中对象 Animator 状态（P28）
+    void reloadAnimatorAsset(const QString &path);    ///< 方案 A：Animation 窗口保存 .anim → 同步引用该资产的 Animator 状态
     void onSaveObjectAsPrefab(Shit::GameObject *object);  ///< 场景树「存为预置…」→ 写 .prefab 文件（P25c）
     /// 从 .prefab 文件实例化进当前场景（useDropPos 时把根对象移到落点世界坐标）
     void instantiatePrefab(const QString &path, bool useDropPos, float logicalX, float logicalY);
@@ -86,6 +88,9 @@ private slots:
     void onExportGame();                 ///< 导出游戏（P18）：装配绿色免安装游戏包
     void openIde();                      ///< 用项目设置中配置的 IDE 打开项目（P16）
     void onBuildScripts();               ///< 构建脚本工程（Ctrl+B）→ 成功后热重载
+    void openAnimatorEditor();           ///< 显示并聚焦 Animator 状态机窗口（方案 A：检查器入口按钮触发）
+    void openAnimationEditor();          ///< 显示并聚焦 Animation 帧动画窗口（P29：检查器入口按钮触发）
+    void onAnimationOpenRequested(const QString &path);  ///< 打开 .anim 到 Animation 窗口并聚焦（P29）
 
 private:
     void createDocks();
@@ -163,6 +168,7 @@ private:
     AssetsDock *m_assets = nullptr;
     TilesetDock *m_tileset = nullptr;   ///< 瓦片选择面板（P27 增强）：选中 Tilemap 时显示瓦片网格
     AnimatorDock *m_animatorDock = nullptr;  ///< 状态机窗口（P28）：Unity 风格可视化状态机编辑
+    AnimationDock *m_animationDock = nullptr; ///< 帧动画窗口（P29）：Unity 风格 .anim 资产编辑器
     std::vector<QDockWidget *> m_docks;   ///< 全部 Dock 面板（「窗口」菜单勾选显隐，关闭后可重新打开）
 
     bool m_dirty = false;       ///< 未保存修改标记（标题栏 *）

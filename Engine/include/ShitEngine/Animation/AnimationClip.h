@@ -28,10 +28,12 @@ namespace Shit
         float frameHeight = 0.0f;         ///< 单帧高（像素）
         float margin = 0.0f;              ///< 网格左上留白（像素）
         float spacing = 0.0f;             ///< 帧间距（像素）
-        float duration = 0.1f;            ///< 每帧时长（秒）
+        float duration = 0.1f;            ///< 统一每帧时长（秒，无 frameDurations 时使用）
         bool loop = true;                 ///< 是否循环
         bool isDefault = false;           ///< 是否默认播放（onStart 自动播放）
         std::vector<int> frames;          ///< 全局帧索引序列
+        std::vector<float> frameDurations;///< 每帧独立时长（秒，可选）。长度与 frames 相同时逐帧生效，
+                                          ///< 否则回退到统一 duration（Dope Sheet 时间轴，P29）
 
         /// 序列化到 JSON（载体 / .anim 资产）
         nlohmann::json toJson() const;

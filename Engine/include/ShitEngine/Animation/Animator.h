@@ -51,6 +51,7 @@ namespace Shit
     struct SHIT_API AnimatorState {
         std::string name;         ///< 状态名
         AnimationClip clip;       ///< 本状态播放的剪辑（内嵌数据）
+        std::string assetPath;    ///< 引用的 .anim 资产路径（相对项目根；空 = 内嵌剪辑，由编辑器维护）
         bool isEntry = false;     ///< 是否入口状态（onStart 优先进入）
         float graphX = 0.0f;      ///< 状态机图节点 X（编辑器布局用，随 .scene 保存）
         float graphY = 0.0f;      ///< 状态机图节点 Y（编辑器布局用，随 .scene 保存）
@@ -147,7 +148,8 @@ namespace Shit
         bool checkTransition(const AnimatorTransition& t) const;
 
         // 反射字符串载体（JSON：states / params / transitions）
-        SHIT_META(({.displayName = "Animator Data", .tooltip = "状态机序列化载体（JSON），由编辑器维护", .readOnly = true}))
+        // 注意：不能标 readOnly——readOnly 字段会被 Prefab 序列化跳过，导致状态机数据丢失
+        SHIT_META(({.displayName = "Animator Data", .tooltip = "状态机序列化载体（JSON），由编辑器维护"}))
         std::string m_animatorData;
 
         // 运行时（Disable 不入反射）
