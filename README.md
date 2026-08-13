@@ -78,140 +78,46 @@ Game::Destroy()
 
 ## 快速开始
 
-### 编辑器工作流（推荐）
+> ShitEngine 的唯一使用方式是**可视化编辑器**：搭场景、写行为脚本、调试、导出全流程在编辑器内完成，无需手写 CMake 与场景搭建代码。
 
 1. 从 [GitHub Release](https://github.com/ShitTeam/ShitEngine/releases) 下载带编辑器的 SDK 包（`Editor.exe` + `ShitRuntime.exe`）
-2. 「文件 → 新建项目」：填项目名与位置，自动生成 CMake 脚本工程骨架（`Scripts/` 目录 + `find_package(ShitEngine)`）
+2. 「文件 → 新建项目」：填项目名与位置，自动生成脚本工程骨架（`Scripts/` 目录）
 3. 在场景树右键新建对象、检查器面板调属性、资源窗口拖图片进视口创建精灵——全可视化搭场景
-4. Ctrl+B 构建脚本（自动探测 IDE / 生成器，热重载 DLL），▶ 进入播放态调试，■ 停止回滚运行期改动
+4. 在 `Scripts/Behaviors.h` 里写行为脚本，`Ctrl+B` 构建（自动探测编译器/生成器，热重载 DLL），▶ 进入播放态调试，■ 停止回滚运行期改动
 5. 「文件 → 导出游戏…」一键装配绿色免安装游戏包（exe + 引擎/SDL 运行库 + 脚本 DLL + 场景与资源）
 
-编辑器把引擎**进程内嵌**：`EnginePreview` 持有独立 `EngineContext`，场景树/检查器/视口直接读写引擎对象，播放态支持输入转发、场景同步与运行前快照回滚。详见[文档站「编辑器」](https://engine.shitteam.top/guide/editor)。
+编辑器把引擎**进程内嵌**（`EnginePreview` 持有独立 `EngineContext`）：场景树/检查器/视口直接读写引擎对象，播放态支持输入转发、场景同步与运行前快照回滚。完整操作见[文档站「编辑器」指南](https://engine.shitteam.top/guide/editor)与[教程](https://engine.shitteam.top/guide/tutorial)。
 
-### SDK + 手写代码
+## 编写行为脚本（Scripts/Behaviors.h）
 
-从 GitHub Release 下载预编译 SDK，在 CMakeLists.txt 中使用：
-
-```cmake
-find_package(ShitEngine REQUIRED
-    PATHS /path/to/ShitEngine/lib/cmake
-    NO_DEFAULT_PATH)
-add_executable(MyGame main.cpp)
-target_link_libraries(MyGame PRIVATE ShitEngine::ShitEngine)
-```
-
-`ShitEngineConfig.cmake` 按 `CMAKE_BUILD_TYPE` 自动选择导入库（Debug 带 `-d` 后缀），第三方 DLL 随包自带。
-
-## 使用示例
-
-### 基础：场景 / 相机 / 脚本
+游戏逻辑以**行为脚本**（C++ 插件，`SHIT_REFLECT` 反射类）的形式写在 `Scripts/Behaviors.h`，`Ctrl+B` 构建后在检查器「Add Component」挂到对象上：
 
 ```cpp
-#include <ShitEngine.h>
-
-class Player : public Shit::Behavior {
-    Shit::TransformComponent* transform = nullptr;
-    float speed = 200.0f;
-
+class SHIT_REFLECT(BlackList) Player : public Shit::Behavior {
+    SHIT_REFLECT_BODY(Player)
+public:
     void onStart() override {
-        transform = getOwner()->getComponent<Shit::TransformComponent>();
+        m_transform = getOwner()->getComponent<Shit::TransformComponent>();
     }
 
     void onUpdate() override {
-        Shit::Vector2 pos = transform->getPosition();
-        if (Shit::Input::IsKeyDown(Shit::KeyCode::W)) pos.y -= speed * Shit::Time::GetDeltaTime();
-        if (Shit::Input::IsKeyDown(Shit::KeyCode::S)) pos.y += speed * Shit::Time::GetDeltaTime();
-        if (Shit::Input::IsKeyDown(Shit::KeyCode::A)) pos.x -= speed * Shit::Time::GetDeltaTime();
-        if (Shit::Input::IsKeyDown(Shit::KeyCode::D)) pos.x += speed * Shit::Time::GetDeltaTime();
-        transform->setPosition(pos);
+        if (!m_transform) return;
+        Shit::Vector2 pos = m_transform->getPosition();
+        if (Shit::Input::IsKeyPressed(Shit::KeyCode::A)) pos.x -= m_speed * Shit::Time::GetDeltaTime();
+        if (Shit::Input::IsKeyPressed(Shit::KeyCode::D)) pos.x += m_speed * Shit::Time::GetDeltaTime();
+        m_transform->setPosition(pos);
     }
+
+private:
+    SHIT_META(Disable)
+    Shit::TransformComponent* m_transform = nullptr;
+    float m_speed = 200.0f;   // 反射字段：检查器里可改
 };
-
-int main() {
-    if (Shit::Game::Init()) {
-        auto scene = std::make_unique<Shit::Scene>("example");
-        scene->init();
-        scene->createGameObject("player")   // Transform + SpriteRenderer + 脚本
-            ->addComponent<Player>();
-
-        auto* camera = scene->createGameObject("camera");
-        camera->addComponent<Shit::TransformComponent>();
-        camera->addComponent<Shit::CameraComponent>()->setZoom(5.0f);
-
-        Shit::SceneManager::LoadScene(std::move(scene));
-        Shit::Game::Run();
-    }
-    Shit::Game::Destroy();
-}
 ```
 
-> `IsKeyDown` = 刚按下（跳跃），`IsKeyPressed` = 持续按住（移动），与 Unity/Godot 相反。
+脚本里可以调用引擎全部 API——输入（`Input::IsActionDown("Jump")` / `GetAxis("Horizontal")`）、动画状态机（`Animator::setFloat/setTrigger`）、物理碰撞回调（`onCollisionEnter/Stay/Exit`）、音频（`AudioPlayer`）、事件总线（`EventBus`）等等，各模块用法见[文档站手册](https://engine.shitteam.top/guide/scene)。
 
-### Animator 状态机
-
-`Animator` 组件由参数驱动在状态间切换，典型玩法：idle/run/jump 依 `speed`、`grounded`、`jump` 参数流转：
-
-```cpp
-// onStart：拿到 Animator，按刺激设置参数
-auto* animator = getOwner()->getComponent<Shit::Animator>();
-animator->setFloat("speed", Shit::Input::GetAxis("Horizontal"));
-animator->setBool("grounded", true);
-animator->setTrigger("jump");   // 触发 jump 转换（求值后自动消耗）
-```
-
-状态/转换/参数既可在代码里用 `addState/addTransition/addParam` 搭建，也可用 `.scene` 内嵌 JSON（`m_animatorData`）随场景落盘；剪辑可引用独立 `.anim` 资产文件（编辑器 Animation 窗口制作）。示例见 `Examples/scenes/AnimatorTest.scene`。
-
-### 物理与碰撞回调
-
-```cpp
-// 刚体 + 碰撞体（像素单位，默认 32 像素 = 1 米）
-auto* ball = scene->createGameObject("Ball");
-ball->addComponent<Shit::TransformComponent>()->setPosition({400, 50});
-ball->addComponent<Shit::RigidBody2D>()->setBodyType(Shit::RigidBody2D::Type::Dynamic);
-ball->addComponent<Shit::CircleCollider2D>(24.0f);
-
-// 脚本里响应碰撞
-void onCollisionEnter(Shit::GameObject* other) override {
-    Shit::ST_INFO("撞上了 {}", other->getName());
-}
-```
-
-`Joint2D` 组件把本对象刚体与 `connectedBody` 引用刚体用 Box2D 约束连接（Distance 弹簧 / Revolute 铰链 / Weld 焊接 / Prismatic 滑动），物理系统按需自愈注册、`.scene` 可完整序列化。
-
-### 分层音频
-
-```cpp
-auto* bgm = Shit::AudioPlayer::Play("audio/bgm.mp3", "bgm");   // 归入 "bgm" 组
-bgm->setLooping(-1);
-Shit::AudioPlayer::SetMasterVolume(0.8f);                      // master × group × track
-Shit::AudioPlayer::GetTrackGroup("bgm")->setVolume(0.5f);      // 实际增益 = 0.8 × 0.5 × track
-```
-
-### 事件总线
-
-```cpp
-struct PlayerHit : Shit::Event { int damage; };
-auto token = Shit::EventBus::Subscribe<PlayerHit>([](const PlayerHit& e) { /* 处理 */ });
-Shit::EventBus::Emit(PlayerHit{10});          // 入队，下一帧统一派发
-Shit::EventBus::Unsubscribe<PlayerHit>(token);
-```
-
-### 配置
-
-创建 `config.json` 与可执行文件同目录（`settings.json` 同构回退），窗口与**输入映射**：
-
-```json
-{
-    "window": { "title": "My Game", "width": 1280, "height": 720, "targetFPS": 144 },
-    "inputMappings": {
-        "actions": { "Jump": ["Space"], "Attack": ["J", "E"] },
-        "axes": { "Horizontal": { "negative": ["A"], "positive": ["D"] } }
-    },
-    "scene": "Scenes/Main.scene"
-}
-```
-
-## 构建
+## 从源码构建（贡献者）
 
 ```bash
 cmake -B out/build/x64-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TOOLS=ON
@@ -220,7 +126,7 @@ cmake --build out/build/x64-debug --parallel
 
 - `BUILD_TOOLS=ON` 编译 ReflectionScanner（需 libClang），构建时自动扫描 `SHIT_REFLECT` 宏生成 `.gen.h`
 - 检测到 Qt6/Qt5 Widgets 时额外编译 `Editor`（未检测到则静默跳过编辑器）
-- 详情见 `CHANGELOG.md` 与文档站
+- 修改带反射宏的头文件后需重新生成 `.gen.h`；现象诡异时全量重编 `*.obj`（见 `CHANGELOG.md`）
 
 ## 更多
 
