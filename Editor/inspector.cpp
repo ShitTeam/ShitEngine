@@ -3,12 +3,10 @@
 #include "componentmenu.h"
 #include "dnd.h"
 #include "animatoreditorwidget.h"
-#include "animatorwidget.h"
 
 #include <ShitEngine.h>
 #include <ShitEngine/Core/EngineContext.h>
 #include <ShitEngine/Component/AnimationComponent.h>
-#include <ShitEngine/Animation/Animator.h>
 
 #include <QApplication>
 #include <QCheckBox>
@@ -389,20 +387,6 @@ void Inspector::setGameObject(Shit::GameObject *object)
             connect(animator, &AnimatorEditorWidget::changed, this, [this] {
                 emit fieldEdited();      // undo begin + dirty
                 emit fieldCommitted();   // undo commit（剪辑编辑为一次性提交）
-            });
-        }
-        // P28：Animator 状态机渲染专用编辑器（跳过反射字段：m_animatorData 只读载体）
-        else if (normalizeTypeName(typeInfo->name) == "Animator") {
-            auto *animator = new AnimatorWidget(static_cast<Shit::Animator *>(component), m_content);
-            auto *animRow = new QWidget(m_content);
-            auto *animLayout = new QVBoxLayout(animRow);
-            animLayout->setContentsMargins(0, 0, 0, 0);
-            animLayout->addWidget(animator);
-            m_form->addRow(animRow);
-            m_readbacks.push_back([animator] { animator->refresh(); });
-            connect(animator, &AnimatorWidget::changed, this, [this] {
-                emit fieldEdited();
-                emit fieldCommitted();
             });
         }
         else {

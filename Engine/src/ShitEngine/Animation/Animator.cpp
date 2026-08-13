@@ -60,6 +60,8 @@ namespace Shit {
         nlohmann::json j;
         j["name"] = s.name;
         j["isEntry"] = s.isEntry;
+        j["graphX"] = s.graphX;
+        j["graphY"] = s.graphY;
         j["clip"] = s.clip.toJson();
         return j;
     }
@@ -68,6 +70,8 @@ namespace Shit {
         try {
             if (j.contains("name") && j["name"].is_string()) s.name = j["name"].get<std::string>();
             if (j.contains("isEntry") && j["isEntry"].is_boolean()) s.isEntry = j["isEntry"].get<bool>();
+            if (j.contains("graphX") && j["graphX"].is_number()) s.graphX = j["graphX"].get<float>();
+            if (j.contains("graphY") && j["graphY"].is_number()) s.graphY = j["graphY"].get<float>();
             if (j.contains("clip") && j["clip"].is_object()) s.clip.fromJson(j["clip"]);
             return true;
         } catch (...) { return false; }
@@ -193,6 +197,7 @@ namespace Shit {
     }
 
     void Animator::notifyDataChanged() {
+        ++m_dataGeneration;
         syncData();
     }
 

@@ -2,7 +2,7 @@
 
 > 本文档为 ShitEngine 编辑器（`Editor/`）与运行时场景管线的分阶段开发规划，使用中文。
 > 规划日期：2026-08-06。状态：P6–P13 已实现；P14「项目系统」已实现（见 plans/p14-project-system.md，规划文档不入库）。
-> 后续迭代（P20–P28）均已完成，见 `CHANGELOG.md`；P28「动画剪辑 + Animator 状态机」为当前阶段终点，下一阶段从 P29 起。
+> 后续迭代（P20–P28）均已完成，见 `CHANGELOG.md`；P28「动画剪辑 + Animator 状态机」（含 Unity 风格 Animator 窗口）为当前阶段终点，下一阶段从 P29 起。
 
 ## 0. 核心架构决策
 

@@ -29,6 +29,7 @@ class LogWidget;
 class EnginePreview;
 class AssetsDock;
 class TilesetDock;
+class AnimatorDock;
 
 namespace Shit { class Scene; class GameObject; }   ///< 播放中场景同步成员用（仅指针，不要求完整类型）
 
@@ -161,6 +162,7 @@ private:
     QMenu *m_recentMenu = nullptr;
     AssetsDock *m_assets = nullptr;
     TilesetDock *m_tileset = nullptr;   ///< 瓦片选择面板（P27 增强）：选中 Tilemap 时显示瓦片网格
+    AnimatorDock *m_animatorDock = nullptr;  ///< 状态机窗口（P28）：Unity 风格可视化状态机编辑
     std::vector<QDockWidget *> m_docks;   ///< 全部 Dock 面板（「窗口」菜单勾选显隐，关闭后可重新打开）
 
     bool m_dirty = false;       ///< 未保存修改标记（标题栏 *）

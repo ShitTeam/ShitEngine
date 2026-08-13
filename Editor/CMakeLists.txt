@@ -40,6 +40,10 @@ set(PROJECT_SOURCES
         animatoreditorwidget.h
         animatorwidget.cpp
         animatorwidget.h
+        animatorgraphview.cpp
+        animatorgraphview.h
+        animatordock.cpp
+        animatordock.h
         project.cpp
         project.h
         projectwizard.cpp

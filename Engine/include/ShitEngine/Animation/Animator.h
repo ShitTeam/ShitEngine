@@ -52,6 +52,8 @@ namespace Shit
         std::string name;         ///< 状态名
         AnimationClip clip;       ///< 本状态播放的剪辑（内嵌数据）
         bool isEntry = false;     ///< 是否入口状态（onStart 优先进入）
+        float graphX = 0.0f;      ///< 状态机图节点 X（编辑器布局用，随 .scene 保存）
+        float graphY = 0.0f;      ///< 状态机图节点 Y（编辑器布局用，随 .scene 保存）
     };
 
     /// 状态间转换（可序列化；同一状态可有多条，按序求值）
@@ -129,6 +131,8 @@ namespace Shit
 
         // ── 运行时查询 ──
         bool isPlaying() const { return m_isPlaying; }
+        /// 数据代数，每次状态/参数/转换变更后递增（编辑器用于判断是否需要重建状态机图）
+        uint64_t getDataGeneration() const { return m_dataGeneration; }
 
     private:
         /// 进入状态：构建 Animation 并重置时间
@@ -162,6 +166,9 @@ namespace Shit
         float m_animTime = 0.0f;
         SHIT_META(Disable)
         bool m_isPlaying = false;
+
+        SHIT_META(Disable)
+        uint64_t m_dataGeneration = 0;  ///< 数据代数，notifyDataChanged 递增
 
         // 只读展示字段
         SHIT_META(({.displayName = "Current State", .readOnly = true}))

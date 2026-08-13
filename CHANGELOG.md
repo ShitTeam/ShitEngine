@@ -13,7 +13,8 @@
   - **引擎**：新增独立目录 `Animation/` —— `AnimationClip`（剪辑名/纹理路径/网格参数/每帧时长/循环/默认/帧序列，JSON 可序列化，可作 `.anim` 资产）与 `Animator`（**状态机组件**：状态集 + 转换 + 参数 float/bool/trigger；`setFloat`/`setBool`/`setTrigger` 参数驱动；BehaviorSystem 驱动 `onUpdate`——推进当前状态剪辑 + 求值转换，满足条件即切状态并重启动画）。`AnimationComponent`（可序列化多剪辑版）保留，`AnimationClip` 从其中迁至 `Animation/AnimationClip.h`
   - **序列化**：`Animator` 以反射字符串载体 `m_animatorData`（JSON：states/params/transitions）随 `.scene` 落盘，`onAfterDeserialize`/`onFieldChanged` 解析重建；`syncData()` 反向同步
   - **状态机 API**：`addState/setState/removeState`（首状态自动为入口）、`addParam/setParam/removeParam`、`addTransition/setTransition/removeTransition`（from=-1 任意状态）、`currentStateIndex/evaluateTransitions`；删当前状态自动停播、删参数连带清理引用它的转换条件、trigger 求值后自动消耗
-  - **编辑器**：检查器为 Animator 渲染**专用状态机编辑器**（`animatordock`/`animatorwidget`）——参数表（类型/名/值增删）、状态列表（入口标记）+ 选中状态剪辑编辑（纹理/网格/时长/循环/**帧序列点选**）、转换编辑（from→to + 条件增删）；AnimationComponent 仍渲染剪辑编辑器；均写回载体并接撤销 + dirty
+  - **编辑器**：检查器为 Animator 渲染**专用状态机编辑器**（`animatorwidget`）——参数表（类型/名/值增删）、状态列表（入口标记）+ 选中状态剪辑编辑（纹理/网格/时长/循环/**帧序列点选**）、转换编辑（from→to + 条件增删）；AnimationComponent 仍渲染剪辑编辑器；均写回载体并接撤销 + dirty
+  - **Unity 风格 Animator 窗口**（`animatordock` + `animatorgraphview`，独立右侧 Dock「窗口→Animator」）：QGraphicsView 可视化状态机图——状态方块节点（入口状态黄色标记）、转换箭头曲线、**右键从一个状态拖到另一个状态创建转换**（空白处引出=任意状态）、**拖节点移动**（坐标随 `.scene` 保存）、滚轮缩放、Delete 删除选中状态/转换；左侧参数面板（float/bool/trigger 增删与值）、底部选中状态/转换属性（剪辑编辑 + 帧序列点选 / from-to + 条件）；`AnimatorState` 新增 `graphX/graphY` 图坐标字段随载体序列化
   - **`.anim` 资产**：资源面板过滤 `.anim`，双击 → 解析 `AnimationClip` JSON 应用到选中对象 Animator 的当前状态（`onAnimOpenRequested`）
   - **示例**：`Examples/scenes/AnimatorTest.scene`（idle/run/jump 三状态 + speed/grounded/jump 三参数 + 4 条转换）+ `Examples/resource/run.anim` + `PlayerAnimatorController` 行为脚本（A/D→speed、Space→jump trigger 驱动切换）
 - **Tilemap 瓦片地图（P27，引擎 + 编辑器）**：2D 关卡搭建落地——新增 `Tilemap` 组件（继承 RendererComponent），把瓦片集纹理（sprite sheet）按 `m_gridWidth×m_gridHeight` 网格铺排成地图：

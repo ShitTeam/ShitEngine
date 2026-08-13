@@ -46,6 +46,7 @@
 #include "preview.h"
 #include "assetsdock.h"
 #include "tilesetdock.h"
+#include "animatordock.h"
 #include "undostack.h"
 #include "project.h"
 #include "projectwizard.h"
@@ -111,6 +112,7 @@ MainWindow::MainWindow(QWidget *parent)
     , m_log(nullptr)
     , m_preview(nullptr)
     , m_tileset(nullptr)
+    , m_animatorDock(nullptr)
     , m_settings(QStringLiteral("ShitTeam"), QStringLiteral("ShitEngineEditor"))
 {
     ui->setupUi(this);
@@ -174,6 +176,11 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_inspector, &Inspector::fieldCommitted, this, [this] { undoCommit(tr("编辑属性")); });
     // P27 增强：瓦片面板选瓦片 → 视口画笔（-2 无选择不刷；-1 橡皮）
     connect(m_tileset, &TilesetDock::tileSelected, m_sceneViewport, &Viewport::setPaintTileId);
+    // P28：Animator 状态机窗口编辑 → 撤销 + dirty
+    connect(m_animatorDock, &AnimatorDock::changed, this, [this] {
+        undoBegin();
+        undoCommit(tr("编辑状态机"));
+    });
     // 检查器底部 Add Component 添加组件：undo 事务已由 fieldEdited 开启，此处提交
     connect(m_inspector, &Inspector::componentAdded, this, [this] { undoCommit(tr("添加组件")); });
     // 检查器组件头「✕」移除组件 / 顶部名称栏重命名（同前：fieldEdited 已开启事务，此处提交）
@@ -207,11 +214,12 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_sceneTree, &SceneTree::sceneDeleteBlocked, this,
             [this](const QString &reason) { m_log->appendMessage(reason, Qt::red); });
 
-    // P3：场景树选中 → 属性检查器 + 场景视图 Gizmo + 瓦片面板
+    // P3：场景树选中 → 属性检查器 + 场景视图 Gizmo + 瓦片面板 + Animator 状态机窗口
     connect(m_sceneTree, &SceneTree::objectSelected, this, [this](Shit::GameObject *obj) {
         m_inspector->setGameObject(obj);
         m_sceneViewport->setSelectedObject(obj);
         m_tileset->setGameObject(obj);
+        m_animatorDock->setGameObject(obj);
     });
     connect(m_inspector, &Inspector::buildInfo, this, [this](int components, int fields) {
         m_log->appendMessage(QString("检查器: 渲染 %1 个组件 / %2 个字段").arg(components).arg(fields));
@@ -307,6 +315,16 @@ void MainWindow::createDocks()
     inspectorDock->setWidget(m_inspector);
     addDockWidget(Qt::RightDockWidgetArea, inspectorDock);
     m_docks.push_back(inspectorDock);
+
+    // P28：Animator 状态机窗口（Unity 风格可视化图；与检查器在右侧标签叠放）
+    auto *animatorDockW = new QDockWidget(tr("Animator"), this);
+    animatorDockW->setObjectName("animatorDock");
+    m_animatorDock = new AnimatorDock(animatorDockW);
+    animatorDockW->setWidget(m_animatorDock);
+    addDockWidget(Qt::RightDockWidgetArea, animatorDockW);
+    m_docks.push_back(animatorDockW);
+    tabifyDockWidget(inspectorDock, animatorDockW);
+    inspectorDock->raise();   // 默认显示检查器，选中 Animator 对象后用户切到 Animator 页
 
     // 底部：资源面板 + 日志，标签页叠放（同区域 Tab 合并；拖标题栏可拆回独立）
     auto *assetsDock = new QDockWidget(tr("资源"), this);
@@ -854,6 +872,7 @@ void MainWindow::onSceneFrameReady(const QImage &frame)
     // refresh() 不会触碰已释放的组件内存
     syncSceneSelection();
     m_inspector->refresh();
+    m_animatorDock->refresh();
 }
 
 void MainWindow::syncSceneSelection()
@@ -890,6 +909,7 @@ void MainWindow::syncSceneSelection()
         m_inspector->setGameObject(nullptr);       // 清空检查器（防回读已释放组件）
         m_sceneViewport->setSelectedObject(nullptr);
         m_tileset->setGameObject(nullptr);         // 清空瓦片面板
+        m_animatorDock->setGameObject(nullptr);    // 清空状态机窗口
     }
 }
 
@@ -1544,6 +1564,7 @@ if (!QFile::exists(srcDll)) {
         m_inspector->setGameObject(nullptr);
         m_sceneViewport->setSelectedObject(nullptr);
         m_tileset->setGameObject(nullptr);
+        m_animatorDock->setGameObject(nullptr);
         m_sceneTree->setScene(m_preview->getScene());
         m_sceneViewport->setEditScene(m_preview->getScene());
         m_savedSnapshot = snapshot();
@@ -1731,6 +1752,7 @@ void MainWindow::pickSceneAt(float x, float y)
         // 点空白 → 清空检查器 + 瓦片面板
         m_inspector->setGameObject(nullptr);
         m_tileset->setGameObject(nullptr);
+        m_animatorDock->setGameObject(nullptr);
 
         // 诊断：打印首个含精灵的对象其屏幕矩形，区分"点偏了" vs "映射错"
         QString rectInfo;
