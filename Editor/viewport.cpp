@@ -220,6 +220,7 @@ void Viewport::paintEvent(QPaintEvent *event)
         painter.setRenderHint(QPainter::SmoothPixmapTransform, false);
         painter.drawImage(m_drawRect, m_frame);
         drawPhysicsDebug(painter);
+        drawTilemapGrid(painter);
         drawGizmo(painter);
     } else {
         m_drawRect = QRect();
@@ -294,6 +295,97 @@ void Viewport::drawGizmo(QPainter &painter)
     painter.drawLine(p, p + QPoint(0, len));
     painter.drawLine(p + QPoint(0, len), p + QPoint(-4, len - 6));
     painter.drawLine(p + QPoint(0, len), p + QPoint(4, len - 6));
+}
+
+void Viewport::drawTilemapGrid(QPainter &painter)
+{
+    // 仅选中含 Tilemap 的对象时绘制网格线（辅助刷图对齐）
+    if (!m_selected || !m_editScene || m_frame.isNull() || m_drawRect.isEmpty())
+        return;
+    // 播放中游戏逻辑可能销毁了选中对象 → 视为未选中
+    if (!m_editScene->containsGameObject(m_selected)) return;
+    auto *camera = editorCamera();
+    if (!camera) return;
+    auto *tilemap = m_selected->getComponent<Shit::Tilemap>();
+    if (!tilemap) return;
+    auto *transform = m_selected->getComponent<Shit::TransformComponent>();
+    if (!transform) return;
+
+    const int cols = tilemap->getGridWidth();
+    const int rows = tilemap->getGridHeight();
+    if (cols <= 0 || rows <= 0) return;
+    const Shit::Vector2 cell = tilemap->getTileWorldSize();
+    const float cellW = (cell.x > 0.0f) ? cell.x : static_cast<float>(tilemap->getTileWidth());
+    const float cellH = (cell.y > 0.0f) ? cell.y : static_cast<float>(tilemap->getTileHeight());
+
+    const Shit::Vector2 origin = transform->getPosition();
+    const float totalW = cols * cellW;
+    const float totalH = rows * cellH;
+
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    QPen pen(QColor(0, 200, 220, 90), 1, Qt::DashLine);
+    painter.setPen(pen);
+    painter.setBrush(Qt::NoBrush);
+
+    // 竖线
+    for (int i = 0; i <= cols; ++i) {
+        const float wx = origin.x + i * cellW;
+        const Shit::Vector2 sp = camera->worldToScreen({ wx, origin.y });
+        const QPointF p = logicalToWidget(sp.x, sp.y);
+        const Shit::Vector2 spBot = camera->worldToScreen({ wx, origin.y + totalH });
+        const QPointF pBot = logicalToWidget(spBot.x, spBot.y);
+        painter.drawLine(p, pBot);
+    }
+    // 横线
+    for (int j = 0; j <= rows; ++j) {
+        const float wy = origin.y + j * cellH;
+        const Shit::Vector2 sp = camera->worldToScreen({ origin.x, wy });
+        const QPointF p = logicalToWidget(sp.x, sp.y);
+        const Shit::Vector2 spRight = camera->worldToScreen({ origin.x + totalW, wy });
+        const QPointF pRight = logicalToWidget(spRight.x, spRight.y);
+        painter.drawLine(p, pRight);
+    }
+}
+
+bool Viewport::paintTileAt(const QPoint &widgetPos)
+{
+    if (!m_selected || !m_editScene || m_frame.isNull() || m_drawRect.isEmpty())
+        return false;
+    if (!m_editScene->containsGameObject(m_selected)) return false;
+    auto *camera = editorCamera();
+    if (!camera) return false;
+    auto *tilemap = m_selected->getComponent<Shit::Tilemap>();
+    if (!tilemap) return false;
+    auto *transform = m_selected->getComponent<Shit::TransformComponent>();
+    if (!transform) return false;
+
+    const int cols = tilemap->getGridWidth();
+    const int rows = tilemap->getGridHeight();
+    if (cols <= 0 || rows <= 0) return false;
+    const Shit::Vector2 cell = tilemap->getTileWorldSize();
+    const float cellW = (cell.x > 0.0f) ? cell.x : static_cast<float>(tilemap->getTileWidth());
+    const float cellH = (cell.y > 0.0f) ? cell.y : static_cast<float>(tilemap->getTileHeight());
+
+    // 控件坐标 → 逻辑像素 → 世界坐标 → 网格行列
+    const QPointF logical = widgetToLogical(widgetPos);
+    const Shit::Vector2 world = camera->screenToWorld({ static_cast<float>(logical.x()),
+                                                        static_cast<float>(logical.y()) });
+    const Shit::Vector2 origin = transform->getPosition();
+    const int col = static_cast<int>(std::floor((world.x - origin.x) / cellW));
+    const int row = static_cast<int>(std::floor((world.y - origin.y) / cellH));
+
+    if (col < 0 || row < 0 || col >= cols || row >= rows) return false;
+
+    // 未在瓦片面板选择画笔（-2）时禁止刷图，避免误刷；擦除由 m_paintErasing 决定
+    if (!m_paintErasing && m_paintTileId == -2)
+        return false;
+
+    const int tileId = m_paintErasing ? -1 : m_paintTileId;
+    if (tilemap->getTile(col, row) != tileId) {
+        tilemap->setTile(col, row, tileId);
+        update();
+    }
+    return true;
 }
 
 bool Viewport::colliderHandleGeom(QPointF &center, float &rotRad, float &pixelScale) const
@@ -373,6 +465,41 @@ void Viewport::drawPhysicsDebug(QPainter &painter)
         }
     }
 
+    // —— P26：关节可视化（青色连接线 + 锚点圆点）——
+    // 遍历场景中所有 Joint2D：连接本对象（bodyA）与引用刚体（bodyB），
+    // 锚点处画青色圆点，线为青色虚线，便于编辑/调试关节约束。
+    painter.setPen(QPen(QColor(60, 200, 230, 200), 2, Qt::DashLine));
+    for (auto &go : m_editScene->getGameObjects()) {
+        auto *joint = go->getComponent<Shit::Joint2D>();
+        if (!joint) continue;
+        auto *transformA = go->getComponent<Shit::TransformComponent>();
+        if (!transformA) continue;
+
+        // bodyA 世界锚点（未显式设置时默认 = bodyA 位置；可视化为约束点）
+        const Shit::Vector2 anchor = joint->getAnchor();
+        auto *bodyB = joint->getConnectedBody();
+        Shit::Vector2 pA = transformA->getPosition();
+        Shit::Vector2 pB = pA;   // 无目标时退化到同点
+        if (bodyB && bodyB->getOwner()) {
+            if (auto *tfB = bodyB->getOwner()->getComponent<Shit::TransformComponent>()) {
+                pB = tfB->getPosition();
+            }
+        }
+        if (anchor != Shit::Vector2(0, 0)) pA = anchor;
+
+        const Shit::Vector2 spA = camera->worldToScreen(pA);
+        const Shit::Vector2 spB = camera->worldToScreen(pB);
+        const QPointF cA = logicalToWidget(spA.x, spA.y);
+        const QPointF cB = logicalToWidget(spB.x, spB.y);
+
+        painter.drawLine(cA, cB);
+        // 锚点圆点
+        painter.setBrush(QColor(60, 200, 230, 230));
+        painter.setPen(Qt::NoPen);
+        painter.drawEllipse(cA, 4, 4);
+        painter.setPen(QPen(QColor(60, 200, 230, 200), 2, Qt::DashLine));
+    }
+
     // —— P25b：选中碰撞体的编辑手柄（黄色高亮轮廓 + 白色尺寸/半径块）——
     QPointF selCenter;
     float selRot = 0.0f;
@@ -415,6 +542,35 @@ void Viewport::drawPhysicsDebug(QPainter &painter)
 void Viewport::mousePressEvent(QMouseEvent *event)
 {
     const QPoint pos = event->pos();
+
+    // P27：瓦片刷图。选中含 Tilemap 的对象时：左键+Shift 放置画笔瓦片、右键擦除。
+    // 优先于 Gizmo/碰撞体手柄与拾取（编辑锁时禁用；仅场景视图可刷，运行视口无 m_editScene）
+    if (m_editEnabled && m_selected && m_editScene && !m_frame.isNull() && m_drawRect.contains(pos)) {
+        if (event->button() == Qt::LeftButton && (event->modifiers() & Qt::ShiftModifier)) {
+            if (m_selected->getComponent<Shit::Tilemap>()) {
+                m_paintErasing = false;
+                if (paintTileAt(pos)) {
+                    m_drag = DragMode::PaintTiles;
+                    m_dragStartWidget = pos;
+                    emit gizmoDragStarted();
+                    QWidget::mousePressEvent(event);
+                    return;
+                }
+            }
+        } else if (event->button() == Qt::RightButton) {
+            if (m_selected->getComponent<Shit::Tilemap>()) {
+                m_paintErasing = true;
+                if (paintTileAt(pos)) {
+                    m_drag = DragMode::PaintTiles;
+                    m_dragStartWidget = pos;
+                    emit gizmoDragStarted();
+                    QWidget::mousePressEvent(event);
+                    return;
+                }
+            }
+        }
+    }
+
     if (event->button() == Qt::MiddleButton) {
         if (!m_frame.isNull() && m_drawRect.contains(pos)) {
             m_drag = DragMode::Pan;
@@ -669,6 +825,11 @@ void Viewport::mouseMoveEvent(QMouseEvent *event)
             t->setPosition({ m_panStartCamX - worldDx, m_panStartCamY - worldDy });
             update();
         }
+    } else if (m_drag == DragMode::PaintTiles) {
+        // 瓦片连续刷：按住拖拽经过的格子逐个放置/擦除
+        if (m_selected && m_selected->getComponent<Shit::Tilemap>()) {
+            paintTileAt(event->pos());
+        }
     }
     QWidget::mouseMoveEvent(event);
 }
@@ -681,7 +842,8 @@ void Viewport::mouseReleaseEvent(QMouseEvent *event)
                             || m_drag == DragMode::Rotate || m_drag == DragMode::ScaleX
                             || m_drag == DragMode::ScaleY
                             || m_drag == DragMode::ColliderBox
-                            || m_drag == DragMode::ColliderCircle);
+                            || m_drag == DragMode::ColliderCircle
+                            || m_drag == DragMode::PaintTiles);
     m_drag = DragMode::None;
     if (wasGizmoDrag)
         emit gizmoDragFinished();

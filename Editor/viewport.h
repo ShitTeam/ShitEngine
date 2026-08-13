@@ -53,6 +53,10 @@ public:
     /// 控件坐标 → 逻辑像素坐标（播放态输入转发等外部使用）
     QPointF mapToLogical(const QPoint &pos) const { return widgetToLogical(pos); }
 
+    /// P27：设置瓦片画笔（供外部瓦片面板设置；-1 = 橡皮，-2 = 未选择不刷）
+    void setPaintTileId(int tileId) { m_paintTileId = tileId; update(); }
+    int paintTileId() const { return m_paintTileId; }
+
 signals:
     /// 点击视口（逻辑像素坐标，0..1280 × 0..720；供拾取用）
     void logicalClicked(float x, float y);
@@ -87,6 +91,10 @@ private:
     void drawGizmo(QPainter &painter);
     /// 绘制碰撞体调试轮廓（刚体类型着色；视图内工具条「碰撞体」开关）
     void drawPhysicsDebug(QPainter &painter);
+    /// P27：选中含 Tilemap 的对象时绘制瓦片网格线（辅助刷图对齐）
+    void drawTilemapGrid(QPainter &painter);
+    /// P27：在控件坐标处刷一个瓦片（根据 m_paintErasing 决定放置/擦除），返回是否命中网格
+    bool paintTileAt(const QPoint &widgetPos);
     /// 点到线段距离（Gizmo 手柄命中判定）
     static float distToSegment(const QPointF &p, const QPointF &a, const QPointF &b);
     /// P25b：计算选中对象碰撞体手柄的绘制/命中几何（并校验存活）。
@@ -94,7 +102,7 @@ private:
     bool colliderHandleGeom(QPointF &center, float &rotRad, float &pixelScale) const;
 
     enum class DragMode { None, GizmoX, GizmoY, Move, Rotate, ScaleX, ScaleY,
-                          ColliderBox, ColliderCircle, Pan };
+                          ColliderBox, ColliderCircle, PaintTiles, Pan };
     DragMode m_drag = DragMode::None;
     QPoint m_dragStartWidget;       ///< 拖动起点（控件坐标）
     float m_dragStartPosX = 0.0f;   ///< 对象拖动前世界位置
@@ -125,6 +133,10 @@ private:
     QToolButton *m_gizmoScaleBtn = nullptr;
     QToolButton *m_colliderToggleBtn = nullptr;   ///< 碰撞体轮廓显示开关（不属互斥组）
     bool m_showColliders = true;
+
+    // P27：瓦片刷图画笔状态
+    int m_paintTileId = -2;  ///< 当前画笔瓦片索引（-1 = 擦除橡皮，-2 = 未选择不刷）
+    bool m_paintErasing = false;   ///< 当前刷图拖拽是否擦除（区分左右键）
 
     /// 构建左上角工具条（构造时调用）；setGizmoMode 同步按钮选中态
     void setupGizmoBar();

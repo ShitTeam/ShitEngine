@@ -24,4 +24,10 @@ namespace Shit::Internal {
 		return id;
 	}
 
+	/// @brief 从字段还原 b2JointId
+	inline b2JointId MakeJointId(int32_t index1, uint16_t world0, uint16_t generation) {
+		b2JointId id = { index1, world0, generation };
+		return id;
+	}
+
 } // namespace Shit::Internal

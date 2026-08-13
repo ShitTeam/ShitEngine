@@ -1,0 +1,69 @@
+{
+  "objects": [
+    {
+      "data": [
+        {
+          "fields": {
+            "m_isEnabled": true,
+            "m_priority": 0,
+            "m_worldSize": [
+              1280.0,
+              720.0
+            ],
+            "m_zoom": 1.0
+          },
+          "type": "CameraComponent"
+        },
+        {
+          "fields": {
+            "m_position": [
+              640.0,
+              360.0
+            ],
+            "m_rotation": 0.0,
+            "m_scale": [
+              1.0,
+              1.0
+            ]
+          },
+          "type": "TransformComponent"
+        }
+      ],
+      "name": "Main Camera",
+      "parent": -1
+    },
+    {
+      "data": [
+        {
+          "fields": {
+            "m_texturePath": "resource/anim_sheet.png"
+          },
+          "type": "SpriteRenderer"
+        },
+        {
+          "fields": {
+            "m_animatorData": "{\"states\":[{\"name\":\"idle\",\"isEntry\":true,\"clip\":{\"name\":\"idle\",\"texturePath\":\"resource/anim_sheet.png\",\"rows\":2,\"cols\":2,\"frameWidth\":32,\"frameHeight\":32,\"margin\":0,\"spacing\":0,\"duration\":0.4,\"loop\":true,\"isDefault\":false,\"frames\":[0]}},{\"name\":\"run\",\"isEntry\":false,\"clip\":{\"name\":\"run\",\"texturePath\":\"resource/anim_sheet.png\",\"rows\":2,\"cols\":2,\"frameWidth\":32,\"frameHeight\":32,\"margin\":0,\"spacing\":0,\"duration\":0.12,\"loop\":true,\"isDefault\":false,\"frames\":[0,1,2,3]}},{\"name\":\"jump\",\"isEntry\":false,\"clip\":{\"name\":\"jump\",\"texturePath\":\"resource/anim_sheet.png\",\"rows\":2,\"cols\":2,\"frameWidth\":32,\"frameHeight\":32,\"margin\":0,\"spacing\":0,\"duration\":0.2,\"loop\":false,\"isDefault\":false,\"frames\":[1]}}],\"params\":[{\"name\":\"speed\",\"type\":0,\"floatValue\":0,\"boolValue\":false},{\"name\":\"grounded\",\"type\":1,\"floatValue\":0,\"boolValue\":true},{\"name\":\"jump\",\"type\":2,\"floatValue\":0,\"boolValue\":false}],\"transitions\":[{\"fromState\":0,\"toState\":1,\"exitTime\":0,\"conditions\":[{\"parameter\":\"speed\",\"type\":0,\"threshold\":0.1,\"boolValue\":false}]},{\"fromState\":1,\"toState\":0,\"exitTime\":0,\"conditions\":[{\"parameter\":\"speed\",\"type\":1,\"threshold\":0.1,\"boolValue\":false}]},{\"fromState\":-1,\"toState\":2,\"exitTime\":0,\"conditions\":[{\"parameter\":\"jump\",\"type\":4,\"threshold\":0,\"boolValue\":false}]},{\"fromState\":2,\"toState\":0,\"exitTime\":0,\"conditions\":[{\"parameter\":\"grounded\",\"type\":3,\"threshold\":0,\"boolValue\":true}]}]}"
+          },
+          "type": "Animator"
+        },
+        {
+          "fields": {
+            "m_position": [
+              400.0,
+              360.0
+            ],
+            "m_rotation": 0.0,
+            "m_scale": [
+              4.0,
+              4.0
+            ]
+          },
+          "type": "TransformComponent"
+        }
+      ],
+      "name": "Player",
+      "parent": -1
+    }
+  ],
+  "version": 2
+}

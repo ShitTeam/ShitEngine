@@ -45,6 +45,7 @@
 #include "logwidget.h"
 #include "preview.h"
 #include "assetsdock.h"
+#include "tilesetdock.h"
 #include "undostack.h"
 #include "project.h"
 #include "projectwizard.h"
@@ -55,6 +56,11 @@
 
 #include <ShitEngine.h>
 #include <ShitEngine/Core/EngineContext.h>
+#include <ShitEngine/Animation/Animator.h>
+
+#include <nlohmann/json.hpp>
+
+#include <QFile>
 #include <ShitEngine/Scene/SceneSerializer.h>
 #include <ShitEngine/System/BehaviorSystem.h>
 
@@ -104,6 +110,7 @@ MainWindow::MainWindow(QWidget *parent)
     , m_inspector(nullptr)
     , m_log(nullptr)
     , m_preview(nullptr)
+    , m_tileset(nullptr)
     , m_settings(QStringLiteral("ShitTeam"), QStringLiteral("ShitEngineEditor"))
 {
     ui->setupUi(this);
@@ -165,6 +172,8 @@ MainWindow::MainWindow(QWidget *parent)
     });
     connect(m_inspector, &Inspector::fieldEdited, this, [this] { undoBegin(); });
     connect(m_inspector, &Inspector::fieldCommitted, this, [this] { undoCommit(tr("编辑属性")); });
+    // P27 增强：瓦片面板选瓦片 → 视口画笔（-2 无选择不刷；-1 橡皮）
+    connect(m_tileset, &TilesetDock::tileSelected, m_sceneViewport, &Viewport::setPaintTileId);
     // 检查器底部 Add Component 添加组件：undo 事务已由 fieldEdited 开启，此处提交
     connect(m_inspector, &Inspector::componentAdded, this, [this] { undoCommit(tr("添加组件")); });
     // 检查器组件头「✕」移除组件 / 顶部名称栏重命名（同前：fieldEdited 已开启事务，此处提交）
@@ -188,6 +197,8 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_sceneViewport, &Viewport::prefabDropped, this, &MainWindow::onPrefabDropped);
     connect(m_assets, &AssetsDock::prefabOpenRequested, this, &MainWindow::onPrefabOpenRequested);
     connect(m_sceneTree, &SceneTree::prefabSaveRequested, this, &MainWindow::onSaveObjectAsPrefab);
+    // P28：.anim 剪辑资产 → 应用到选中对象的 Animator 状态
+    connect(m_assets, &AssetsDock::animOpenRequested, this, &MainWindow::onAnimOpenRequested);
 
     // 单一引擎预览：共享场景，双视口同源（编辑一处，双视图同步）
     m_preview = new EnginePreview(this);
@@ -196,10 +207,11 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_sceneTree, &SceneTree::sceneDeleteBlocked, this,
             [this](const QString &reason) { m_log->appendMessage(reason, Qt::red); });
 
-    // P3：场景树选中 → 属性检查器 + 场景视图 Gizmo
+    // P3：场景树选中 → 属性检查器 + 场景视图 Gizmo + 瓦片面板
     connect(m_sceneTree, &SceneTree::objectSelected, this, [this](Shit::GameObject *obj) {
         m_inspector->setGameObject(obj);
         m_sceneViewport->setSelectedObject(obj);
+        m_tileset->setGameObject(obj);
     });
     connect(m_inspector, &Inspector::buildInfo, this, [this](int components, int fields) {
         m_log->appendMessage(QString("检查器: 渲染 %1 个组件 / %2 个字段").arg(components).arg(fields));
@@ -311,8 +323,17 @@ void MainWindow::createDocks()
     addDockWidget(Qt::BottomDockWidgetArea, logDock);
     m_docks.push_back(logDock);
 
-    // 叠在一起：资源 + 日志合并为底部标签组（默认显示资源页）
+    // P27 增强：瓦片选择面板（底部标签组第三个页，选中 Tilemap 时显示瓦片网格）
+    auto *tilesetDock = new QDockWidget(tr("瓦片"), this);
+    tilesetDock->setObjectName("tilesetDock");
+    m_tileset = new TilesetDock(tilesetDock);
+    tilesetDock->setWidget(m_tileset);
+    addDockWidget(Qt::BottomDockWidgetArea, tilesetDock);
+    m_docks.push_back(tilesetDock);
+
+    // 叠在一起：资源 + 日志 + 瓦片合并为底部标签组（默认显示资源页）
     tabifyDockWidget(assetsDock, logDock);
+    tabifyDockWidget(assetsDock, tilesetDock);
     assetsDock->raise();
 
     setDockNestingEnabled(true);
@@ -679,6 +700,54 @@ void MainWindow::onPrefabOpenRequested(const QString &path)
     instantiatePrefab(path, false, 0.0f, 0.0f);
 }
 
+void MainWindow::onAnimOpenRequested(const QString &path)
+{
+    // 1) 读取 .anim 文件（AnimationClip 的 JSON 对象）
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly)) {
+        m_log->appendMessage(tr("无法读取动画剪辑：%1").arg(path), Qt::red);
+        return;
+    }
+    const QByteArray data = f.readAll();
+    f.close();
+
+    Shit::AnimationClip clip;
+    try {
+        nlohmann::json j = nlohmann::json::parse(data.constData());
+        if (!clip.fromJson(j)) {
+            m_log->appendMessage(tr("动画剪辑解析失败（非法 JSON 结构）：%1").arg(path), Qt::red);
+            return;
+        }
+    } catch (const std::exception &e) {
+        m_log->appendMessage(tr("动画剪辑解析失败：%1 —— %2").arg(path, QString::fromStdString(e.what())), Qt::red);
+        return;
+    }
+
+    // 2) 应用到选中对象的 Animator（优先当前状态，否则第一个状态）
+    Shit::GameObject *sel = m_sceneTree->selectedObject();
+    Shit::Animator *animator = sel ? sel->getComponent<Shit::Animator>() : nullptr;
+    if (!animator) {
+        m_log->appendMessage(tr("未选中含 Animator 组件的对象，无法应用剪辑"), Qt::yellow);
+        return;
+    }
+    int idx = animator->currentStateIndex();
+    if (idx < 0) idx = 0;
+    if (idx >= animator->stateCount()) {
+        m_log->appendMessage(tr("Animator 无状态可应用剪辑"), Qt::yellow);
+        return;
+    }
+    undoBegin();   // 在修改前捕获快照（可撤销）
+    Shit::AnimatorState state = *animator->stateAt(idx);
+    state.clip = clip;
+    if (animator->setState(idx, state)) {
+        m_log->appendMessage(tr("已应用动画剪辑「%1」到状态「%2」")
+                                 .arg(QString::fromStdString(clip.name),
+                                      QString::fromStdString(state.name)));
+        undoCommit(tr("应用动画剪辑"));
+        m_inspector->setGameObject(sel);  // 重绑检查器，立即反映新剪辑
+    }
+}
+
 void MainWindow::onPrefabDropped(const QString &path, float logicalX, float logicalY)
 {
     instantiatePrefab(path, true, logicalX, logicalY);
@@ -820,6 +889,7 @@ void MainWindow::syncSceneSelection()
     } else {
         m_inspector->setGameObject(nullptr);       // 清空检查器（防回读已释放组件）
         m_sceneViewport->setSelectedObject(nullptr);
+        m_tileset->setGameObject(nullptr);         // 清空瓦片面板
     }
 }
 
@@ -1470,9 +1540,10 @@ if (!QFile::exists(srcDll)) {
             return true;
         });
     if (reloaded) {
-        // 场景被重建（对象全部换新）→ 先清旧选中态再重挂树/检查器
+        // 场景被重建（对象全部换新）→ 先清旧选中态再重挂树/检查器/瓦片面板
         m_inspector->setGameObject(nullptr);
         m_sceneViewport->setSelectedObject(nullptr);
+        m_tileset->setGameObject(nullptr);
         m_sceneTree->setScene(m_preview->getScene());
         m_sceneViewport->setEditScene(m_preview->getScene());
         m_savedSnapshot = snapshot();
@@ -1657,6 +1728,10 @@ void MainWindow::pickSceneAt(float x, float y)
         m_sceneViewport->setSelectedObject(hit); // 场景视图显示 Gizmo
         m_sceneTree->selectObject(hit);          // 同步场景树高亮
     } else {
+        // 点空白 → 清空检查器 + 瓦片面板
+        m_inspector->setGameObject(nullptr);
+        m_tileset->setGameObject(nullptr);
+
         // 诊断：打印首个含精灵的对象其屏幕矩形，区分"点偏了" vs "映射错"
         QString rectInfo;
         for (auto &go : scene->getGameObjects()) {
@@ -1673,6 +1748,5 @@ void MainWindow::pickSceneAt(float x, float y)
         }
         m_log->appendMessage(QString("pick: 未命中 @logical(%1,%2)%3")
             .arg(click.x, 0, 'f', 1).arg(click.y, 0, 'f', 1).arg(rectInfo), Qt::yellow);
-        m_inspector->setGameObject(nullptr); // 点空白 → 清空检查器
     }
 }

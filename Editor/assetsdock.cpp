@@ -20,7 +20,7 @@ namespace {
 bool isAllowedAsset(const QString &path)
 {
     const QString ext = QFileInfo(path).suffix().toLower();
-    static const QStringList kAllowed = { "png", "jpg", "jpeg", "bmp", "wav", "ttf", "otf", "scene", "prefab" };
+    static const QStringList kAllowed = { "png", "jpg", "jpeg", "bmp", "wav", "ttf", "otf", "scene", "prefab", "anim" };
     return kAllowed.contains(ext);
 }
 
@@ -95,6 +95,8 @@ AssetsDock::AssetsDock(QWidget *parent)
             emit sceneOpenRequested(path);
         else if (ext == QStringLiteral("prefab"))
             emit prefabOpenRequested(path);
+        else if (ext == QStringLiteral("anim"))
+            emit animOpenRequested(path);
     });
 
     // 默认目录：上次记忆 → 无则应用目录

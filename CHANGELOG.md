@@ -9,6 +9,24 @@
 
 ### 新增
 
+- **动画剪辑 + Animator 状态机（P28，引擎 + 编辑器）**：精灵动画从"运行时动态播放"升级为"可序列化、参数驱动的状态机"：
+  - **引擎**：新增独立目录 `Animation/` —— `AnimationClip`（剪辑名/纹理路径/网格参数/每帧时长/循环/默认/帧序列，JSON 可序列化，可作 `.anim` 资产）与 `Animator`（**状态机组件**：状态集 + 转换 + 参数 float/bool/trigger；`setFloat`/`setBool`/`setTrigger` 参数驱动；BehaviorSystem 驱动 `onUpdate`——推进当前状态剪辑 + 求值转换，满足条件即切状态并重启动画）。`AnimationComponent`（可序列化多剪辑版）保留，`AnimationClip` 从其中迁至 `Animation/AnimationClip.h`
+  - **序列化**：`Animator` 以反射字符串载体 `m_animatorData`（JSON：states/params/transitions）随 `.scene` 落盘，`onAfterDeserialize`/`onFieldChanged` 解析重建；`syncData()` 反向同步
+  - **状态机 API**：`addState/setState/removeState`（首状态自动为入口）、`addParam/setParam/removeParam`、`addTransition/setTransition/removeTransition`（from=-1 任意状态）、`currentStateIndex/evaluateTransitions`；删当前状态自动停播、删参数连带清理引用它的转换条件、trigger 求值后自动消耗
+  - **编辑器**：检查器为 Animator 渲染**专用状态机编辑器**（`animatordock`/`animatorwidget`）——参数表（类型/名/值增删）、状态列表（入口标记）+ 选中状态剪辑编辑（纹理/网格/时长/循环/**帧序列点选**）、转换编辑（from→to + 条件增删）；AnimationComponent 仍渲染剪辑编辑器；均写回载体并接撤销 + dirty
+  - **`.anim` 资产**：资源面板过滤 `.anim`，双击 → 解析 `AnimationClip` JSON 应用到选中对象 Animator 的当前状态（`onAnimOpenRequested`）
+  - **示例**：`Examples/scenes/AnimatorTest.scene`（idle/run/jump 三状态 + speed/grounded/jump 三参数 + 4 条转换）+ `Examples/resource/run.anim` + `PlayerAnimatorController` 行为脚本（A/D→speed、Space→jump trigger 驱动切换）
+- **Tilemap 瓦片地图（P27，引擎 + 编辑器）**：2D 关卡搭建落地——新增 `Tilemap` 组件（继承 RendererComponent），把瓦片集纹理（sprite sheet）按 `m_gridWidth×m_gridHeight` 网格铺排成地图：
+  - **引擎**：`Tilemap` 组件反射字段（Texture/TileWidth/TileHeight/GridWidth/GridHeight/TileWorldSize）；瓦片 id（-1 空格 / ≥0 索引）映射到纹理源矩形；`onRender` 按相机裁剪 + 视野粗剔除绘制每格；网格数据以反射字符串 `m_gridData`（逗号分隔含尺寸头）持久化，运行时 `m_tiles`（vector<int>）高效存储，`onAfterDeserialize`/`onFieldChanged` 双向同步
+  - **API**：`setTexturePath`/`setTileSize`/`setGridSize`/`setTile`/`getTile`/`clear`/`getTileCount` 等；修改自动同步 `m_gridData` 保证 `.scene` 往返不丢
+  - **编辑器**：组件自动出现在「Add Component」菜单与检查器；选中含 Tilemap 的对象时视口绘制**半透明青色网格线**（辅助对齐）；**瓦片刷图**——左键+Shift 放置画笔瓦片、右键擦除，拖拽连续刷，接入撤销栈（一次拖拽一步撤销，快照型）
+  - **序列化**：`m_gridData` 按 std::string 原生序列化，场景加载/撤销恢复经 `onAfterDeserialize` 重建网格
+  - **瓦片选择面板（P27 增强，编辑器）**：新增「瓦片」Dock（底部标签组第三页）——选中含 Tilemap 的对象时读取其瓦片集纹理，按 `tileWidth × tileHeight` 切成网格缩略图显示，点击选中该瓦片 id 作为画笔（再点同一格取消），顶部「橡皮」按钮切到擦除模式（-1）；画笔经 `Viewport::setPaintTileId` 注入视口，视口左键+Shift 即可刷**任意瓦片**（原固定 id=0），默认未选不刷（-2）防误刷；无 Tilemap 选中时面板显示占位提示，对象销毁/场景重建自动清空
+- **物理关节（P26，引擎 + 编辑器）**：Box2D 约束玩法落地——新增 `Joint2D` 组件 + `JointType` 反射枚举（Distance 距离/Revolute 铰链/Weld 焊接/Prismatic 滑动），挂在本对象刚体（bodyA）与 `connectedBody` 引用字段指定的另一刚体（bodyB）之间：
+  - **引擎**：`Joint2D` 组件带反射字段（类型/锚点/各关节参数），`ComponentRef<RigidBody2D>` 引用字段（检查器可拖拽、序列化存 UUID、目标销毁自动失效）；`PhysicsSystem2D` 认领组件创建/销毁 Box2D 关节（`b2Create*Joint`），目标刚体未就绪时每帧补建（自愈，同刚体语义）；世界锚点换算两刚体本地锚点；字段改动/类型切换经 `rebuildJoint` 销毁重建；场景/世界销毁时重置关节标志防悬垂
+  - **参数**：Distance（Length/Spring/Hertz/Damping）、Revolute（Motor/角度限位）、Prismatic（AxisAngle/滑动限位/MotorForce）、Weld（刚性）；`onFieldChanged` 统一重建
+  - **编辑器**：组件自动出现在「Add Component」菜单与检查器（Type 下拉、Connected Body 拖拽引用、Anchor 与参数输入）；视口物理调试新增**关节可视化**（青色虚线连接线 + 锚点圆点，复用「碰撞体」开关）
+  - **序列化**：枚举按 int32、引用按 UUID、锚点按 Vector2 由 Prefab 序列化原生支持，`.scene` 可完整保存/加载关节
 - **碰撞体编辑手柄（P25，编辑器）**：视口内直接编辑碰撞体形状——选中含碰撞体的对象时（「碰撞体」开关开启），其轮廓黄色高亮并叠加白色手柄：Box 四角方块拖拽改尺寸（屏幕位移逆旋转到对象局部系，双边伸缩；Ctrl 4px 吸附，最小 2px）、Circle 右端方块拖拽改半径（拖到鼠标处，Ctrl 吸附）；经 `setSize/setRadius` 写入并即时同步 Box2D 形状，拖拽接入撤销栈与 dirty 标记（复用 Gizmo 信号）。与「碰撞体」开关联动（轮廓隐藏时手柄一并失活）
 - **Prefab 预置资产（P25，引擎 + 编辑器）**：Unity 式资产化——场景树右键「存为预置…」把选中对象**含子树**存为 `.prefab` 文件（新增 `SceneSerializer::toJson(GameObject*)`：子树 DFS 父先于子，与 .scene 同构）；资源面板白名单加入 `.prefab`（双击或拖入视口 → `SceneSerializer::fromJson` 追加实例化，根对象重名自动去重后缀、拖入落点映射为根对象世界坐标、自动选中）；引擎侧零格式改动（复用场景加载器），入撤销栈 + dirty
 - **场景树多选 + 批量删除（P25，编辑器）**：`ExtendedSelection`（Ctrl/Shift 点选）；新增 `selectedObjects()`；Del / 右键「删除对象 (N)」批量删除——快照收集后逐个 `removeGameObject`（不迭代中删除），`scene_camera` 混选时过滤并红字提示、其余照删；撤销与 dirty 一次记录整批

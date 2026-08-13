@@ -44,9 +44,12 @@
 #include "ShitEngine/Component/SpriteRenderer.h"
 #include "ShitEngine/Component/CameraComponent.h"
 #include "ShitEngine/Component/AnimationComponent.h"
+#include "ShitEngine/Component/Tilemap.h"
 
 // Render
 #include "ShitEngine/Render/RenderSystem.h"
+#include "ShitEngine/Animation/AnimationClip.h"
+#include "ShitEngine/Animation/Animator.h"
 #include "ShitEngine/Render/Renderer.h"
 #include "ShitEngine/Render/Sprite.h"
 #include "ShitEngine/Render/Animation.h"
@@ -75,5 +78,6 @@
 // Physics
 #include "ShitEngine/Physics/PhysicsSystem2D.h"
 #include "ShitEngine/Physics/RigidBody2D.h"
+#include "ShitEngine/Physics/Joint2D.h"
 #include "ShitEngine/Physics/BoxCollider2D.h"
 #include "ShitEngine/Physics/CircleCollider2D.h"

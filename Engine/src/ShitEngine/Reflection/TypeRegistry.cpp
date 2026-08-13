@@ -149,6 +149,17 @@ bool TypeRegistry::unregisterType(std::string_view name) {
 		}
 	}
 
+	// deque 中段 erase 会使其后所有 TypeInfo 的地址改变，但它们的 baseType 指针
+	// 仍指向移动前的旧地址（悬垂）。这里按名称重连所有剩余类型的基类链接，
+	// 基类已被卸载（不在此 storage）的类型 baseType 置空，避免 use-after-free。
+	for (auto& stored : m_typeStorage) {
+		if (stored.baseTypeName.empty()) continue;
+		stored.baseType = nullptr;
+		if (auto* resolved = getType(stored.baseTypeName)) {
+			stored.baseType = resolved;
+		}
+	}
+
 	return true;
 }
 

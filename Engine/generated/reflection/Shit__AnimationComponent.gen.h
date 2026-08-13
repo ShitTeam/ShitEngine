@@ -7,6 +7,9 @@ namespace Shit {
 inline bool Register_AnimationComponent() {
     Shit::ReflectType("AnimationComponent", sizeof(AnimationComponent))
         .Base("Behavior")
+        .Field("m_clipsData",
+            &Shit::AnimationComponent::m_clipsData, "std::string")
+        .Meta(Shit::FieldMeta{.displayName = "Animation Clips", .tooltip = "序列化载体，由编辑器维护（JSON）", .readOnly = true})
         .Field("m_currentAnimationName",
             &Shit::AnimationComponent::m_currentAnimationName, "std::string")
         .Meta(Shit::FieldMeta{.displayName = "Current Animation", .readOnly = true})

@@ -179,3 +179,40 @@ private:
     SHIT_META(Disable)
     std::vector<Shit::UIText*> m_lines;  ///< 运行时按名解析（容器类型不可序列化）
 };
+
+// ═══════════════════════════════════════════════════════════════
+// PlayerAnimatorController —— P28 动画状态机参数驱动演示
+// 读输入 → 设置 Animator 参数：speed(float, A/D)、jump(trigger, Space)、grounded(bool)。
+// 状态机据此在 idle/run/jump 间切换（需对象上同时挂 Animator 组件）。
+// ═══════════════════════════════════════════════════════════════
+
+class SHIT_REFLECT(BlackList) PlayerAnimatorController : public Shit::Behavior {
+    SHIT_REFLECT_BODY(PlayerAnimatorController)
+public:
+    PlayerAnimatorController() = default;
+
+    void onStart() override {
+        m_animator = getOwner() ? getOwner()->getComponent<Shit::Animator>() : nullptr;
+        if (!m_animator)
+            ST_WARN("[PlayerAnimatorController] 未找到 Animator 组件，参数驱动失效");
+    }
+
+    void onUpdate() override {
+        if (!m_animator) return;
+
+        // speed：A/D（或 Horizontal 轴）
+        const float h = Shit::Input::GetAxis("Horizontal");
+        m_animator->setFloat("speed", h);
+
+        // jump：空格按下 → 触发 jump（非循环状态播完或 grounded 回退）
+        if (Shit::Input::IsActionDown("Jump"))
+            m_animator->setTrigger("jump");
+
+        // grounded：演示恒为 true（无物理）
+        m_animator->setBool("grounded", true);
+    }
+
+private:
+    SHIT_META(Disable)
+    Shit::Animator* m_animator = nullptr;
+};

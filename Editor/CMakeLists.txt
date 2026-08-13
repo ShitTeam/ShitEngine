@@ -34,6 +34,12 @@ set(PROJECT_SOURCES
         undostack.h
         assetsdock.cpp
         assetsdock.h
+        tilesetdock.cpp
+        tilesetdock.h
+        animatoreditorwidget.cpp
+        animatoreditorwidget.h
+        animatorwidget.cpp
+        animatorwidget.h
         project.cpp
         project.h
         projectwizard.cpp

@@ -48,6 +48,10 @@ add_library(ShitEngine SHARED
     "src/ShitEngine/Component/SpriteRenderer.cpp"
     "src/ShitEngine/Component/CameraComponent.cpp"
     "src/ShitEngine/Component/AnimationComponent.cpp"
+    "src/ShitEngine/Component/Tilemap.cpp"
+    # Animation
+    "src/ShitEngine/Animation/AnimationClip.cpp"
+    "src/ShitEngine/Animation/Animator.cpp"
     # Render
     "src/ShitEngine/Render/RenderSystem.cpp"
     "src/ShitEngine/Render/Renderer.cpp"
@@ -78,6 +82,7 @@ add_library(ShitEngine SHARED
     # Physics
     "src/ShitEngine/Physics/PhysicsSystem2D.cpp"
     "src/ShitEngine/Physics/RigidBody2D.cpp"
+    "src/ShitEngine/Physics/Joint2D.cpp"
     "src/ShitEngine/Physics/BoxCollider2D.cpp"
     "src/ShitEngine/Physics/CircleCollider2D.cpp"
 )

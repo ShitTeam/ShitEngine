@@ -1,0 +1,87 @@
+{
+  "objects": [
+    {
+      "data": [
+        {
+          "fields": {
+            "m_gravity": [
+              0.0,
+              500.0
+            ]
+          },
+          "type": "GravityConfig"
+        }
+      ],
+      "name": "PhysicsConfig",
+      "parent": -1
+    },
+    {
+      "data": [
+        {
+          "fields": {
+            "m_isEnabled": true,
+            "m_priority": 0,
+            "m_worldSize": [
+              1280.0,
+              720.0
+            ],
+            "m_zoom": 1.0
+          },
+          "type": "CameraComponent"
+        },
+        {
+          "fields": {
+            "m_position": [
+              640.0,
+              360.0
+            ],
+            "m_rotation": 0.0,
+            "m_scale": [
+              1.0,
+              1.0
+            ]
+          },
+          "type": "TransformComponent"
+        }
+      ],
+      "name": "Camera",
+      "parent": -1
+    },
+    {
+      "data": [
+        {
+          "fields": {
+            "m_gridWidth": 8,
+            "m_gridHeight": 6,
+            "m_tileWidth": 16,
+            "m_tileHeight": 16,
+            "m_tileWorldSize": [
+              64.0,
+              64.0
+            ],
+            "m_texturePath": "resource/grass_side.png",
+            "m_gridData": "8,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"
+          },
+          "type": "Tilemap"
+        },
+        {
+          "fields": {
+            "m_position": [
+              448.0,
+              160.0
+            ],
+            "m_rotation": 0.0,
+            "m_scale": [
+              1.0,
+              1.0
+            ]
+          },
+          "type": "TransformComponent"
+        }
+      ],
+      "name": "Ground",
+      "parent": -1
+    }
+  ],
+  "version": 2
+}

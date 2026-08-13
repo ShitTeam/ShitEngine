@@ -1,0 +1,274 @@
+{
+  "objects": [
+    {
+      "data": [
+        {
+          "fields": {
+            "m_gravity": [
+              0.0,
+              500.0
+            ]
+          },
+          "type": "GravityConfig"
+        }
+      ],
+      "name": "PhysicsConfig",
+      "parent": -1
+    },
+    {
+      "data": [
+        {
+          "fields": {
+            "m_isEnabled": true,
+            "m_priority": 0,
+            "m_worldSize": [
+              1280.0,
+              720.0
+            ],
+            "m_zoom": 1.0
+          },
+          "type": "CameraComponent"
+        },
+        {
+          "fields": {
+            "m_position": [
+              640.0,
+              360.0
+            ],
+            "m_rotation": 0.0,
+            "m_scale": [
+              1.0,
+              1.0
+            ]
+          },
+          "type": "TransformComponent"
+        }
+      ],
+      "name": "Camera",
+      "parent": -1
+    },
+    {
+      "data": [
+        {
+          "fields": {
+            "m_density": 1.0,
+            "m_friction": 0.5,
+            "m_restitution": 0.0,
+            "m_size": [
+              12.0,
+              12.0
+            ]
+          },
+          "type": "BoxCollider2D"
+        },
+        {
+          "uuid": 3001,
+          "fields": {
+            "m_fixedRotation": true,
+            "m_gravityScale": 0.0,
+            "m_linearDamping": 0.0,
+            "m_type": 0
+          },
+          "type": "RigidBody2D"
+        },
+        {
+          "fields": {
+            "m_position": [
+              320.0,
+              120.0
+            ],
+            "m_rotation": 0.0,
+            "m_scale": [
+              1.0,
+              1.0
+            ]
+          },
+          "type": "TransformComponent"
+        }
+      ],
+      "name": "PivotRevolute",
+      "parent": -1
+    },
+    {
+      "data": [
+        {
+          "fields": {
+            "m_texturePath": "resource/grass_side.png"
+          },
+          "type": "SpriteRenderer"
+        },
+        {
+          "fields": {
+            "m_density": 1.0,
+            "m_friction": 0.3,
+            "m_restitution": 0.0,
+            "m_radius": 24.0
+          },
+          "type": "CircleCollider2D"
+        },
+        {
+          "fields": {
+            "m_fixedRotation": false,
+            "m_gravityScale": 1.0,
+            "m_linearDamping": 0.0,
+            "m_type": 2
+          },
+          "type": "RigidBody2D"
+        },
+        {
+          "fields": {
+            "m_type": 1,
+            "m_connectedBody": 3001,
+            "m_anchor": [
+              320.0,
+              120.0
+            ],
+            "m_length": 0.0,
+            "m_enableSpring": false,
+            "m_hertz": 4.0,
+            "m_dampingRatio": 0.5,
+            "m_enableMotor": false,
+            "m_motorSpeed": 0.0,
+            "m_maxMotorTorque": 0.0,
+            "m_enableLimit": false,
+            "m_lowerAngle": -90.0,
+            "m_upperAngle": 90.0,
+            "m_axisAngle": 0.0,
+            "m_lowerTranslation": -100.0,
+            "m_upperTranslation": 100.0,
+            "m_maxMotorForce": 0.0
+          },
+          "type": "Joint2D"
+        },
+        {
+          "fields": {
+            "m_position": [
+              320.0,
+              220.0
+            ],
+            "m_rotation": 0.0,
+            "m_scale": [
+              1.0,
+              1.0
+            ]
+          },
+          "type": "TransformComponent"
+        }
+      ],
+      "name": "BobRevolute",
+      "parent": -1
+    },
+    {
+      "data": [
+        {
+          "fields": {
+            "m_density": 1.0,
+            "m_friction": 0.5,
+            "m_restitution": 0.0,
+            "m_size": [
+              12.0,
+              12.0
+            ]
+          },
+          "type": "BoxCollider2D"
+        },
+        {
+          "uuid": 3002,
+          "fields": {
+            "m_fixedRotation": true,
+            "m_gravityScale": 0.0,
+            "m_linearDamping": 0.0,
+            "m_type": 0
+          },
+          "type": "RigidBody2D"
+        },
+        {
+          "fields": {
+            "m_position": [
+              640.0,
+              120.0
+            ],
+            "m_rotation": 0.0,
+            "m_scale": [
+              1.0,
+              1.0
+            ]
+          },
+          "type": "TransformComponent"
+        }
+      ],
+      "name": "PivotDistance",
+      "parent": -1
+    },
+    {
+      "data": [
+        {
+          "fields": {
+            "m_texturePath": "resource/grass_side.png"
+          },
+          "type": "SpriteRenderer"
+        },
+        {
+          "fields": {
+            "m_density": 1.0,
+            "m_friction": 0.3,
+            "m_restitution": 0.0,
+            "m_radius": 24.0
+          },
+          "type": "CircleCollider2D"
+        },
+        {
+          "fields": {
+            "m_fixedRotation": false,
+            "m_gravityScale": 1.0,
+            "m_linearDamping": 0.0,
+            "m_type": 2
+          },
+          "type": "RigidBody2D"
+        },
+        {
+          "fields": {
+            "m_type": 0,
+            "m_connectedBody": 3002,
+            "m_anchor": [
+              640.0,
+              120.0
+            ],
+            "m_length": 160.0,
+            "m_enableSpring": true,
+            "m_hertz": 4.0,
+            "m_dampingRatio": 0.5,
+            "m_enableMotor": false,
+            "m_motorSpeed": 0.0,
+            "m_maxMotorTorque": 0.0,
+            "m_enableLimit": false,
+            "m_lowerAngle": -45.0,
+            "m_upperAngle": 45.0,
+            "m_axisAngle": 0.0,
+            "m_lowerTranslation": -100.0,
+            "m_upperTranslation": 100.0,
+            "m_maxMotorForce": 0.0
+          },
+          "type": "Joint2D"
+        },
+        {
+          "fields": {
+            "m_position": [
+              640.0,
+              280.0
+            ],
+            "m_rotation": 0.0,
+            "m_scale": [
+              1.0,
+              1.0
+            ]
+          },
+          "type": "TransformComponent"
+        }
+      ],
+      "name": "BobDistance",
+      "parent": -1
+    }
+  ],
+  "version": 2
+}

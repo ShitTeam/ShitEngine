@@ -1,8 +1,11 @@
 #include "ShitEngine/Core/pch.h"
 #include "ShitEngine/Physics/PhysicsSystem2D.h"
 #include "ShitEngine/Physics/RigidBody2D.h"
+#include "ShitEngine/Physics/Joint2D.h"
 #include "ShitEngine/Physics/BoxCollider2D.h"
 #include "ShitEngine/Physics/CircleCollider2D.h"
+
+#include <cmath>
 #include "ShitEngine/Component/Behavior.h"
 #include "ShitEngine/Component/TransformComponent.h"
 #include "ShitEngine/GameObject/GameObject.h"
@@ -58,6 +61,12 @@ namespace Shit {
 			if (owner && owner->getComponent<TransformComponent>()) {
 				createRigidBody(body);
 			}
+		}
+
+		// 补建关节：目标刚体（bodyA/bodyB）就绪后才创建（.scene 组件顺序不定/引用晚赋值）
+		for (auto* joint : m_joints) {
+			if (!joint || joint->m_jointValid) continue;
+			createJoint(joint);
 		}
 
 		// 使用固定时间步长保证物理稳定性，避免低帧率导致穿透
@@ -164,6 +173,16 @@ namespace Shit {
 			}
 			m_bodies.clear();
 			m_activeContacts.clear();
+
+			// World 销毁使所有关节失效：重置组件标志（不逐个 b2DestroyJoint，
+			// World 销毁已回收全部关节对象）
+			for (auto* joint : m_joints) {
+				if (joint) {
+					joint->m_jointValid = false;
+					resetComponent(joint);
+				}
+			}
+			m_joints.clear();
 			ST_CORE_INFO("[PhysicsSystem2D] 物理世界已销毁");
 		}
 	}
@@ -210,12 +229,22 @@ namespace Shit {
 			createRigidBody(body);
 			return true;
 		}
+		if (auto* joint = dynamic_cast<Joint2D*>(component)) {
+			// 先注册再建关节：目标刚体可能尚未就绪，由 update() 的补建循环创建
+			registerJoint(joint);
+			createJoint(joint);
+			return true;
+		}
 		return false;
 	}
 
 	void PhysicsSystem2D::onComponentDetached(Component* component) {
 		if (auto* body = dynamic_cast<RigidBody2D*>(component)) {
 			destroyRigidBody(body);
+			return;
+		}
+		if (auto* joint = dynamic_cast<Joint2D*>(component)) {
+			destroyJoint(joint);
 			return;
 		}
 		// 碰撞体卸下：其形状销毁产生的 End 事件可能无法解析（shape 已失效），
@@ -286,6 +315,159 @@ namespace Shit {
 				b2DestroyBody(bodyId);
 			}
 			body->m_bodyValid = false;
+		}
+	}
+
+	// ═══════════════════════════════════════════════════════════
+	// 关节（Joint2D）管理
+	// ═══════════════════════════════════════════════════════════
+
+	void PhysicsSystem2D::registerJoint(Joint2D* joint) {
+		if (!joint) return;
+		if (std::find(m_joints.begin(), m_joints.end(), joint) == m_joints.end()) {
+			m_joints.push_back(joint);
+		}
+	}
+
+	void PhysicsSystem2D::unregisterJoint(Joint2D* joint) {
+		if (!joint) return;
+		m_joints.erase(
+			std::remove(m_joints.begin(), m_joints.end(), joint),
+			m_joints.end()
+		);
+	}
+
+	void PhysicsSystem2D::destroyJoint(Joint2D* joint) {
+		if (!joint) return;
+		unregisterJoint(joint);
+		if (joint->m_jointValid) {
+			b2JointId jointId = Internal::MakeJointId(joint->m_jointIndex, joint->m_jointWorld0, joint->m_jointGeneration);
+			if (b2Joint_IsValid(jointId)) {
+				b2DestroyJoint(jointId);
+			}
+			joint->m_jointValid = false;
+		}
+	}
+
+	void PhysicsSystem2D::rebuildJoint(Joint2D* joint) {
+		if (!joint) return;
+		// 只销毁 Box2D 关节，保留组件注册（m_joints）：创建失败（目标缺失）时
+		// 补建循环仍能重试，避免"目标刚体晚就绪"后关节永久丢失
+		if (joint->m_jointValid) {
+			b2JointId jointId = Internal::MakeJointId(joint->m_jointIndex, joint->m_jointWorld0, joint->m_jointGeneration);
+			if (b2Joint_IsValid(jointId)) {
+				b2DestroyJoint(jointId);
+			}
+			joint->m_jointValid = false;
+		}
+		createJoint(joint);
+	}
+
+	void PhysicsSystem2D::createJoint(Joint2D* joint) {
+		if (!joint || joint->m_jointValid) return;
+
+		auto* owner = joint->getOwner();
+		if (!owner) return;
+		RigidBody2D* bodyA = owner->getComponent<RigidBody2D>();
+		if (!bodyA || !bodyA->hasValidBody()) return;   // bodyA 未就绪，等补建
+
+		RigidBody2D* bodyB = joint->getConnectedBody();
+		if (!bodyB || !bodyB->hasValidBody()) return;    // bodyB 未就绪/未指定，等补建
+
+		b2WorldId worldId = Internal::MakeWorldId(m_worldIndex, m_worldGeneration);
+		if (!b2World_IsValid(worldId)) {
+			ST_CORE_ERROR("[PhysicsSystem2D] 物理世界无效，无法创建关节");
+			return;
+		}
+
+		// bodyA 是关节挂载对象的刚体（anchor 默认为 bodyA 位置）
+		Vector2 anchor = joint->m_anchor;
+		// 默认锚点 = bodyA 当前世界位置（用户未显式设置时）
+		b2BodyId bodyIdA = Internal::MakeBodyId(bodyA->m_bodyIndex, bodyA->m_bodyWorld0, bodyA->m_bodyGeneration);
+		b2BodyId bodyIdB = Internal::MakeBodyId(bodyB->m_bodyIndex, bodyB->m_bodyWorld0, bodyB->m_bodyGeneration);
+
+		b2Vec2 anchorA = b2Body_GetLocalPoint(bodyIdA, { anchor.x, anchor.y });
+		b2Vec2 anchorB = b2Body_GetLocalPoint(bodyIdB, { anchor.x, anchor.y });
+
+		b2JointId result = b2_nullJointId;
+
+		switch (joint->m_type) {
+			case JointType::Distance: {
+				b2DistanceJointDef def = b2DefaultDistanceJointDef();
+				def.bodyIdA = bodyIdA;
+				def.bodyIdB = bodyIdB;
+				def.localAnchorA = anchorA;
+				def.localAnchorB = anchorB;
+				float len = joint->m_length;
+				if (len <= 0.0f) {
+					// 未显式设置自然长度：取两锚点当前世界距离
+					b2Vec2 wa = b2Body_GetWorldPoint(bodyIdA, anchorA);
+					b2Vec2 wb = b2Body_GetWorldPoint(bodyIdB, anchorB);
+					float dx = wb.x - wa.x, dy = wb.y - wa.y;
+					len = std::sqrt(dx * dx + dy * dy);
+				}
+				def.length = len;
+				def.enableSpring = joint->m_enableSpring;
+				def.hertz = joint->m_hertz;
+				def.dampingRatio = joint->m_dampingRatio;
+				def.collideConnected = true;
+				result = b2CreateDistanceJoint(worldId, &def);
+				break;
+			}
+			case JointType::Revolute: {
+				b2RevoluteJointDef def = b2DefaultRevoluteJointDef();
+				def.bodyIdA = bodyIdA;
+				def.bodyIdB = bodyIdB;
+				def.localAnchorA = anchorA;
+				def.localAnchorB = anchorB;
+				def.collideConnected = true;
+				def.enableMotor = joint->m_enableMotor;
+				def.motorSpeed = glm::radians(joint->m_motorSpeed);   // 度/秒 → 弧度/秒
+				def.maxMotorTorque = joint->m_maxMotorTorque;
+				def.enableLimit = joint->m_enableLimit;
+				def.lowerAngle = glm::radians(joint->m_lowerAngle);
+				def.upperAngle = glm::radians(joint->m_upperAngle);
+				result = b2CreateRevoluteJoint(worldId, &def);
+				break;
+			}
+			case JointType::Weld: {
+				b2WeldJointDef def = b2DefaultWeldJointDef();
+				def.bodyIdA = bodyIdA;
+				def.bodyIdB = bodyIdB;
+				def.localAnchorA = anchorA;
+				def.localAnchorB = anchorB;
+				def.collideConnected = true;
+				result = b2CreateWeldJoint(worldId, &def);
+				break;
+			}
+			case JointType::Prismatic: {
+				b2PrismaticJointDef def = b2DefaultPrismaticJointDef();
+				def.bodyIdA = bodyIdA;
+				def.bodyIdB = bodyIdB;
+				def.localAnchorA = anchorA;
+				def.localAnchorB = anchorB;
+				// 滑动轴：相对 bodyA 局部坐标，由角度换算单位向量
+				float rad = glm::radians(joint->m_axisAngle);
+				def.localAxisA = { std::cos(rad), std::sin(rad) };
+				def.collideConnected = true;
+				def.enableLimit = joint->m_enableLimit;
+				def.lowerTranslation = joint->m_lowerTranslation;
+				def.upperTranslation = joint->m_upperTranslation;
+				def.enableMotor = joint->m_enableMotor;
+				def.motorSpeed = joint->m_motorSpeed;                  // 棱柱电机速度单位已是像素/秒
+				def.maxMotorForce = joint->m_maxMotorForce;
+				result = b2CreatePrismaticJoint(worldId, &def);
+				break;
+			}
+		}
+
+		if (B2_IS_NON_NULL(result)) {
+			joint->m_jointIndex = result.index1;
+			joint->m_jointWorld0 = result.world0;
+			joint->m_jointGeneration = result.generation;
+			joint->m_jointValid = true;
+			ST_CORE_DEBUG("[PhysicsSystem2D] 已创建关节 {} ({} ↔ {})",
+				static_cast<int>(joint->m_type), bodyA->getOwner()->getName(), bodyB->getOwner()->getName());
 		}
 	}
 

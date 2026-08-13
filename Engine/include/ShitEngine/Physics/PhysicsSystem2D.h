@@ -8,6 +8,7 @@
 
 namespace Shit {
 	class RigidBody2D;
+	class Joint2D;
 	class GameObject;
 
 	/**
@@ -55,6 +56,18 @@ namespace Shit {
 		/// @brief 销毁 RigidBody2D 的物理体并注销（组件卸下时调用）
 		void destroyRigidBody(RigidBody2D* body);
 
+		// --- 供 Joint2D 内部调用 ---
+		/// @brief 注册关节组件（onAttach 时调用），并尝试创建 Box2D 关节
+		void registerJoint(Joint2D* joint);
+		/// @brief 注销关节组件（onDetach/onDestroy 时调用）
+		void unregisterJoint(Joint2D* joint);
+		/// @brief 为 Joint2D 创建 Box2D 关节（幂等；bodyA/bodyB 就绪才创建）
+		void createJoint(Joint2D* joint);
+		/// @brief 销毁 Joint2D 的 Box2D 关节并重置标志
+		void destroyJoint(Joint2D* joint);
+		/// @brief 重建 Box2D 关节（字段改动/类型切换/目标变更后调用）：销毁旧关节按当前字段重建
+		void rebuildJoint(Joint2D* joint);
+
 	private:
 		friend class RigidBody2D;
 
@@ -91,6 +104,7 @@ namespace Shit {
 
 		Vector2 m_gravity{ 0.0f, 320.0f };
 		std::vector<RigidBody2D*> m_bodies;
+		std::vector<Joint2D*> m_joints; ///< 已注册的关节组件（Box2D 关节句柄管理）
 		// 当前接触中的刚体对集合（进入/持续/结束 基于它判定；元素仅作键，不触碰指针所指对象）
 		std::unordered_set<ContactPair, ContactPairHash> m_activeContacts;
 		float m_accumulator = 0.0f; // 物理固定步长累积器

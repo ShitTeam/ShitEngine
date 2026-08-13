@@ -28,6 +28,7 @@ class Inspector;
 class LogWidget;
 class EnginePreview;
 class AssetsDock;
+class TilesetDock;
 
 namespace Shit { class Scene; class GameObject; }   ///< 播放中场景同步成员用（仅指针，不要求完整类型）
 
@@ -71,6 +72,7 @@ private slots:
     void onViewportAssetDropped(const QString &path, float logicalX, float logicalY); ///< 资源图拖入视口 → 建精灵
     void onPrefabDropped(const QString &path, float logicalX, float logicalY); ///< .prefab 拖入视口 → 实例化（P25c）
     void onPrefabOpenRequested(const QString &path);  ///< 资产面板双击 .prefab → 实例化（P25c）
+    void onAnimOpenRequested(const QString &path);    ///< 资产面板双击 .anim → 应用剪辑到选中对象 Animator 状态（P28）
     void onSaveObjectAsPrefab(Shit::GameObject *object);  ///< 场景树「存为预置…」→ 写 .prefab 文件（P25c）
     /// 从 .prefab 文件实例化进当前场景（useDropPos 时把根对象移到落点世界坐标）
     void instantiatePrefab(const QString &path, bool useDropPos, float logicalX, float logicalY);
@@ -158,6 +160,7 @@ private:
     std::vector<QAction *> m_gizmoShortcutActions;   ///< Gizmo 三模式窗口快捷键（Q/W/E，不可见；运行态禁用防抢游戏键）
     QMenu *m_recentMenu = nullptr;
     AssetsDock *m_assets = nullptr;
+    TilesetDock *m_tileset = nullptr;   ///< 瓦片选择面板（P27 增强）：选中 Tilemap 时显示瓦片网格
     std::vector<QDockWidget *> m_docks;   ///< 全部 Dock 面板（「窗口」菜单勾选显隐，关闭后可重新打开）
 
     bool m_dirty = false;       ///< 未保存修改标记（标题栏 *）

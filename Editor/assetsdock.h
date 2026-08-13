@@ -25,6 +25,8 @@ signals:
     void sceneOpenRequested(const QString &path);
     /// 双击 .prefab 文件请求实例化进当前场景（P25c）
     void prefabOpenRequested(const QString &path);
+    /// 双击 .anim 文件请求编辑动画剪辑（P28：应用于选中对象的 Animator 状态）
+    void animOpenRequested(const QString &path);
 
 public slots:
     /// 切换到指定目录（P14：打开项目时绑定项目 Assets/；仍可手动浏览其它目录）
