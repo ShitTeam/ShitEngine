@@ -157,6 +157,7 @@ jobs:
           cmake -B build -G Ninja
           -DCMAKE_BUILD_TYPE=$BUILD_TYPE
           -DCMAKE_PREFIX_PATH="$(brew --prefix qt@6)"
+          -DLIBCLANG_PREFIX="$(brew --prefix llvm)"
           -DBUILD_TOOLS=ON
           -DBUILD_EDITOR=ON
           -DBUILD_EXAMPLES=ON

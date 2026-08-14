@@ -22,11 +22,26 @@ if(NOT LIBCLANG_PREFIX)
     find_program(_LLVM_CONFIG
         NAMES llvm-config llvm-config-19 llvm-config-18 llvm-config-17 llvm-config-16
     )
+    # macOS: Homebrew 的 llvm 是 keg-only（bin 不在 PATH），用 brew --prefix llvm 探测
+    if(NOT _LLVM_CONFIG AND APPLE)
+        execute_process(COMMAND brew --prefix llvm
+            OUTPUT_VARIABLE _BREW_LLVM_PREFIX
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_QUIET
+        )
+        if(_BREW_LLVM_PREFIX)
+            find_program(_LLVM_CONFIG NAMES llvm-config
+                PATHS "${_BREW_LLVM_PREFIX}/bin"
+                NO_DEFAULT_PATH
+            )
+        endif()
+    endif()
     if(_LLVM_CONFIG)
         execute_process(COMMAND ${_LLVM_CONFIG} --includedir
             OUTPUT_VARIABLE _LLVM_INCLUDE_DIR OUTPUT_STRIP_TRAILING_WHITESPACE)
         execute_process(COMMAND ${_LLVM_CONFIG} --libdir
             OUTPUT_VARIABLE _LLVM_LIB_DIR OUTPUT_STRIP_TRAILING_WHITESPACE)
+        set(LIBCLANG_PREFIX "${_BREW_LLVM_PREFIX}")
         message(STATUS "llvm-config found: ${_LLVM_CONFIG} (inc=${_LLVM_INCLUDE_DIR} lib=${_LLVM_LIB_DIR})")
     endif()
 endif()
