@@ -34,7 +34,7 @@ jobs:
       - name: Configure CMake
         run: |
           cmake -B build -G Ninja `
-            -DCMAKE_BUILD_TYPE=$env:BUILD_TYPE `
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} `
             -DBUILD_TOOLS=OFF `
             -DBUILD_EDITOR=ON `
             -DBUILD_EXAMPLES=ON `
