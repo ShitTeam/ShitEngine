@@ -9,6 +9,25 @@
 
 ### 新增
 
+（无）
+
+---
+
+## [1.4.0] - 2026-08-14
+
+> 🎉 **编辑器驱动 + 资产化工作流**。从 v1.3.0 的"引擎可运行"升级到"编辑器做所有事"：场景系统可视化、动画资产化、场景管理统一化、跨平台 CI 构建。
+
+### 新增
+
+- **场景系统面板（P30，引擎 + 编辑器）**：Unity 风格——检查器未选中对象时显示「场景系统」面板，可添加/移除系统（含插件自定义系统，反射收集），编辑系统优先级，修改系统反射字段（如 `PhysicsSystem2D` 的 `Gravity`、`Pixels Per Meter`，即时生效）：
+  - 引擎侧：`System` 基类加入 `SHIT_REFLECT(WhiteList)` 反射链（`onFieldChanged` 虚函数）；`PhysicsSystem2D` 暴露 `m_gravity`/`m_pixelsPerMeter` 反射字段；`Scene` 新增按类型名注册/查询/移除/枚举系统 API
+  - `.scene` 序列化：`"systems": [{"type": "PhysicsSystem2D", "fields": {...}}]` 数组落盘，排除默认三系统（BehaviorSystem/RenderSystem/UIRenderSystem），旧文件无此字段向后兼容
+  - 热重载保护：卸载 DLL 前 `flushPendingSystemRemovals` 清理插件系统，防止 vtable 悬垂
+- **场景管理统一化**：`Scene` 标记 `final`（不再支持继承），`LoadSceneFromFile` 为加载场景的唯一公开入口；Runtime 空场景兜底改用临时文件 + `LoadSceneFromFile`，编辑器预览场景改用 `QTemporaryFile` + `LoadSceneFromFile`
+- **动画资产化（Unity 风格）**：
+  - AnimatorDock 只允许 `.anim` 文件——移除内嵌剪辑编辑（纹理/网格/帧序列点选/时长/循环），每个状态**必须**引用 `.anim` 资产
+  - Animator 运行时只使用 `.anim` 文件——`stateToJson` 移除 `clip` 序列化（只写 `assetPath`），`parseData` 从 `.anim` 文件加载剪辑到运行时缓存；旧场景含内嵌 clip 的状态向后兼容
+- **CI 跨平台构建**：GitHub Actions 三平台工作流——Windows（MSVC + VS2022，BUILD_TOOLS=OFF）、Linux（GCC + Ninja，BUILD_TOOLS=ON，含编辑器）、macOS（Clang + Ninja，BUILD_TOOLS=ON，含编辑器），每平台 `cmake --install` 打包 SDK 上传 artifact
 - **动画剪辑 + Animator 状态机（P28，引擎 + 编辑器）**：精灵动画从"运行时动态播放"升级为"可序列化、参数驱动的状态机"：
   - **引擎**：新增独立目录 `Animation/` —— `AnimationClip`（剪辑名/纹理路径/网格参数/每帧时长/循环/默认/帧序列，JSON 可序列化，可作 `.anim` 资产）与 `Animator`（**状态机组件**：状态集 + 转换 + 参数 float/bool/trigger；`setFloat`/`setBool`/`setTrigger` 参数驱动；BehaviorSystem 驱动 `onUpdate`——推进当前状态剪辑 + 求值转换，满足条件即切状态并重启动画）。`AnimationComponent`（可序列化多剪辑版）保留，`AnimationClip` 从其中迁至 `Animation/AnimationClip.h`
   - **序列化**：`Animator` 以反射字符串载体 `m_animatorData`（JSON：states/params/transitions）随 `.scene` 落盘，`onAfterDeserialize`/`onFieldChanged` 解析重建；`syncData()` 反向同步
@@ -32,8 +51,6 @@
 - **Prefab 预置资产（P25，引擎 + 编辑器）**：Unity 式资产化——场景树右键「存为预置…」把选中对象**含子树**存为 `.prefab` 文件（新增 `SceneSerializer::toJson(GameObject*)`：子树 DFS 父先于子，与 .scene 同构）；资源面板白名单加入 `.prefab`（双击或拖入视口 → `SceneSerializer::fromJson` 追加实例化，根对象重名自动去重后缀、拖入落点映射为根对象世界坐标、自动选中）；引擎侧零格式改动（复用场景加载器），入撤销栈 + dirty
 - **场景树多选 + 批量删除（P25，编辑器）**：`ExtendedSelection`（Ctrl/Shift 点选）；新增 `selectedObjects()`；Del / 右键「删除对象 (N)」批量删除——快照收集后逐个 `removeGameObject`（不迭代中删除），`scene_camera` 混选时过滤并红字提示、其余照删；撤销与 dirty 一次记录整批
 - **播放态调试（P25，编辑器）**：播放中检查器**只读**（Unity 语义）——`Inspector::setPlayMode` 统一递归禁用表单（字段控件 / Add Component / 移除按钮 / 对象名栏 / 引用控件），但每帧回读刷新照常（运行时值实时可见）；视口 Gizmo 与碰撞体手柄拖拽禁用（`Viewport::setEditEnabled`，拾取仍可用）；进入/退出播放自动切换
-
-### 修复
 
 - **跨分辨率恢复窗口越界（P25e，编辑器）**：保存的窗口几何来自更大屏幕/更高 DPI 时，恢复后右侧「属性」/底部「资源 日志」Dock 被推到屏幕外不可见（此前误判为面板丢失，清注册表无效——Dock 一直都在，只是被推出屏）。修复：`restoreGeometry` 异步生效后（延迟 120ms）按可用屏幕**正溢出**判定（宽/高超出或左/上越界，容忍 -8 阴影边距）钳制窗口尺寸并居中；普通小窗口/多屏布局不受影响
 
