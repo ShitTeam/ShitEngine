@@ -112,6 +112,7 @@ jobs:
             libxinerama-dev \
             libxcursor-dev \
             libxi-dev \
+            libxss-dev \
             libasound2-dev \
             libpulse-dev \
             libpipewire-0.3-dev \
