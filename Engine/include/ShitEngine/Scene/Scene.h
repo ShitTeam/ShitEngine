@@ -33,7 +33,7 @@ namespace Shit {
 	 * 注：Scene 对象通常由 SceneManager 内部创建，用户代码无需手动构造。
 	 * 手动构造 Scene 仅用于编辑器预览/单元测试等高级场景。
 	 */
-	class SHIT_API Scene {
+	class SHIT_API Scene final {
 		friend class GameObject; ///< GameObject 结构变更（组件增删/改名/改父）时通知 bumpGeneration
 	public:
 		explicit Scene(const std::string& name);
@@ -45,9 +45,9 @@ namespace Shit {
 		Scene(Scene&&) = delete;
 		Scene& operator=(Scene&&) = delete;
 
-		virtual void init();    ///< 注册默认系统（BehaviorSystem + RenderSystem + UIRenderSystem），幂等
+		void init();    ///< 注册默认系统（BehaviorSystem + RenderSystem + UIRenderSystem），幂等
 		void update();           ///< 更新所有 System + 处理延迟操作
-		virtual void destroy(); ///< 销毁所有对象与系统
+		void destroy(); ///< 销毁所有对象与系统
 
 		/// @brief 是否已注册任何 System（SceneManager 用于自动初始化，防止漏调 init() 导致空场景）
 		bool hasSystems() const { return !m_systems.empty(); }
