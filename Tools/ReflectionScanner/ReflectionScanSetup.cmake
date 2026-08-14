@@ -84,9 +84,16 @@ function(setup_reflection_scan SCOPE_NAME INPUT_DIR OUTPUT_DIR INCLUDE_ROOT)
         "${INPUT_DIR}/*.h"
     )
 
-    # 构建 --system-include 参数
+    # 构建 --system-include 参数。跳过含特殊字符的路径（空格/括号/分号）：
+    # Xcode 的 "System/Library/Frameworks (framework directory)" 等含空格括号，
+    # 并非 C++ include，且会让 custom command 的 shell 解析失败。
     set(_SYS_INC_ARGS "")
     foreach(_path IN LISTS _REFLECT_SYSTEM_INCLUDES)
+        string(REGEX MATCH "[ ;()]" _bad_chars "${_path}")
+        if(_bad_chars)
+            message(STATUS "ReflectionScanner: 跳过含特殊字符的系统 include 路径: ${_path}")
+            continue()
+        endif()
         list(APPEND _SYS_INC_ARGS "--system-include" "${_path}")
     endforeach()
 
