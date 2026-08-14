@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <fstream>
 
 namespace Shit {
 
@@ -62,7 +63,6 @@ namespace Shit {
         j["isEntry"] = s.isEntry;
         j["graphX"] = s.graphX;
         j["graphY"] = s.graphY;
-        j["clip"] = s.clip.toJson();
         j["assetPath"] = s.assetPath;
         return j;
     }
@@ -73,8 +73,10 @@ namespace Shit {
             if (j.contains("isEntry") && j["isEntry"].is_boolean()) s.isEntry = j["isEntry"].get<bool>();
             if (j.contains("graphX") && j["graphX"].is_number()) s.graphX = j["graphX"].get<float>();
             if (j.contains("graphY") && j["graphY"].is_number()) s.graphY = j["graphY"].get<float>();
-            if (j.contains("clip") && j["clip"].is_object()) s.clip.fromJson(j["clip"]);
             if (j.contains("assetPath") && j["assetPath"].is_string()) s.assetPath = j["assetPath"].get<std::string>();
+            // 向后兼容：旧场景有内嵌 clip 但无 assetPath → 从 JSON 读 clip
+            if (s.assetPath.empty() && j.contains("clip") && j["clip"].is_object())
+                s.clip.fromJson(j["clip"]);
             return true;
         } catch (...) { return false; }
     }
@@ -103,6 +105,17 @@ namespace Shit {
                 }
             }
             return true;
+        } catch (...) { return false; }
+    }
+
+    /// 从 .anim 文件读取 AnimationClip（运行时/编辑器共用）
+    static bool loadClipFromFile(const std::string& path, AnimationClip& out) {
+        std::ifstream f(path);
+        if (!f.is_open()) return false;
+        try {
+            nlohmann::json j;
+            f >> j;
+            return out.fromJson(j);
         } catch (...) { return false; }
     }
 
@@ -192,6 +205,16 @@ namespace Shit {
                 }
         } catch (const std::exception& e) {
             ST_CORE_WARN("Animator: 解析 m_animatorData 失败: {}", e.what());
+        }
+        // 从 .anim 文件加载剪辑（assetPath 是序列化字段，clip 是运行时缓存）
+        for (auto& s : m_states) {
+            if (!s.assetPath.empty()) {
+                AnimationClip clip;
+                if (loadClipFromFile(s.assetPath, clip))
+                    s.clip = std::move(clip);
+                else
+                    ST_CORE_WARN("[Animator] 状态 '{}' 的 .anim 资产加载失败: {}", s.name, s.assetPath);
+            }
         }
         // 保持默认播放状态（运行时在 onStart 进入）
         m_currentState = -1;

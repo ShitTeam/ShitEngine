@@ -47,15 +47,15 @@ namespace Shit
         bool boolValue = false;              ///< Bool 期望值
     };
 
-    /// 状态机节点（可序列化）
-    struct SHIT_API AnimatorState {
-        std::string name;         ///< 状态名
-        AnimationClip clip;       ///< 本状态播放的剪辑（内嵌数据）
-        std::string assetPath;    ///< 引用的 .anim 资产路径（相对项目根；空 = 内嵌剪辑，由编辑器维护）
-        bool isEntry = false;     ///< 是否入口状态（onStart 优先进入）
-        float graphX = 0.0f;      ///< 状态机图节点 X（编辑器布局用，随 .scene 保存）
-        float graphY = 0.0f;      ///< 状态机图节点 Y（编辑器布局用，随 .scene 保存）
-    };
+/// 状态机节点（可序列化）
+	struct SHIT_API AnimatorState {
+		std::string name;         ///< 状态名
+		AnimationClip clip;       ///< 运行时剪辑缓存（从 .anim 文件加载，不入序列化）
+		std::string assetPath;    ///< 引用的 .anim 资产路径（序列化字段；空 = 旧场景内嵌 clip，向后兼容）
+		bool isEntry = false;     ///< 是否入口状态（onStart 优先进入）
+		float graphX = 0.0f;      ///< 状态机图节点 X（编辑器布局用，随 .scene 保存）
+		float graphY = 0.0f;      ///< 状态机图节点 Y（编辑器布局用，随 .scene 保存）
+	};
 
     /// 状态间转换（可序列化；同一状态可有多条，按序求值）
     struct SHIT_API AnimatorTransition {
