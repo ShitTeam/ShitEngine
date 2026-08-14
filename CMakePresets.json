@@ -61,6 +61,58 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release"
             }
+        },
+        {
+            "name": "linux-base",
+            "hidden": true,
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "installDir": "${sourceDir}/out/install/${presetName}",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            }
+        },
+        {
+            "name": "linux-release",
+            "displayName": "Linux x64 Release",
+            "inherits": "linux-base",
+            "cacheVariables": {
+                "BUILD_EDITOR": "ON",
+                "BUILD_TOOLS": "ON",
+                "BUILD_EXAMPLES": "ON",
+                "BUILD_RUNTIME": "ON"
+            }
+        },
+        {
+            "name": "macos-base",
+            "hidden": true,
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "installDir": "${sourceDir}/out/install/${presetName}",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Darwin"
+            }
+        },
+        {
+            "name": "macos-release",
+            "displayName": "macOS x64 Release",
+            "inherits": "macos-base",
+            "cacheVariables": {
+                "BUILD_EDITOR": "ON",
+                "BUILD_TOOLS": "ON",
+                "BUILD_EXAMPLES": "ON",
+                "BUILD_RUNTIME": "ON"
+            }
         }
     ],
     "buildPresets": [
@@ -75,6 +127,16 @@
             "displayName": "x64 Release",
             "configurePreset": "x64-release",
             "configuration": "Release"
+        },
+        {
+            "name": "linux-release",
+            "displayName": "Linux x64 Release",
+            "configurePreset": "linux-release"
+        },
+        {
+            "name": "macos-release",
+            "displayName": "macOS x64 Release",
+            "configurePreset": "macos-release"
         }
     ]
 }

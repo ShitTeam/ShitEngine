@@ -1,3 +1,7 @@
+# ShitEngine 跨平台 CI 构建
+# 每次 push / PR 到 main 分支时：构建引擎 + 编辑器 + Runtime + SDK 打包
+# 平台: Windows (MSVC), Linux (GCC), macOS (Clang)
+
 name: Build
 
 on:
@@ -6,221 +10,121 @@ on:
   pull_request:
     branches: [ main ]
 
+env:
+  BUILD_TYPE: Release
+
 jobs:
-  build:
-    strategy:
-      matrix:
-        include:
-          - os: windows-latest
-            cc: gcc
-            cxx: g++
-            artifact: ShitEngine-windows-mingw
-            deps-setup: |
-              curl -L -o ninja.zip https://github.com/ninja-build/ninja/releases/download/v1.12.1/ninja-win.zip
-              7z x ninja.zip -oninja > nul
-              echo "${{ github.workspace }}/ninja" >> $env:GITHUB_PATH
-              # SDK 工具链（ReflectionScanner）依赖 libClang
-              choco install llvm -y --no-progress
 
-          - os: windows-latest
-            cc: cl
-            cxx: cl
-            artifact: ShitEngine-windows-msvc
-            editor-qt: win64_msvc2022_64   # 仅 MSVC 矩阵带编辑器(需 Qt；MinGW/Linux/macOS 不编，避免工具链 ABI 拼接)；Editor 只编 Release（CI Qt 为 release 库）
-            deps-setup: |
-              curl -L -o ninja.zip https://github.com/ninja-build/ninja/releases/download/v1.12.1/ninja-win.zip
-              7z x ninja.zip -oninja > nul
-              echo "${{ github.workspace }}/ninja" >> $env:GITHUB_PATH
-              # SDK 工具链（ReflectionScanner）依赖 libClang
-              choco install llvm -y --no-progress
+  # ── Windows (MSVC) ──
+  build-windows:
+    runs-on: windows-2025
+    defaults:
+      run:
+        shell: cmd
 
-          - os: ubuntu-latest
-            cc: gcc
-            cxx: g++
-            artifact: ShitEngine-linux
-            deps-setup: |
-              sudo apt-get update
-              sudo apt-get install -y ninja-build build-essential \
-                libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev \
-                libwayland-dev libegl1-mesa-dev libgles2-mesa-dev libgl1-mesa-dev \
-                libxkbcommon-dev libdbus-1-dev \
-                libpulse-dev libpipewire-0.3-dev \
-                libdrm-dev libgbm-dev
+    steps:
+      - uses: actions/checkout@v4
 
-          - os: macos-latest
-            cc: clang
-            cxx: clang++
-            artifact: ShitEngine-macos
-            deps-setup: |
-              brew install ninja ccache
-              # 全局设置 SDKROOT，CMake 会自动使用
-              echo "SDKROOT=$(xcrun --show-sdk-path)" >> $GITHUB_ENV
+      - name: Configure CMake
+        run: >
+          cmake -B build -G "Visual Studio 17 2022" -A x64
+          -DCMAKE_BUILD_TYPE=%BUILD_TYPE%
+          -DBUILD_TOOLS=OFF
+          -DBUILD_EDITOR=ON
+          -DBUILD_EXAMPLES=ON
+          -DBUILD_RUNTIME=ON
 
-    runs-on: ${{ matrix.os }}
+      - name: Build
+        run: cmake --build build --config %BUILD_TYPE% --parallel
+
+      - name: Package SDK
+        run: >
+          cmake --install build --prefix sdk
+          --config %BUILD_TYPE%
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ShitEngine-Windows-x64
+          path: sdk/
+
+  # ── Linux (GCC) ──
+  build-linux:
+    runs-on: ubuntu-24.04
+
     steps:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
-        run: ${{ matrix.deps-setup }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ninja-build \
+            cmake \
+            g++ \
+            qt6-base-dev \
+            libgl1-mesa-dev \
+            libx11-dev \
+            libxext-dev \
+            libxrandr-dev \
+            libxinerama-dev \
+            libxcursor-dev \
+            libxi-dev \
+            libasound2-dev \
+            libpulse-dev \
+            libpipewire-0.3-dev \
+            libwayland-dev \
+            libclang-dev \
+            llvm-dev
 
-      - name: Setup MSVC
-        if: matrix.cc == 'cl'
-        uses: ilammy/msvc-dev-cmd@v1
+      - name: Configure CMake
+        run: >
+          cmake -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+          -DBUILD_TOOLS=ON
+          -DBUILD_EDITOR=ON
+          -DBUILD_EXAMPLES=ON
+          -DBUILD_RUNTIME=ON
 
-      # Editor（SDK 附带）：仅 MSVC 矩阵安装 Qt6（install-qt-action 自带缓存）
-      - name: Install Qt (MSVC SDK editor)
-        if: matrix.editor-qt != ''
-        uses: jurplel/install-qt-action@v4
-        id: qt
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Package SDK
+        run: cmake --install build --prefix ${{ github.workspace }}/sdk
+
+      - uses: actions/upload-artifact@v4
         with:
-          version: '6.8.3'
-          arch: ${{ matrix.editor-qt }}
+          name: ShitEngine-Linux-x64
+          path: sdk/
 
-      - name: Setup ccache
-        if: runner.os != 'Windows' && runner.os != 'Linux'
-        uses: hendrikmuhs/ccache-action@v1.2
+  # ── macOS (Clang) ──
+  build-macos:
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew update
+          brew install ninja cmake qt@6 llvm
+
+      - name: Configure CMake
+        run: >
+          cmake -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+          -DCMAKE_PREFIX_PATH="$(brew --prefix qt@6)"
+          -DBUILD_TOOLS=ON
+          -DBUILD_EDITOR=ON
+          -DBUILD_EXAMPLES=ON
+          -DBUILD_RUNTIME=ON
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Package SDK
+        run: cmake --install build --prefix ${{ github.workspace }}/sdk
+
+      - uses: actions/upload-artifact@v4
         with:
-          key: ${{ matrix.artifact }}
-
-      - name: Restore CMake cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ github.workspace }}/build
-          key: ${{ matrix.artifact }}-v2-${{ hashFiles('Engine/cmake/DependencyManager.cmake', 'Engine/CMakeLists.txt') }}
-          restore-keys: |
-            ${{ matrix.artifact }}-v2-
-            ${{ matrix.artifact }}-
-
-      # macOS: 强制清除旧缓存（Iconv::Iconv 指向不存在的 SDK 路径）
-      - name: Force full reconfigure on macOS
-        if: runner.os == 'macOS'
-        run: rm -rf build
-
-      # Release
-      - name: Configure Release
-        shell: bash
-        run: |
-          LINUX_FLAGS=""
-          if [ "$RUNNER_OS" = "Linux" ]; then
-            LINUX_FLAGS="-DSDL_X11_XCURSOR=OFF -DSDL_X11_XFIXES=OFF"
-          fi
-          # Windows：BUILD_TOOLS=ON 产出完整 SDK（ReflectionScanner + libclang.dll +
-          # clang-resource + tools/*.cmake + ShitEngineToolsConfig.cmake）
-          TOOLS_ARGS=()
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            TOOLS_ARGS+=(-DBUILD_TOOLS=ON "-DLIBCLANG_PREFIX=C:/Program Files/LLVM")
-          fi
-          # 编辑器：MSVC 矩阵随 SDK 携带（Release 专属）
-          EDITOR_FLAG="-DBUILD_EDITOR=OFF"
-          if [ -n "${{ matrix.editor-qt }}" ]; then EDITOR_FLAG="-DBUILD_EDITOR=ON"; fi
-          cmake -B build/release -G Ninja \
-            -DCMAKE_C_COMPILER=${{ matrix.cc }} \
-            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DBUILD_EXAMPLES=ON \
-            "${TOOLS_ARGS[@]}" \
-            "$EDITOR_FLAG" \
-            $LINUX_FLAGS
-      - name: Build Release
-        run: cmake --build build/release --parallel
-      - name: Install Release
-        run: cmake --install build/release --prefix install
-
-      # Editor 的 Qt 运行库 → SDK bin/（windeployqt；plugins/platforms 一并收集。
-      # install-qt-action 默认把 Qt bin 追加进 PATH，直接以命令名调用）
-      - name: Bundle Qt runtime (Editor)
-        if: matrix.editor-qt != ''
-        shell: bash
-        run: |
-          command -v windeployqt.exe
-          windeployqt.exe --no-translations --no-system-d3d-compiler \
-            --no-opengl-sw --no-compiler-runtime "${{ github.workspace }}/install/bin/Editor.exe"
-          ls install/bin | head -40
-
-      # 复制第三方动态库（主输出在 bin/，第三方在 _deps/）——必须在 Smoke 前，
-      # 冒烟依赖 SDL3.dll 等运行库；Debug 安装不会覆盖这些文件
-      - name: Copy shared libs
-        shell: bash
-        run: |
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            find build/release/bin -name "*.dll" -exec cp -n {} install/bin/ \;
-            find build/release/bin -name "*.lib" -exec cp -n {} install/lib/ \;
-            find build/release/lib -name "*.lib" -exec cp -n {} install/lib/ \;
-            find build/release/lib -name "*.dll.a" -exec cp -n {} install/lib/ \;
-            find build/release/_deps -name "*.dll" -exec cp -n {} install/bin/ \;
-            find build/release/_deps -name "*.dll.a" -exec cp -n {} install/lib/ \;
-          elif [ "$RUNNER_OS" = "Linux" ]; then
-            find build/release/bin -name "*.so*" -exec cp -n {} install/lib/ \;
-            find build/release/lib -name "*.so*" ! -name "*akefile*" ! -name "*.so.t*" -exec cp -n {} install/lib/ \;
-            find build/release/_deps -name "*.so*" ! -name "*akefile*" ! -name "*.so.t*" -exec cp -n {} install/lib/ \;
-          elif [ "$RUNNER_OS" = "macOS" ]; then
-            find build/release/bin -name "*.dylib" -exec cp -n {} install/lib/ \;
-            find build/release/lib -name "*.dylib" -exec cp -n {} install/lib/ \;
-            find build/release/_deps -name "*.dylib" -exec cp -n {} install/lib/ \;
-          fi
-
-      # 冒烟：真实启动 Editor.exe（验证 Qt 运行库与插件完整）。
-      # runner 无交互式图形会话 → Qt offscreen + SDL dummy 软件渲染（本地已验证该组合可正常运行）
-      - name: Smoke test Editor (MSVC)
-        if: matrix.editor-qt != ''
-        shell: bash
-        run: |
-          cd "${{ github.workspace }}/install/bin"
-          export QT_QPA_PLATFORM=offscreen
-          export SDL_VIDEO_DRIVER=dummy
-          export SDL_RENDER_DRIVER=software
-          ./Editor.exe > editor_smoke.log 2>&1 &
-          sleep 12
-          if tasklist //FI "IMAGENAME eq Editor.exe" | grep -q Editor; then
-            echo "Editor SMOKE OK"; taskkill //F //IM Editor.exe > /dev/null 2>&1 || true
-          else
-            echo "=== Editor output ==="; cat editor_smoke.log || true
-            echo "Editor SMOKE FAILED"; exit 1
-          fi
-
-      # Debug
-      - name: Configure Debug
-        shell: bash
-        run: |
-          LINUX_FLAGS=""
-          if [ "$RUNNER_OS" = "Linux" ]; then
-            LINUX_FLAGS="-DSDL_X11_XCURSOR=OFF -DSDL_X11_XFIXES=OFF"
-          fi
-          TOOLS_ARGS=()
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            TOOLS_ARGS+=(-DBUILD_TOOLS=ON "-DLIBCLANG_PREFIX=C:/Program Files/LLVM")
-          fi
-          # Editor 不编 Debug（CI Qt 为 release 库，Debug 链接会失败）
-          cmake -B build/debug -G Ninja \
-            -DCMAKE_C_COMPILER=${{ matrix.cc }} \
-            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
-            -DCMAKE_BUILD_TYPE=Debug \
-            -DBUILD_EXAMPLES=ON \
-            -DBUILD_EDITOR=OFF \
-            "${TOOLS_ARGS[@]}" \
-            $LINUX_FLAGS
-      - name: Build Debug
-        run: cmake --build build/debug --parallel
-      - name: Install Debug
-        run: cmake --install build/debug --prefix install
-
-      # SDK 完整性自检（Windows 应包含反射扫描工具链）
-      - name: Verify SDK tools
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          for f in bin/ReflectionScanner.exe bin/libclang.dll \
-                   lib/ShitEngine/ShitEngineToolsConfig.cmake \
-                   lib/ShitEngine/tools/ReflectionScanSetup.cmake; do
-            if [ -f "install/$f" ]; then echo "OK   $f"; else echo "MISS $f"; fi
-          done
-          [ -d install/lib/ShitEngine/clang-resource ] && echo "OK   lib/ShitEngine/clang-resource/"
-          # 编辑器仅 MSVC 矩阵预期存在
-          if [ -f install/bin/Editor.exe ]; then echo "OK   bin/Editor.exe"; else echo "MISS bin/Editor.exe"; fi
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact }}
-          path: install/
-          if-no-files-found: error
+          name: ShitEngine-macOS-x64
+          path: sdk/

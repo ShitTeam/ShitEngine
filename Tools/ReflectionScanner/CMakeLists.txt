@@ -13,8 +13,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ── 配置 libClang 路径 ──────────────────────────────
-# 修改 LIBCLANG_PREFIX 指向你的 libClang 安装目录
-set(LIBCLANG_PREFIX "D:/LLVM" CACHE PATH "libClang 安装根目录")
+# 默认空值：优先走系统路径（Linux: apt, macOS: brew, Windows: vcpkg 或手动指定）
+set(LIBCLANG_PREFIX "" CACHE PATH "libClang 安装根目录（空=系统默认路径）")
 
 # 头文件：先搜系统路径，再回退到 LIBCLANG_PREFIX
 find_path(LIBCLANG_INCLUDE_DIR
@@ -24,21 +24,14 @@ find_path(LIBCLANG_INCLUDE_DIR
 )
 message(STATUS "libclang include: ${LIBCLANG_INCLUDE_DIR}")
 
-# 库文件：先搜系统路径，再回退到 LIBCLANG_PREFIX
+# 库文件：Linux → libclang.so，macOS → libclang.dylib，Windows → libclang.dll/.lib
+# find_library 自动处理各平台后缀
 find_library(LIBCLANG_LIBRARY
     NAMES libclang clang
     PATHS ${LIBCLANG_PREFIX}/lib
     REQUIRED
 )
 message(STATUS "libclang lib:     ${LIBCLANG_LIBRARY}")
-
-# 推断 libclang.dll 所在目录（优先 LIBCLANG_PREFIX/bin，否则从库文件位置推导）
-set(LIBCLANG_DLL_PATH "${LIBCLANG_PREFIX}/bin/libclang.dll")
-if(NOT EXISTS "${LIBCLANG_DLL_PATH}")
-    get_filename_component(_LIBCLANG_LIB_DIR "${LIBCLANG_LIBRARY}" DIRECTORY)
-    get_filename_component(_LIBCLANG_ROOT "${_LIBCLANG_LIB_DIR}/.." ABSOLUTE)
-    set(LIBCLANG_DLL_PATH "${_LIBCLANG_ROOT}/bin/libclang.dll")
-endif()
 
 # ── 目标 ────────────────────────────────────────────
 add_executable(ReflectionScanner
@@ -54,28 +47,47 @@ target_include_directories(ReflectionScanner PRIVATE
 
 target_link_libraries(ReflectionScanner PRIVATE ${LIBCLANG_LIBRARY})
 
-# 运行时需要 libclang.dll 在 PATH 中或 exe 同目录
-# 仅当 DLL 确实存在时才拷贝（静态链接 / 非 Windows 环境会跳过）
-if(EXISTS "${LIBCLANG_DLL_PATH}")
-    add_custom_command(TARGET ReflectionScanner POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${LIBCLANG_DLL_PATH}"
-            "$<TARGET_FILE_DIR:ReflectionScanner>/libclang.dll"
-        COMMENT "Copying libclang.dll to output directory"
-    )
-else()
-    message(WARNING
-        "libclang.dll 未在 ${LIBCLANG_DLL_PATH} 找到，已跳过拷贝。\n"
-        "  运行 ReflectionScanner 时请确保 libclang.dll 在 PATH 中。")
+# 运行时库拷贝：仅 Windows 需要 libclang.dll 随 exe 分发
+# Linux/macOS 上链接时已嵌入 rpath 或系统路径可找到
+if(WIN32)
+    # 从 LIBCLANG_PREFIX 或库文件位置推断 DLL 路径
+    set(LIBCLANG_DLL_PATH "${LIBCLANG_PREFIX}/bin/libclang.dll")
+    if(NOT EXISTS "${LIBCLANG_DLL_PATH}")
+        get_filename_component(_LIBCLANG_LIB_DIR "${LIBCLANG_LIBRARY}" DIRECTORY)
+        get_filename_component(_LIBCLANG_ROOT "${_LIBCLANG_LIB_DIR}/.." ABSOLUTE)
+        set(LIBCLANG_DLL_PATH "${_LIBCLANG_ROOT}/bin/libclang.dll")
+    endif()
+    if(EXISTS "${LIBCLANG_DLL_PATH}")
+        add_custom_command(TARGET ReflectionScanner POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${LIBCLANG_DLL_PATH}"
+                "$<TARGET_FILE_DIR:ReflectionScanner>/libclang.dll"
+            COMMENT "Copying libclang.dll to output directory"
+        )
+    else()
+        message(WARNING
+            "libclang.dll 未找到，已跳过拷贝。\n"
+            "  运行 ReflectionScanner 时请确保 libclang.dll 在 PATH 中。")
+    endif()
 endif()
 
 # ── Install（P14 SDK：编辑器外部脚本工程需要随 SDK 安装扫描器与构建脚本）──
 include(GNUInstallDirs)
 
-# 扫描器 exe + libclang.dll（Windows 上二者同目录才能运行）
+# 扫描器 exe
 install(TARGETS ReflectionScanner RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-if(EXISTS "${LIBCLANG_DLL_PATH}")
-    install(FILES "${LIBCLANG_DLL_PATH}" DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+# Windows: 额外安装 libclang.dll（SDK 自包含，不依赖本机 LLVM 安装）
+if(WIN32)
+    set(LIBCLANG_DLL_PATH "${LIBCLANG_PREFIX}/bin/libclang.dll")
+    if(NOT EXISTS "${LIBCLANG_DLL_PATH}")
+        get_filename_component(_LIBCLANG_LIB_DIR "${LIBCLANG_LIBRARY}" DIRECTORY)
+        get_filename_component(_LIBCLANG_ROOT "${_LIBCLANG_LIB_DIR}/.." ABSOLUTE)
+        set(LIBCLANG_DLL_PATH "${_LIBCLANG_ROOT}/bin/libclang.dll")
+    endif()
+    if(EXISTS "${LIBCLANG_DLL_PATH}")
+        install(FILES "${LIBCLANG_DLL_PATH}" DESTINATION ${CMAKE_INSTALL_BINDIR})
+    endif()
 endif()
 
 # 反射扫描 CMake 脚本（脚本工程的 CMakeLists 从 ${ShitEngine_DIR}/tools/ 引用）
@@ -86,24 +98,45 @@ install(FILES
 
 # ── libclang resource 目录（builtin headers：stddef.h/stdarg.h 等）──
 # 解析反射头必须有；SDK 自带拷贝 → 整个 SDK 可搬移，不依赖本机 LLVM 安装。
+# 跨平台：Windows → LIBCLANG_PREFIX/lib/clang/；Linux → /usr/lib/clang/ 或 apt 路径；
+# macOS → $(brew --prefix llvm)/lib/clang/ 或 $(xcrun --show-sdk-path)/usr/lib/clang/
 set(_SDK_CLANG_RES_NAME "")
-if(EXISTS "${LIBCLANG_PREFIX}/lib/clang")
-    file(GLOB _CLANG_RES_CANDIDATES LIST_DIRECTORIES true "${LIBCLANG_PREFIX}/lib/clang/*")
-    foreach(_dir IN LISTS _CLANG_RES_CANDIDATES)
+set(_CLANG_RES_CANDIDATES "")
+if(LIBCLANG_PREFIX AND EXISTS "${LIBCLANG_PREFIX}/lib/clang")
+    set(_CLANG_RES_CANDIDATES "${LIBCLANG_PREFIX}/lib/clang")
+else()
+    # 从库文件路径推导 clang resource 目录
+    get_filename_component(_LIBCLANG_LIB_DIR "${LIBCLANG_LIBRARY}" DIRECTORY)
+    get_filename_component(_LIBCLANG_ROOT "${_LIBCLANG_LIB_DIR}/.." ABSOLUTE)
+    foreach(_candidate "${_LIBCLANG_ROOT}/lib/clang" "${_LIBCLANG_ROOT}/../lib/clang")
+        if(EXISTS "${_candidate}")
+            set(_CLANG_RES_CANDIDATES "${_candidate}")
+            break()
+        endif()
+    endforeach()
+endif()
+if(_CLANG_RES_CANDIDATES)
+    file(GLOB _CLANG_RES_ENTRIES LIST_DIRECTORIES true "${_CLANG_RES_CANDIDATES}/*")
+    foreach(_dir IN LISTS _CLANG_RES_ENTRIES)
         if(IS_DIRECTORY "${_dir}")
             get_filename_component(_dir_name "${_dir}" NAME)
             if(_dir_name MATCHES "^[0-9][0-9.]*$")
                 set(_SDK_CLANG_RES_NAME "${_dir_name}")
+                set(_SDK_CLANG_RES_DIR "${_dir}")
             endif()
         endif()
     endforeach()
 endif()
-if(_SDK_CLANG_RES_NAME)
-    install(DIRECTORY "${LIBCLANG_PREFIX}/lib/clang/${_SDK_CLANG_RES_NAME}"
+if(_SDK_CLANG_RES_DIR)
+    install(DIRECTORY "${_SDK_CLANG_RES_DIR}"
             DESTINATION ${CMAKE_INSTALL_LIBDIR}/ShitEngine/clang-resource)
-    message(STATUS "SDK clang resource: ${_SDK_CLANG_RES_NAME}")
+    message(STATUS "SDK clang resource: ${_SDK_CLANG_RES_DIR}")
 else()
-    message(WARNING "未找到 libclang resource 目录（${LIBCLANG_PREFIX}/lib/clang/*），SDK 反射扫描可能失败")
+    message(WARNING
+        "未找到 libclang resource 目录，SDK 反射扫描可能失败。\n"
+        "  Linux: apt install libclang-dev\n"
+        "  macOS: brew install llvm\n"
+        "  Windows: 设置 LIBCLANG_PREFIX")
 endif()
 
 # ── 工具信息配置（SDK 模式下由 ReflectionScanSetup.cmake include）──

@@ -183,13 +183,11 @@ install(TARGETS ShitEngine
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
-# P14：第三方依赖 DLL 收集 → SDK bin/。各 FetchContent 库输出在全局
-# CMAKE_RUNTIME_OUTPUT_DIRECTORY（=${CMAKE_BINARY_DIR}/bin）下，把 bin/ 内
-# 全部 *.dll 装进 SDK，保证自包含（ShitEngineConfig.cmake 按 bin/ 探测依赖 DLL）：
-#   - SDL3 全家 + SDL_mixer/image 动态加载的编解码器（libmpg123/vorbis/ogg/opus/
-#     FLAC/png/webp/tiff/xmp/wavpack/gme 等，MSVC/MinGW 前缀命名不同不由清单硬编码）
-#   - ShitEngine.dll（含 Debug 的 -d 版）由上面 TARGETS 安装，此处重复复制同文件无害
-# 显式排除示例插件（ExamplePlugin.dll 等），不随 SDK 分发。
+# 第三方依赖运行时库收集 → SDK bin/
+# 各 FetchContent 库输出在全局 CMAKE_RUNTIME_OUTPUT_DIRECTORY（=${CMAKE_BINARY_DIR}/bin）下
+# 或 _deps 构建目录下的 lib/ 中。
+# 收集全部运行时库，保证 SDK 自包含（ShitEngineConfig.cmake 按 bin/ 探测依赖）。
+# 显式排除示例插件（ExamplePlugin*），不随 SDK 分发。
 if(WIN32)
     set(_SDK_BIN "${CMAKE_BINARY_DIR}/bin")
     if(EXISTS "${_SDK_BIN}")
@@ -199,6 +197,32 @@ if(WIN32)
     else()
         message(WARNING "SDK bin 目录缺失：${_SDK_BIN}")
     endif()
+elseif(APPLE)
+    # macOS: 收集 .dylib（来自 _deps 构建目录 + bin/）
+    set(_SDK_BIN "${CMAKE_BINARY_DIR}/bin")
+    if(EXISTS "${_SDK_BIN}")
+        install(DIRECTORY "${_SDK_BIN}/" DESTINATION ${CMAKE_INSTALL_BINDIR}
+            FILES_MATCHING PATTERN "*.dylib"
+            PATTERN "ExamplePlugin*" EXCLUDE)
+    endif()
+    # 额外从 _deps 构建目录收集（某些库输出到 lib/ 而非 bin/）
+    file(GLOB_RECURSE _SDK_DEPS_DYLIBS "${CMAKE_BINARY_DIR}/_deps/*/lib/*.dylib")
+    foreach(_dylib IN LISTS _SDK_DEPS_DYLIBS)
+        install(FILES "${_dylib}" DESTINATION ${CMAKE_INSTALL_BINDIR})
+    endforeach()
+else()
+    # Linux: 收集 .so*
+    set(_SDK_BIN "${CMAKE_BINARY_DIR}/bin")
+    if(EXISTS "${_SDK_BIN}")
+        install(DIRECTORY "${_SDK_BIN}/" DESTINATION ${CMAKE_INSTALL_BINDIR}
+            FILES_MATCHING PATTERN "*.so*"
+            PATTERN "ExamplePlugin*" EXCLUDE)
+    endif()
+    # 额外从 _deps 构建目录收集
+    file(GLOB_RECURSE _SDK_DEPS_SOS "${CMAKE_BINARY_DIR}/_deps/*/lib/*.so*")
+    foreach(_so IN LISTS _SDK_DEPS_SOS)
+        install(FILES "${_so}" DESTINATION ${CMAKE_INSTALL_BINDIR})
+    endforeach()
 endif()
 
 # CMake config
