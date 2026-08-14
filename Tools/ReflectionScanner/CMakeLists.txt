@@ -16,10 +16,25 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # 默认空值：优先走系统路径（Linux: apt, macOS: brew, Windows: vcpkg 或手动指定）
 set(LIBCLANG_PREFIX "" CACHE PATH "libClang 安装根目录（空=系统默认路径）")
 
-# 头文件：先搜系统路径，再回退到 LIBCLANG_PREFIX
+# Linux/macOS: clang 头文件不在标准路径（如 Ubuntu 的 /usr/lib/llvm-18/include），
+# 尝试用 llvm-config 探测实际安装目录（libclang-dev / llvm-dev 包提供）
+if(NOT LIBCLANG_PREFIX)
+    find_program(_LLVM_CONFIG
+        NAMES llvm-config llvm-config-19 llvm-config-18 llvm-config-17 llvm-config-16
+    )
+    if(_LLVM_CONFIG)
+        execute_process(COMMAND ${_LLVM_CONFIG} --includedir
+            OUTPUT_VARIABLE _LLVM_INCLUDE_DIR OUTPUT_STRIP_TRAILING_WHITESPACE)
+        execute_process(COMMAND ${_LLVM_CONFIG} --libdir
+            OUTPUT_VARIABLE _LLVM_LIB_DIR OUTPUT_STRIP_TRAILING_WHITESPACE)
+        message(STATUS "llvm-config found: ${_LLVM_CONFIG} (inc=${_LLVM_INCLUDE_DIR} lib=${_LLVM_LIB_DIR})")
+    endif()
+endif()
+
+# 头文件：先搜系统路径 / llvm-config 路径，再回退到 LIBCLANG_PREFIX
 find_path(LIBCLANG_INCLUDE_DIR
     NAMES clang-c/Index.h
-    PATHS ${LIBCLANG_PREFIX}/include
+    PATHS ${LIBCLANG_PREFIX}/include ${_LLVM_INCLUDE_DIR}
     REQUIRED
 )
 message(STATUS "libclang include: ${LIBCLANG_INCLUDE_DIR}")
@@ -28,7 +43,7 @@ message(STATUS "libclang include: ${LIBCLANG_INCLUDE_DIR}")
 # find_library 自动处理各平台后缀
 find_library(LIBCLANG_LIBRARY
     NAMES libclang clang
-    PATHS ${LIBCLANG_PREFIX}/lib
+    PATHS ${LIBCLANG_PREFIX}/lib ${_LLVM_LIB_DIR}
     REQUIRED
 )
 message(STATUS "libclang lib:     ${LIBCLANG_LIBRARY}")
@@ -98,17 +113,22 @@ install(FILES
 
 # ── libclang resource 目录（builtin headers：stddef.h/stdarg.h 等）──
 # 解析反射头必须有；SDK 自带拷贝 → 整个 SDK 可搬移，不依赖本机 LLVM 安装。
-# 跨平台：Windows → LIBCLANG_PREFIX/lib/clang/；Linux → /usr/lib/clang/ 或 apt 路径；
+# 跨平台：Windows → LIBCLANG_PREFIX/lib/clang/；Linux → /usr/lib/llvm-NN/lib/clang/（apt）；
 # macOS → $(brew --prefix llvm)/lib/clang/ 或 $(xcrun --show-sdk-path)/usr/lib/clang/
 set(_SDK_CLANG_RES_NAME "")
 set(_CLANG_RES_CANDIDATES "")
 if(LIBCLANG_PREFIX AND EXISTS "${LIBCLANG_PREFIX}/lib/clang")
     set(_CLANG_RES_CANDIDATES "${LIBCLANG_PREFIX}/lib/clang")
 else()
-    # 从库文件路径推导 clang resource 目录
+    # 从库文件路径 / llvm-config 路径推导 clang resource 目录
     get_filename_component(_LIBCLANG_LIB_DIR "${LIBCLANG_LIBRARY}" DIRECTORY)
     get_filename_component(_LIBCLANG_ROOT "${_LIBCLANG_LIB_DIR}/.." ABSOLUTE)
-    foreach(_candidate "${_LIBCLANG_ROOT}/lib/clang" "${_LIBCLANG_ROOT}/../lib/clang")
+    foreach(_candidate
+            "${_LIBCLANG_ROOT}/lib/clang"
+            "${_LIBCLANG_ROOT}/../lib/clang"
+            "${_LLVM_LIB_DIR}/clang"
+            "${_LLVM_LIB_DIR}/../lib/clang"
+            "${_LLVM_INCLUDE_DIR}/../lib/clang")
         if(EXISTS "${_candidate}")
             set(_CLANG_RES_CANDIDATES "${_candidate}")
             break()
