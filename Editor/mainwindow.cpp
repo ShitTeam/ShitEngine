@@ -802,6 +802,7 @@ void MainWindow::onAnimOpenRequested(const QString &path)
     undoBegin();   // 在修改前捕获快照（可撤销）
     Shit::AnimatorState state = *animator->stateAt(idx);
     state.clip = clip;
+    state.assetPath = path.toStdString();   // 绑定资产引用（AnimatorDock 只认 .anim 资产）
     if (animator->setState(idx, state)) {
         m_log->appendMessage(tr("已应用动画剪辑「%1」到状态「%2」")
                                  .arg(QString::fromStdString(clip.name),
