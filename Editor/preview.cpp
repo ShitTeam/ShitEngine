@@ -1,7 +1,9 @@
 #include "preview.h"
 
 #include <QCoreApplication>
+#include <QDir>
 #include <QFile>
+#include <QTemporaryFile>
 
 #include <ShitEngine.h>
 #include <ShitEngine/Core/EngineContext.h>
@@ -45,17 +47,40 @@ bool EnginePreview::start()
         m_plugins->RegisterAllTypes();
     }
 
-    // 构建共享场景：默认空场景，仅编辑器相机（无测试对象/行为）。
+    // 构建共享场景：写临时 .scene 文件（仅编辑器相机 scene_camera），
+    // 走 LoadSceneFromFile 统一加载路径（编辑/运行/切关三路合一）。
     // 游戏相机不定名（Unity 语义）：由 refreshCameras 从场景中挑选任意启用相机。
-    auto scene = std::make_unique<Shit::Scene>("preview");
-    scene->init();
+    QTemporaryFile tempSceneFile;
+    tempSceneFile.setFileTemplate(QDir::tempPath() + "/preview_XXXXXX.scene");
+    if (!tempSceneFile.open()) {
+        ST_CORE_ERROR("[Preview] 无法创建临时场景文件");
+        return false;
+    }
+    {
+        const nlohmann::json previewScene = {
+            {"version", 2},
+            {"objects", {{
+                {"name", "scene_camera"},
+                {"parent", -1},
+                {"data", {{
+                    {"type", "TransformComponent"},
+                    {"fields", nlohmann::json::object()}
+                }, {
+                    {"type", "CameraComponent"},
+                    {"fields", {{"m_zoom", 1.0}}}
+                }}}
+            }}}
+        };
+        tempSceneFile.write(previewScene.dump(2).c_str());
+    }
+    tempSceneFile.close();  // 关闭后 LoadSceneFromFile 可读
 
-    auto *editorGo = scene->createGameObject("scene_camera");
-    editorGo->addComponent<Shit::TransformComponent>();
-    m_editorCam = editorGo->addComponent<Shit::CameraComponent>();
-    m_editorCam->setZoom(1.0f);
+    if (!Shit::SceneManager::LoadSceneFromFile(tempSceneFile.fileName().toStdString())) {
+        ST_CORE_ERROR("[Preview] 初始场景加载失败");
+        return false;
+    }
+    // QTemporaryFile 析构时自动删除临时文件
 
-    Shit::SceneManager::LoadScene(std::move(scene));
     m_scene = Shit::SceneManager::GetCurrentScene();
     refreshCameras();   // 按名定位编辑器/游戏相机
 

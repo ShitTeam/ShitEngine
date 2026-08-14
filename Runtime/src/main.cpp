@@ -46,14 +46,25 @@ static void chdirToExecutableDir() {
 #endif
 }
 
-/// 空场景 + 默认相机（无 scene 配置时兜底；相机兜底由 SceneSerializer::fromJson 统一处理）
-static std::unique_ptr<Shit::Scene> createEmptyScene() {
-    auto scene = std::make_unique<Shit::Scene>("empty");
-    scene->init();
-    Shit::SceneSerializer::fromJson(
-        nlohmann::json({ { "version", 2 }, { "objects", nlohmann::json::array() } }),
-        scene.get());
-    return scene;
+/// 加载空场景兜底：写临时 .scene 文件，走 LoadSceneFromFile 统一路径（相机兜底由 SceneSerializer::fromJson 统一处理）。
+/// 与正常场景加载共用同一加载器——编辑/运行/切关三路合一，确保加载行为一致。
+static bool loadEmptySceneFallback() {
+    const nlohmann::json emptyScene = {
+        {"version", 2},
+        {"objects", nlohmann::json::array()}
+    };
+    std::error_code ec;
+    const std::filesystem::path tempDir = std::filesystem::temp_directory_path(ec);
+    if (ec) { ST_CORE_ERROR("获取临时目录失败"); return false; }
+    const std::filesystem::path tempPath = tempDir / "empty_preview.scene";
+    {
+        std::ofstream ofs(tempPath.string());
+        if (!ofs.is_open()) { ST_CORE_ERROR("无法创建临时场景文件"); return false; }
+        ofs << emptyScene.dump(2);
+    }
+    const bool ok = Shit::SceneManager::LoadSceneFromFile(tempPath.string());
+    std::filesystem::remove(tempPath, ec);
+    return ok;
 }
 
 int main() {
@@ -87,13 +98,13 @@ int main() {
     if (!scenePath.empty()) {
         if (Shit::SceneManager::LoadSceneFromFile(scenePath)) {
             ST_CORE_INFO("已从 .scene 加载场景: {}", scenePath);
-        } else {
-            ST_CORE_ERROR("场景加载失败（{}），按空场景继续运行", scenePath);
-            Shit::SceneManager::LoadScene(std::move(createEmptyScene()));
-        }
-    } else {
-        ST_CORE_WARN("config.json 未配置 scene 字段，启动空场景 + 默认相机");
-        Shit::SceneManager::LoadScene(std::move(createEmptyScene()));
+} else {
+	            ST_CORE_ERROR("场景加载失败（{}），按空场景继续运行", scenePath);
+	            loadEmptySceneFallback();
+	        }
+	    } else {
+	        ST_CORE_WARN("config.json 未配置 scene 字段，启动空场景 + 默认相机");
+	        loadEmptySceneFallback();
     }
 
     // 4. 主循环

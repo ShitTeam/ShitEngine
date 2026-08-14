@@ -27,11 +27,11 @@ namespace Shit {
 	 * 场景是游戏世界的容器，管理所有 GameObject、System 的生命周期。
 	 * 通过 SceneManager 的栈机制实现场景切换（主菜单→游戏→暂停）。
 	 *
-	 * 使用方式：
-	 *   auto scene = std::make_unique<Scene>("level1");
-	 *   scene->init();                    // 注册默认 BehaviorSystem + RenderSystem + UIRenderSystem
-	 *   auto* player = scene->createGameObject("player");
-	 *   SceneManager::LoadScene(std::move(scene));
+	 * 使用方式（从 .scene 文件加载——唯一公开入口）：
+	 *   SceneManager::LoadSceneFromFile("Scenes/level1.scene");
+	 * 
+	 * 注：Scene 对象通常由 SceneManager 内部创建，用户代码无需手动构造。
+	 * 手动构造 Scene 仅用于编辑器预览/单元测试等高级场景。
 	 */
 	class SHIT_API Scene {
 		friend class GameObject; ///< GameObject 结构变更（组件增删/改名/改父）时通知 bumpGeneration

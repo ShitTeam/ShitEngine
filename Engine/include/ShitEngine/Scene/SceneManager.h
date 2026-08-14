@@ -9,11 +9,11 @@ namespace Shit {
 	 * @brief 场景管理器（单例）
 	 *
 	 * 持有当前活跃场景（单一场景模型，与 Unity/Godot 一致）：
-	 *   - LoadScene() 切换场景：销毁旧场景、加载新场景（同帧生效）
+	 *   - LoadSceneFromFile() 切换场景：销毁旧场景、加载新场景（同帧生效）
 	 *   - 暂停用 Game::SetPaused()：冻结 Behavior/物理，UI 叠层照常响应
 	 *
 	 * 用法：
-	 *   Shit::SceneManager::LoadScene(std::move(levelScene));
+	 *   Shit::SceneManager::LoadSceneFromFile("Scenes/level1.scene");
 	 *   Shit::Game::SetPaused(true);   // 暂停（冻结行为/物理，UI 菜单照常）
 	 */
 	class SHIT_API SceneManager final {
@@ -26,8 +26,8 @@ namespace Shit {
 
 		// --- 静态API ---
 		static SceneManager& GetInstance();
-		inline static void LoadScene(std::unique_ptr<Scene>&& scene) { GetInstance().loadScene(std::move(scene)); }  ///< 切换场景（销毁当前，加载新场景；update 期间调用时延迟到 update 结束后生效）
-		inline static bool LoadSceneFromFile(const std::string& path) { return GetInstance().loadSceneFromFile(path); }  ///< 从 .scene 文件加载并替换当前场景（启动 / 关卡切换共用）
+		/// 从 .scene 文件加载并替换当前场景（启动 / 关卡切换共用）。这是加载场景的唯一公开入口。
+		inline static bool LoadSceneFromFile(const std::string& path) { return GetInstance().loadSceneFromFile(path); }
 		inline static void Update() { GetInstance().update(); }
 		inline static void Destroy() { GetInstance().destroy(); }
 		inline static Scene* GetCurrentScene() { return GetInstance().getCurrentScene(); }
