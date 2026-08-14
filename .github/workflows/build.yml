@@ -20,27 +20,31 @@ jobs:
     runs-on: windows-2025
     defaults:
       run:
-        shell: cmd
+        shell: pwsh
 
     steps:
       - uses: actions/checkout@v4
 
+      # 自动检测并配置 MSVC 编译环境（不依赖具体 VS 版本）
+      - name: Setup MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
       - name: Configure CMake
-        run: >
-          cmake -B build -G "Visual Studio 17 2022" -A x64
-          -DCMAKE_BUILD_TYPE=%BUILD_TYPE%
-          -DBUILD_TOOLS=OFF
-          -DBUILD_EDITOR=ON
-          -DBUILD_EXAMPLES=ON
-          -DBUILD_RUNTIME=ON
+        run: |
+          cmake -B build -G Ninja `
+            -DCMAKE_BUILD_TYPE=$env:BUILD_TYPE `
+            -DBUILD_TOOLS=OFF `
+            -DBUILD_EDITOR=ON `
+            -DBUILD_EXAMPLES=ON `
+            -DBUILD_RUNTIME=ON
 
       - name: Build
-        run: cmake --build build --config %BUILD_TYPE% --parallel
+        run: cmake --build build --parallel
 
       - name: Package SDK
-        run: >
-          cmake --install build --prefix sdk
-          --config %BUILD_TYPE%
+        run: cmake --install build --prefix sdk
 
       - uses: actions/upload-artifact@v4
         with:
