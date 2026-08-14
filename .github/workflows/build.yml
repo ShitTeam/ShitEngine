@@ -117,15 +117,13 @@ jobs:
             libasound2-dev \
             libpulse-dev \
             libpipewire-0.3-dev \
-            libwayland-dev \
-            libclang-dev \
-            llvm-dev
+            libwayland-dev
 
       - name: Configure CMake
         run: >
           cmake -B build -G Ninja
           -DCMAKE_BUILD_TYPE=$BUILD_TYPE
-          -DBUILD_TOOLS=ON
+          -DBUILD_TOOLS=OFF
           -DBUILD_EDITOR=ON
           -DBUILD_EXAMPLES=ON
           -DBUILD_RUNTIME=ON
@@ -151,15 +149,14 @@ jobs:
       - name: Install dependencies
         run: |
           brew update
-          brew install ninja cmake qt@6 llvm
+          brew install ninja cmake qt@6
 
       - name: Configure CMake
         run: >
           cmake -B build -G Ninja
           -DCMAKE_BUILD_TYPE=$BUILD_TYPE
           -DCMAKE_PREFIX_PATH="$(brew --prefix qt@6)"
-          -DLIBCLANG_PREFIX="$(brew --prefix llvm)"
-          -DBUILD_TOOLS=ON
+          -DBUILD_TOOLS=OFF
           -DBUILD_EDITOR=ON
           -DBUILD_EXAMPLES=ON
           -DBUILD_RUNTIME=ON
