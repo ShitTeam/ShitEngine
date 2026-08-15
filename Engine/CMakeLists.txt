@@ -184,45 +184,41 @@ install(TARGETS ShitEngine
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 # 第三方依赖运行时库收集 → SDK bin/
-# 各 FetchContent 库输出在全局 CMAKE_RUNTIME_OUTPUT_DIRECTORY（=${CMAKE_BINARY_DIR}/bin）下
-# 或 _deps 构建目录下的 lib/ 中。
-# 收集全部运行时库，保证 SDK 自包含（ShitEngineConfig.cmake 按 bin/ 探测依赖）。
+# 各 FetchContent 库输出位置因平台而异：
+#   - Windows: DLL → ${CMAKE_BINARY_DIR}/bin（RUNTIME_OUTPUT_DIRECTORY）
+#   - Unix:    .so/.dylib → ${CMAKE_BINARY_DIR}/lib（LIBRARY_OUTPUT_DIRECTORY）
+#             部分 vendored 库（如 SDL3_mixer 的 wavpack/mpg123）输出到 _deps 子目录
+# 注意：构建产物在 configure 阶段尚不存在，不能用 if(EXISTS) 包 install()（规则不会注册）。
+# Windows 用 install(DIRECTORY ... OPTIONAL)（安装时目录存在才拷贝）；
+# Unix 用 install(CODE) 在安装阶段动态 GLOB 收集（此时全部构建已完成）。
 # 显式排除示例插件（ExamplePlugin*），不随 SDK 分发。
 if(WIN32)
-    set(_SDK_BIN "${CMAKE_BINARY_DIR}/bin")
-    if(EXISTS "${_SDK_BIN}")
-        install(DIRECTORY "${_SDK_BIN}/" DESTINATION ${CMAKE_INSTALL_BINDIR}
-            FILES_MATCHING PATTERN "*.dll"
-            PATTERN "ExamplePlugin*" EXCLUDE)
-    else()
-        message(WARNING "SDK bin 目录缺失：${_SDK_BIN}")
-    endif()
+    install(DIRECTORY "${CMAKE_BINARY_DIR}/bin/" DESTINATION ${CMAKE_INSTALL_BINDIR}
+        FILES_MATCHING PATTERN "*.dll"
+        PATTERN "ExamplePlugin*" EXCLUDE
+        OPTIONAL)
 elseif(APPLE)
-    # macOS: 收集 .dylib（来自 _deps 构建目录 + bin/）
-    set(_SDK_BIN "${CMAKE_BINARY_DIR}/bin")
-    if(EXISTS "${_SDK_BIN}")
-        install(DIRECTORY "${_SDK_BIN}/" DESTINATION ${CMAKE_INSTALL_BINDIR}
-            FILES_MATCHING PATTERN "*.dylib"
-            PATTERN "ExamplePlugin*" EXCLUDE)
-    endif()
-    # 额外从 _deps 构建目录收集（某些库输出到 lib/ 而非 bin/）
-    file(GLOB_RECURSE _SDK_DEPS_DYLIBS "${CMAKE_BINARY_DIR}/_deps/*/lib/*.dylib")
-    foreach(_dylib IN LISTS _SDK_DEPS_DYLIBS)
-        install(FILES "${_dylib}" DESTINATION ${CMAKE_INSTALL_BINDIR})
-    endforeach()
+    # macOS: 收集 .dylib
+    install(CODE "
+        file(GLOB_RECURSE _SDK_LIBS
+            \"${CMAKE_BINARY_DIR}/lib/*.dylib\"
+            \"${CMAKE_BINARY_DIR}/_deps/*/lib/*.dylib\")
+        foreach(_f IN LISTS _SDK_LIBS)
+            file(INSTALL DESTINATION \"\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}\"
+                 TYPE FILE FILES \"\${_f}\")
+        endforeach()
+    ")
 else()
-    # Linux: 收集 .so*
-    set(_SDK_BIN "${CMAKE_BINARY_DIR}/bin")
-    if(EXISTS "${_SDK_BIN}")
-        install(DIRECTORY "${_SDK_BIN}/" DESTINATION ${CMAKE_INSTALL_BINDIR}
-            FILES_MATCHING PATTERN "*.so*"
-            PATTERN "ExamplePlugin*" EXCLUDE)
-    endif()
-    # 额外从 _deps 构建目录收集
-    file(GLOB_RECURSE _SDK_DEPS_SOS "${CMAKE_BINARY_DIR}/_deps/*/lib/*.so*")
-    foreach(_so IN LISTS _SDK_DEPS_SOS)
-        install(FILES "${_so}" DESTINATION ${CMAKE_INSTALL_BINDIR})
-    endforeach()
+    # Linux: 收集 .so*（含 .so.ver 版本化后缀）
+    install(CODE "
+        file(GLOB_RECURSE _SDK_LIBS
+            \"${CMAKE_BINARY_DIR}/lib/*.so*\"
+            \"${CMAKE_BINARY_DIR}/_deps/*/lib/*.so*\")
+        foreach(_f IN LISTS _SDK_LIBS)
+            file(INSTALL DESTINATION \"\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}\"
+                 TYPE FILE FILES \"\${_f}\")
+        endforeach()
+    ")
 endif()
 
 # CMake config
