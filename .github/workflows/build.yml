@@ -172,6 +172,13 @@ jobs:
       - name: Package SDK
         run: cmake --install build --prefix ${{ github.workspace }}/sdk
 
+      # 收集 Editor 依赖的 Qt6 运行时库（ldd 动态解析，只装实际用到的）
+      - name: Deploy Qt6 runtime libs to SDK
+        run: |
+          ldd sdk/bin/Editor | awk '/Qt6/ {print $3}' | grep '^/' | sort -u \
+            | xargs -r -I{} cp -P {} sdk/bin/
+          ls sdk/bin/libQt6* | head
+
       - uses: actions/upload-artifact@v4
         with:
           name: ShitEngine-Linux-x64
@@ -213,6 +220,10 @@ jobs:
 
       - name: Package SDK
         run: cmake --install build --prefix ${{ github.workspace }}/sdk
+
+      # macdeployqt：把 Qt6 dylib 嵌入 Editor.app（自包含 bundle）
+      - name: Deploy Qt6 into Editor.app
+        run: "$(brew --prefix qt@6)/bin/macdeployqt" ${{ github.workspace }}/sdk/Editor.app -always-overwrite
 
       - uses: actions/upload-artifact@v4
         with:
