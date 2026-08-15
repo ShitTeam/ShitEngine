@@ -176,7 +176,7 @@ jobs:
       - name: Deploy Qt6 runtime libs to SDK
         run: |
           ldd sdk/bin/Editor | awk '/Qt6/ {print $3}' | grep '^/' | sort -u \
-            | xargs -r -I{} cp -P {} sdk/bin/
+            | xargs -r -I{} cp -L {} sdk/bin/
           ls sdk/bin/libQt6* | head
 
       - uses: actions/upload-artifact@v4
