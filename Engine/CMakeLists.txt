@@ -184,21 +184,22 @@ install(TARGETS ShitEngine
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 # 第三方依赖运行时库收集 → SDK bin/
-# 各 FetchContent 库输出位置因平台而异：
-#   - Windows: DLL → ${CMAKE_BINARY_DIR}/bin（RUNTIME_OUTPUT_DIRECTORY）
-#   - Unix:    .so/.dylib → ${CMAKE_BINARY_DIR}/lib（LIBRARY_OUTPUT_DIRECTORY）
-#             部分 vendored 库（如 SDL3_mixer 的 wavpack/mpg123）输出到 _deps 子目录
-# 注意：构建产物在 configure 阶段尚不存在，不能用 if(EXISTS) 包 install()（规则不会注册）。
-# Windows 用 install(DIRECTORY ... OPTIONAL)（安装时目录存在才拷贝）；
-# Unix 用 install(CODE) 在安装阶段动态 GLOB 收集（此时全部构建已完成）。
-# 显式排除示例插件（ExamplePlugin*），不随 SDK 分发。
+# 在 install 阶段动态 GLOB 构建产物，避免 configure 时机陷阱（configure 时产物尚不存在）。
+# 各平台输出位置：
+#   Windows: DLL → ${CMAKE_BINARY_DIR}/bin（RUNTIME_OUTPUT_DIRECTORY）
+#   Unix:    .so/.dylib → ${CMAKE_BINARY_DIR}/lib（LIBRARY_OUTPUT_DIRECTORY）
+#           部分 vendored 库（如 SDL3_mixer 的 wavpack/mpg123）输出到 _deps 子目录
 if(WIN32)
-    install(DIRECTORY "${CMAKE_BINARY_DIR}/bin/" DESTINATION ${CMAKE_INSTALL_BINDIR}
-        FILES_MATCHING PATTERN "*.dll"
-        PATTERN "ExamplePlugin*" EXCLUDE
-        OPTIONAL)
+    install(CODE "
+        file(GLOB _SDK_DLLS \"${CMAKE_BINARY_DIR}/bin/*.dll\")
+        foreach(_f IN LISTS _SDK_DLLS)
+            get_filename_component(_n \"\${_f}\" NAME)
+            if(_n MATCHES \"ExamplePlugin\") continue() endif()
+            file(INSTALL DESTINATION \"\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}\"
+                 TYPE FILE FILES \"\${_f}\")
+        endforeach()
+    ")
 elseif(APPLE)
-    # macOS: 收集 .dylib
     install(CODE "
         file(GLOB_RECURSE _SDK_LIBS
             \"${CMAKE_BINARY_DIR}/lib/*.dylib\"
@@ -209,7 +210,6 @@ elseif(APPLE)
         endforeach()
     ")
 else()
-    # Linux: 收集 .so*（含 .so.ver 版本化后缀）
     install(CODE "
         file(GLOB_RECURSE _SDK_LIBS
             \"${CMAKE_BINARY_DIR}/lib/*.so*\"
