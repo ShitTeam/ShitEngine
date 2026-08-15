@@ -40,7 +40,6 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: '6.8.*'
-          modules: qtbase
           cache: true
 
       - name: Configure CMake
