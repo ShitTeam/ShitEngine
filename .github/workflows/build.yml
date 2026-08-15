@@ -36,6 +36,13 @@ jobs:
         with:
           arch: x64
 
+      - name: Install Qt6
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.*'
+          modules: qtbase
+          cache: true
+
       - name: Configure CMake
         run: |
           cmake -B build -G Ninja `
@@ -50,6 +57,9 @@ jobs:
 
       - name: Package SDK
         run: cmake --install build --prefix sdk
+
+      - name: Deploy Qt DLLs to SDK
+        run: windeployqt --dir sdk/bin sdk/bin/Editor.exe
 
       - uses: actions/upload-artifact@v4
         with:
