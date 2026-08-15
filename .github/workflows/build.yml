@@ -94,13 +94,14 @@ jobs:
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-cmake
             mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-qt6-base
 
       - name: Configure CMake
         run: |
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
             -DBUILD_TOOLS=OFF \
-            -DBUILD_EDITOR=OFF \
+            -DBUILD_EDITOR=ON \
             -DBUILD_EXAMPLES=ON \
             -DBUILD_RUNTIME=ON
 
@@ -109,6 +110,9 @@ jobs:
 
       - name: Package SDK
         run: cmake --install build --prefix sdk
+
+      - name: Deploy Qt DLLs to SDK
+        run: windeployqt --dir sdk/bin sdk/bin/Editor.exe
 
       - uses: actions/upload-artifact@v4
         with:
