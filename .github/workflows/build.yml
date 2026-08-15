@@ -223,7 +223,8 @@ jobs:
 
       # macdeployqt：把 Qt6 dylib 嵌入 Editor.app（自包含 bundle）
       - name: Deploy Qt6 into Editor.app
-        run: "$(brew --prefix qt@6)/bin/macdeployqt" ${{ github.workspace }}/sdk/Editor.app -always-overwrite
+        run: |
+          "$(brew --prefix qt@6)/bin/macdeployqt" "${{ github.workspace }}/sdk/Editor.app" -always-overwrite
 
       - uses: actions/upload-artifact@v4
         with:
