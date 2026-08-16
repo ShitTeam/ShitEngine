@@ -402,7 +402,9 @@ bool Viewport::colliderHandleGeom(QPointF &center, float &rotRad, float &pixelSc
     const Shit::Vector2 sp = camera->worldToScreen(pos);
     center = logicalToWidget(sp.x, sp.y);
     rotRad = transform->getRotation() * 3.14159265f / 180.0f;
-    pixelScale = static_cast<float>(m_drawRect.width()) / std::max(1, m_frame.width());
+    // 控件缩放 × 相机 PPU(含 zoom)：世界像素→控件像素的完整换算
+    const float basePs = static_cast<float>(m_drawRect.width()) / std::max(1, m_frame.width());
+    pixelScale = basePs * camera->getPixelPerUnit();
     return true;
 }
 
@@ -427,6 +429,9 @@ void Viewport::drawPhysicsDebug(QPainter &painter)
     // 逻辑/世界像素 → 控件像素缩放（letterbox 等比，两轴同比例）
     const float px = std::max(1, m_frame.width());
     const float pixelScale = static_cast<float>(m_drawRect.width()) / px;
+    // 相机每逻辑单位像素数（含 zoom 缩放）：worldToScreen 内部用它做位置映射，
+    // 碰撞箱尺寸也必须乘它，否则 zoom≠1 时显示与实际碰撞体大小不一致
+    const float ppu = camera->getPixelPerUnit();
 
     // 冲突体轮廓按刚体类型着色（对齐 Unity Gizmo 惯例）：
     // Dynamic 绿 / Kinematic 黄 / Static 蓝灰；未挂刚体暗灰（无物理效果，只是占位形状）
@@ -449,20 +454,22 @@ void Viewport::drawPhysicsDebug(QPainter &painter)
         const Shit::Vector2 sp = camera->worldToScreen(pos);
         const QPointF c = logicalToWidget(sp.x, sp.y);
 
-        if (auto *box = go->getComponent<Shit::BoxCollider2D>()) {
-            const Shit::Vector2 size = box->getSize();
-            painter.save();
-            painter.translate(c);
-            // 物理形状不随 Transform.scale 缩放（与引擎一致），旋转跟随对象
-            painter.rotate(transform->getRotation());
-            painter.drawRect(QRectF(-size.x * 0.5f * pixelScale, -size.y * 0.5f * pixelScale,
-                                    size.x * pixelScale, size.y * pixelScale));
-            painter.restore();
-        }
-        if (auto *circle = go->getComponent<Shit::CircleCollider2D>()) {
-            const float r = circle->getRadius() * pixelScale;
-            painter.drawEllipse(c, r, r);
-        }
+if (auto *box = go->getComponent<Shit::BoxCollider2D>()) {
+	            const Shit::Vector2 size = box->getSize();
+	            painter.save();
+	            painter.translate(c);
+	            // 物理形状不随 Transform.scale 缩放（与引擎一致），旋转跟随对象
+	            painter.rotate(transform->getRotation());
+	            // 尺寸 = 世界像素 × PPU(含 zoom) × 控件缩放，与 worldToScreen 的映射一致
+	            const float sx = size.x * ppu * pixelScale;
+	            const float sy = size.y * ppu * pixelScale;
+	            painter.drawRect(QRectF(-sx * 0.5f, -sy * 0.5f, sx, sy));
+	            painter.restore();
+	        }
+	        if (auto *circle = go->getComponent<Shit::CircleCollider2D>()) {
+	            const float r = circle->getRadius() * ppu * pixelScale;
+	            painter.drawEllipse(c, r, r);
+	        }
     }
 
     // —— P26：关节可视化（青色连接线 + 锚点圆点）——
