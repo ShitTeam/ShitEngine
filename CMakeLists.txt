@@ -1,6 +1,6 @@
 # CMakeLists.txt — ShitEngine 工作区根
 cmake_minimum_required(VERSION 3.20)
-project(ShitEngine VERSION 1.4.0 LANGUAGES C CXX)
+project(ShitEngine VERSION 1.4.1 LANGUAGES C CXX)
 
 # UTF-8
 if(MSVC)

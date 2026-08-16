@@ -732,46 +732,58 @@ void Viewport::mouseMoveEvent(QMouseEvent *event)
     const float worldDx = logicalDx / ppu;
     const float worldDy = logicalDy / ppu;
 
-    if (m_drag == DragMode::GizmoX || m_drag == DragMode::GizmoY) {
-        if (auto *transform = m_selected ? m_selected->getComponent<Shit::TransformComponent>() : nullptr) {
-            const float nx = (m_drag == DragMode::GizmoX) ? m_dragStartPosX + worldDx : m_dragStartPosX;
-            const float ny = (m_drag == DragMode::GizmoY) ? m_dragStartPosY + worldDy : m_dragStartPosY;
-            // Ctrl：10px 网格吸附
-            if (event->modifiers() & Qt::ControlModifier) {
-                transform->setPosition({ std::round(nx / 10.0f) * 10.0f, std::round(ny / 10.0f) * 10.0f });
-            } else {
-                transform->setPosition({ nx, ny });
-            }
-            update();
-        }
-    } else if (m_drag == DragMode::Move) {
-        // 中心方块：整体拖动（X+Y），Ctrl 10px 网格吸附
-        if (auto *transform = m_selected ? m_selected->getComponent<Shit::TransformComponent>() : nullptr) {
-            const float nx = m_dragStartPosX + worldDx;
-            const float ny = m_dragStartPosY + worldDy;
-            if (event->modifiers() & Qt::ControlModifier) {
-                transform->setPosition({ std::round(nx / 10.0f) * 10.0f, std::round(ny / 10.0f) * 10.0f });
-            } else {
-                transform->setPosition({ nx, ny });
-            }
-            update();
-        }
-    } else if (m_drag == DragMode::Rotate) {
-        if (auto *transform = m_selected ? m_selected->getComponent<Shit::TransformComponent>() : nullptr) {
-            // 以对象屏幕位置为中心计算当前角度
-            const Shit::Vector2 sp = camera->worldToScreen(transform->getPosition());
-            const QPoint c = logicalToWidget(sp.x, sp.y);
-            const float cur = std::atan2(static_cast<float>(event->pos().y() - c.y()),
-                                         static_cast<float>(event->pos().x() - c.x()))
-                              * 180.0f / 3.14159265f;
-            const float step = (event->modifiers() & Qt::ControlModifier) ? 5.0f : 15.0f; // 15° 量子化，Ctrl 5°
-            const float snapped = std::round(cur / step) * step;
-            float delta = snapped - m_dragStartSnapped;      // 相对起始角的增量（wrap ±180）
-            if (delta > 180.0f) delta -= 360.0f;
-            else if (delta < -180.0f) delta += 360.0f;
-            transform->setRotation(m_dragStartRotation + delta);
-            update();
-        }
+if (m_drag == DragMode::GizmoX || m_drag == DragMode::GizmoY) {
+	        if (auto *transform = m_selected ? m_selected->getComponent<Shit::TransformComponent>() : nullptr) {
+	            const float nx = (m_drag == DragMode::GizmoX) ? m_dragStartPosX + worldDx : m_dragStartPosX;
+	            const float ny = (m_drag == DragMode::GizmoY) ? m_dragStartPosY + worldDy : m_dragStartPosY;
+	            // Ctrl：10px 网格吸附
+	            if (event->modifiers() & Qt::ControlModifier) {
+	                transform->setPosition({ std::round(nx / 10.0f) * 10.0f, std::round(ny / 10.0f) * 10.0f });
+	            } else {
+	                transform->setPosition({ nx, ny });
+	            }
+	            // 同步 Box2D 刚体位置（防止 Static 刚体碰撞箱显示与实际错位）
+	            if (auto *body = m_selected ? m_selected->getComponent<Shit::RigidBody2D>() : nullptr) {
+	                body->setTransform(transform->getPosition(), transform->getRotation());
+	            }
+	            update();
+	        }
+} else if (m_drag == DragMode::Move) {
+	        // 中心方块：整体拖动（X+Y），Ctrl 10px 网格吸附
+	        if (auto *transform = m_selected ? m_selected->getComponent<Shit::TransformComponent>() : nullptr) {
+	            const float nx = m_dragStartPosX + worldDx;
+	            const float ny = m_dragStartPosY + worldDy;
+	            if (event->modifiers() & Qt::ControlModifier) {
+	                transform->setPosition({ std::round(nx / 10.0f) * 10.0f, std::round(ny / 10.0f) * 10.0f });
+	            } else {
+	                transform->setPosition({ nx, ny });
+	            }
+	            // 同步 Box2D 刚体位置（防止 Static 刚体碰撞箱显示与实际错位）
+	            if (auto *body = m_selected ? m_selected->getComponent<Shit::RigidBody2D>() : nullptr) {
+	                body->setTransform(transform->getPosition(), transform->getRotation());
+	            }
+	            update();
+	        }
+} else if (m_drag == DragMode::Rotate) {
+	        if (auto *transform = m_selected ? m_selected->getComponent<Shit::TransformComponent>() : nullptr) {
+	            // 以对象屏幕位置为中心计算当前角度
+	            const Shit::Vector2 sp = camera->worldToScreen(transform->getPosition());
+	            const QPoint c = logicalToWidget(sp.x, sp.y);
+	            const float cur = std::atan2(static_cast<float>(event->pos().y() - c.y()),
+	                                         static_cast<float>(event->pos().x() - c.x()))
+	                              * 180.0f / 3.14159265f;
+	            const float step = (event->modifiers() & Qt::ControlModifier) ? 5.0f : 15.0f; // 15° 量子化，Ctrl 5°
+	            const float snapped = std::round(cur / step) * step;
+	            float delta = snapped - m_dragStartSnapped;      // 相对起始角的增量（wrap ±180）
+	            if (delta > 180.0f) delta -= 360.0f;
+	            else if (delta < -180.0f) delta += 360.0f;
+	            transform->setRotation(m_dragStartRotation + delta);
+	            // 同步 Box2D 刚体旋转（防止 Static 刚体碰撞箱显示与实际错位）
+	            if (auto *body = m_selected ? m_selected->getComponent<Shit::RigidBody2D>() : nullptr) {
+	                body->setTransform(transform->getPosition(), transform->getRotation());
+	            }
+	            update();
+	        }
     } else if (m_drag == DragMode::ScaleX || m_drag == DragMode::ScaleY) {
         if (auto *transform = m_selected ? m_selected->getComponent<Shit::TransformComponent>() : nullptr) {
             // 拖轴端方块：位移 → 线性缩放因子（每 50 世界单位 × 2 上下）
