@@ -184,43 +184,71 @@ void Prefab::apply(GameObject* go) const {
 }
 
 void Prefab::applyInternal(GameObject* go, bool restoreUuid) const {
-    if (!go) return;
+	    if (!go) return;
 
-    // 反射工厂创建 + 字段拷贝
-    for (const auto& data : m_components) {
-        const TypeInfo* ti = TypeRegistry::Get(data.typeName);
-        if (!ti) {
-            ST_CORE_WARN("[Prefab] 实例化时找不到反射类型 {}", data.typeName);
-            continue;
-        }
-        Component* comp = static_cast<Component*>(ti->Create());
-        if (!comp) {
-            ST_CORE_WARN("[Prefab] 类型 {} 无工厂（抽象类？），跳过", data.typeName);
-            continue;
-        }
-        for (const auto& [fieldName, value] : data.fields.items()) {
-            for (const auto& field : ti->fields) {
-                if (field.name == fieldName) {
-                    if (!fieldFromJson(field, comp, value)) {
-                        ST_CORE_WARN("[Prefab] 字段 {}.{} 无法从 JSON 恢复", data.typeName, fieldName);
-                    }
-                    break;
-                }
-            }
-        }
-        // P20: 恢复持久 UUID。必须在 addComponentInstance 挂载（组件 UUID 入场景索引）
-        // 之前设置，保证索引键是最终 UUID；运行时实例化（restoreUuid=false）保留
-        // 构造时随机 ID，避免复制出的多个实例共享同一 UUID 导致引用串线。
-        if (restoreUuid && data.uuid != 0) {
-            comp->setUuid(data.uuid);
-        }
-// 反序列化钩子：字段已直写，通知组件重建依赖引擎状态的内部数据（如纹理加载）。
-		// addComponentInstance 遇同类型已存在时会丢弃新实例并返回已有组件，
-		// 故钩子须对"实际生效的那个实例"调用。
-		if (Component* attached = go->addComponentInstance(comp))
-			attached->onAfterDeserialize();
+	    // 反射工厂创建 + 字段拷贝
+	    for (const auto& data : m_components) {
+	        const TypeInfo* ti = TypeRegistry::Get(data.typeName);
+	        if (!ti) {
+	            ST_CORE_WARN("[Prefab] 实例化时找不到反射类型 {}", data.typeName);
+	            continue;
+	        }
+
+	        // 先检查 GameObject 是否已有同类型组件。若有，直接把字段写入已有组件，
+	        // 避免 addComponentInstance 丢弃新实例导致字段写入丢失。
+	        Component* existing = nullptr;
+	        for (auto& [type, comp] : go->getComponents()) {
+	            if (comp) {
+	                const TypeInfo* existingTi = TypeRegistry::Get(type);
+	                if (existingTi && existingTi->name == data.typeName) {
+	                    existing = comp.get();
+	                    break;
+	                }
+	            }
+	        }
+
+	        if (existing) {
+	            // 字段写入已有组件
+	            for (const auto& [fieldName, value] : data.fields.items()) {
+	                for (const auto& field : ti->fields) {
+	                    if (field.name == fieldName) {
+	                        if (!fieldFromJson(field, existing, value)) {
+	                            ST_CORE_WARN("[Prefab] 字段 {}.{} 无法从 JSON 恢复", data.typeName, fieldName);
+	                        }
+	                        break;
+	                    }
+	                }
+	            }
+	            existing->onAfterDeserialize();
+	            continue;
+	        }
+
+	        Component* comp = static_cast<Component*>(ti->Create());
+	        if (!comp) {
+	            ST_CORE_WARN("[Prefab] 类型 {} 无工厂（抽象类？），跳过", data.typeName);
+	            continue;
+	        }
+	        for (const auto& [fieldName, value] : data.fields.items()) {
+	            for (const auto& field : ti->fields) {
+	                if (field.name == fieldName) {
+	                    if (!fieldFromJson(field, comp, value)) {
+	                        ST_CORE_WARN("[Prefab] 字段 {}.{} 无法从 JSON 恢复", data.typeName, fieldName);
+	                    }
+	                    break;
+	                }
+	            }
+	        }
+	        // P20: 恢复持久 UUID。必须在 addComponentInstance 挂载（组件 UUID 入场景索引）
+	        // 之前设置，保证索引键是最终 UUID；运行时实例化（restoreUuid=false）保留
+	        // 构造时随机 ID，避免复制出的多个实例共享同一 UUID 导致引用串线。
+	        if (restoreUuid && data.uuid != 0) {
+	            comp->setUuid(data.uuid);
+	        }
+	        // 反序列化钩子：字段已直写，通知组件重建依赖引擎状态的内部数据（如纹理加载）。
+	        if (Component* attached = go->addComponentInstance(comp))
+	            attached->onAfterDeserialize();
+	    }
 	}
-}
 
 GameObject* Prefab::instantiate(Scene* scene, const std::string& name) const {
     if (!scene) return nullptr;

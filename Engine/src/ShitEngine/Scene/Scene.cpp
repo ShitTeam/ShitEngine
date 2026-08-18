@@ -119,18 +119,20 @@ namespace Shit {
 		ST_CORE_TRACE("场景 {} 已清除", m_name);
 	}
 
-	void Scene::addGameObject(std::unique_ptr<GameObject>&& gameObject)
-	{
-		if (gameObject) {
-			if (Game::IsRunning()) { // 如果游戏正在运行，则使用延时添加
-				m_pendingAdditions.push_back(std::move(gameObject));
+void Scene::addGameObject(std::unique_ptr<GameObject>&& gameObject)
+		{
+			if (gameObject) {
+				if (Game::IsRunning()) { // 如果游戏正在运行，则使用延时添加
+					m_pendingAdditions.push_back(std::move(gameObject));
+				}
+				else { // 否则，直接添加
+					// 先入容器再 setScene：setScene 触发 onAttach 时对象已在 m_gameObjects 中，
+					// containsGameObject/getGameObjects 等查询能正确找到它
+					m_gameObjects.push_back(std::move(gameObject));
+					m_gameObjects.back()->setScene(this);
+					bumpGeneration();
+				}
 			}
-			else { // 否则，直接添加
-				gameObject->setScene(this);
-				m_gameObjects.push_back(std::move(gameObject));
-				bumpGeneration();
-			}
-		}
 		else {
 			ST_CORE_WARN("试图向场景 {} 中添加空游戏对象！", m_name);
 		}
@@ -180,23 +182,26 @@ namespace Shit {
 		}
 	}
 
-	void Scene::indexComponentUuid(Component* component) {
-		if (!component) return;
-		// 冲突保护：随机 uuid 撞车概率极低，但 .scene 手改/重复加载可能出现
-		// 同 uuid 指向不同组件——引用字段会串线，此时给后来者重发新 uuid。
-		for (int guard = 0; guard < 4; ++guard) {
-			const uint64_t uuid = component->getUuid();
-			if (uuid == 0) return;  // 未分配（理论上构造时已分配，兜底）
+void Scene::indexComponentUuid(Component* component) {
+			if (!component) return;
+			// 冲突保护：随机 uuid 撞车概率极低，但 .scene 手改/重复加载可能出现
+			// 同 uuid 指向不同组件——引用字段会串线，此时给后来者重发新 uuid。
+			for (int guard = 0; guard < 4; ++guard) {
+				const uint64_t uuid = component->getUuid();
+				if (uuid == 0) return;  // 未分配（理论上构造时已分配，兜底）
 
-			auto [it, inserted] = m_uuidMap.try_emplace(uuid, component);
-			if (inserted || it->second == component) return;  // 幂等：已索引过/新插入
+				auto [it, inserted] = m_uuidMap.try_emplace(uuid, component);
+				if (inserted || it->second == component) return;  // 幂等：已索引过/新插入
 
-			ST_CORE_WARN("场景 {} 中组件 UUID 冲突 0x{:X}（目标已是 {}），为 {} 重新分配",
-				m_name, uuid, it->second ? it->second->getOwner() ? it->second->getOwner()->getName() : "?" : "?",
-				component->getOwner() ? component->getOwner()->getName() : "?");
-			component->setUuid(GenerateComponentUuid());
+				ST_CORE_WARN("场景 {} 中组件 UUID 冲突 0x{:X}（目标已是 {}），为 {} 重新分配",
+					m_name, uuid, it->second ? it->second->getOwner() ? it->second->getOwner()->getName() : "?" : "?",
+					component->getOwner() ? component->getOwner()->getName() : "?");
+				component->setUuid(GenerateComponentUuid());
+			}
+			// 4 次重试后仍冲突：强制插入（覆盖旧条目，避免组件在 m_uuidMap 中永久缺失）
+			ST_CORE_WARN("场景 {} 组件 UUID 持续冲突，强制覆盖", m_name);
+			m_uuidMap[component->getUuid()] = component;
 		}
-	}
 
 	void Scene::unindexComponentUuid(Component* component) {
 		if (!component) return;
@@ -267,18 +272,22 @@ namespace Shit {
 		}
 		else {
 			bool found = false;
+			// 先整体搬出再逐个 clean：clean 触发 onDetach/onDestroy 回调，回调内重入
+			// removeGameObject/removeGameObjectByName 会再次 erase 容器——若在遍历中
+			// clean，迭代器即失效（AGENTS.md 约定：迭代容器时不要直接删除元素）。
+			std::vector<std::unique_ptr<GameObject>> dying;
 			for (auto it = m_gameObjects.begin(); it != m_gameObjects.end(); ) {
 				if ((*it)->getName() == name) {
-					// 先摘除再 clean：回调内重入（含删除同名对象）不会迭代器失效
-					auto go = std::move(*it);
+					dying.push_back(std::move(*it));
 					it = m_gameObjects.erase(it);
-					bumpGeneration();
-					go->clean();
 					found = true;
-				}
-				else {
+				} else {
 					++it;
 				}
+			}
+			if (!dying.empty()) bumpGeneration();
+			for (auto& go : dying) {
+				if (go) go->clean();
 			}
 			if (!found) {
 				ST_CORE_WARN("没有在场景 {} 中找到名称为 {} 的游戏对象！", m_name, name);
@@ -295,19 +304,21 @@ namespace Shit {
 		std::vector<std::unique_ptr<GameObject>> pending;
 		pending.swap(m_pendingAdditions);
 
-		bool added = false;
-		for (auto& go : pending) {
-			if(go) {
-				if (go->isNeedDestroy()) {
-					go->clean();
-					continue;
+bool added = false;
+			for (auto& go : pending) {
+				if(go) {
+					if (go->isNeedDestroy()) {
+						go->clean();
+						continue;
+					}
+					// 先入容器再 setScene：setScene 触发 onAttach 时对象已在 m_gameObjects 中，
+					// containsGameObject/getGameObjects 等查询能正确找到它
+					m_gameObjects.push_back(std::move(go));
+					added = true;
+					m_gameObjects.back()->setScene(this);
 				}
-				go->setScene(this);
-				m_gameObjects.push_back(std::move(go));
-				added = true;
+				else ST_CORE_WARN("试图向场景 {} 中添加空游戏对象！", m_name);
 			}
-			else ST_CORE_WARN("试图向场景 {} 中添加空游戏对象！", m_name);
-		}
 		if (added) bumpGeneration();
 	}
 

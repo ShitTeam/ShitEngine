@@ -123,10 +123,17 @@ namespace Shit {
 			std::weak_ptr<void> lifetime = m_lifetime;
 			const std::string goName = m_name;
 
-			new_component_ptr->onCreate(); // onCreate：轻量初始化
-			if (lifetime.expired()) return nullptr;   // 回调销毁了 owner → 组件已随 clean() 释放
+new_component_ptr->onCreate(); // onCreate：轻量初始化
+				if (lifetime.expired()) return nullptr;   // 回调销毁了 owner → 组件已随 clean() 释放
 
-			// 若已挂载场景则立即执行 onAttach（注册到 System）。
+				// onCreate 回调可能 removeComponent 移除了本组件（owner 存活时 lifetime 检查不生效），
+				// 先确认组件仍归属本对象，再 isRegistered/onAttach，避免解引用已析构实例
+				{
+					auto it = m_components.find(type_index);
+					if (it == m_components.end() || it->second.get() != new_component_ptr) return nullptr;
+				}
+
+				// 若已挂载场景则立即执行 onAttach（注册到 System）。
 			// 注册状态由组件自身的 onAttach 维护（基类默认置 true），此处不强制置位，
 			// 以便"组件先加、驱动系统后注册"时能被 System::init 补挂。
 			if (scene && !new_component_ptr->isRegistered()) {

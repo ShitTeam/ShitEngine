@@ -45,6 +45,13 @@ namespace Shit {
 		component->onCreate();
 		if (lifetime.expired()) return nullptr;   // 回调销毁了 owner → 组件已随 clean() 释放
 
+		// onCreate 回调可能 removeComponent 移除本组件（owner 未销毁时 lifetime 检查不生效），
+		// 先确认组件仍归属本对象，避免后续 isRegistered/onAttach 解引用已析构实例
+		{
+			auto it = m_components.find(type_index);
+			if (it == m_components.end() || it->second.get() != component) return nullptr;
+		}
+
 		// 若已挂载场景则立即执行 onAttach（注册到 System）
 		if (scene && !component->isRegistered()) {
 			component->onAttach();
