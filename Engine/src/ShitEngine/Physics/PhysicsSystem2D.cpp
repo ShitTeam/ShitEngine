@@ -210,7 +210,7 @@ PhysicsSystem2D::~PhysicsSystem2D() = default;
 			ST_CORE_ERROR("[PhysicsSystem2D] pixelsPerMeter ({}) 必须大于 0，保持默认 32.0f", ppm);
 			return;
 		}
-		if (m_initialized) {
+		if (m_initialized && ppm != m_pixelsPerMeter) {
 			ST_CORE_WARN("[PhysicsSystem2D] pixelsPerMeter 修改将在下次 init() 后生效");
 		}
 		m_pixelsPerMeter = ppm;

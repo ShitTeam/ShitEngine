@@ -2,6 +2,10 @@
 #include "ShitEngine/Core/Log.h"
 
 #include <spdlog/sinks/base_sink.h>
+#include <chrono>
+#include <ctime>
+#include <filesystem>
+#include <fstream>
 #include <mutex>
 
 #ifdef _WIN32
@@ -66,22 +70,67 @@ namespace Shit {
 		try {
 			// 设置日志格式：[时间] [日志名] [等级] 内容
 			spdlog::set_pattern("%^[%T] %n: %v%$");
+			// 每条日志立即落盘：文件日志用于崩溃排查，若等缓冲/正常退出才 flush，
+			// 进程崩溃时缓冲内的最后几百条日志会全部丢失，文件形同虚设。
+			// 同时设置 registry 级 flush_on（后续新建 logger 继承）与 logger 级
+			// flush_on（对已复用/新建的 Shit/App logger 直接生效，双保险）。
+			spdlog::flush_on(spdlog::level::trace);
+
+			// ── 文件日志 sink：写入当前项目 .shitengine/log/ 目录 ──
+			// 以进程工作目录为基准（Runtime 启动时 chdir 到 exe 目录，编辑器也运行在项目根）
+			// 文件按"进程启动时间"归档，便于排查崩溃：log_YYYYMMDD_HHMMSS.txt
+			std::filesystem::path logDir = std::filesystem::current_path() / ".shitengine" / "log";
+			std::error_code ec;
+			std::filesystem::create_directories(logDir, ec);
+
+			std::string fileStem = "log";
+			{
+				auto now = std::chrono::system_clock::now();
+				std::time_t t = std::chrono::system_clock::to_time_t(now);
+				std::tm tm{};
+#ifdef _WIN32
+				localtime_s(&tm, &t);
+#else
+				localtime_r(&t, &tm);
+#endif
+				char buf[32];
+				std::strftime(buf, sizeof(buf), "%Y%m%d_%H%M%S", &tm);
+				fileStem = std::string("log_") + buf;
+			}
+			std::string logPath = (logDir / (fileStem + ".txt")).string();
+
+			// 多 sink：控制台（彩色）+ 文件（完整等级）
+			auto coreConsoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+			auto clientConsoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+			auto fileSink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(logPath, false);
+			fileSink->set_level(spdlog::level::trace);
 
 			if (!s_CoreLogger) {
 				s_CoreLogger = spdlog::get("Shit");
-				if (!s_CoreLogger) s_CoreLogger = spdlog::stdout_color_mt("Shit");
+				if (!s_CoreLogger) {
+					s_CoreLogger = std::make_shared<spdlog::logger>(
+						"Shit", spdlog::sinks_init_list{coreConsoleSink, fileSink});
+					spdlog::register_logger(s_CoreLogger);
+				}
 				if (s_CoreLogger) s_CoreLogger->set_level(spdlog::level::trace);
 			}
 
 			if (!s_ClientLogger) {
 				s_ClientLogger = spdlog::get("App");
-				if (!s_ClientLogger) s_ClientLogger = spdlog::stdout_color_mt("App");
+				if (!s_ClientLogger) {
+					s_ClientLogger = std::make_shared<spdlog::logger>(
+						"App", spdlog::sinks_init_list{clientConsoleSink, fileSink});
+					spdlog::register_logger(s_ClientLogger);
+				}
 				if (s_ClientLogger) s_ClientLogger->set_level(spdlog::level::trace);
 			}
 
-			// 转发 sink：仅在首次创建时追加一次（重试/复用既有 logger 时幂等）
-			if (s_CoreLogger)     attachLoggerSink(s_CoreLogger, true);
-			if (s_ClientLogger)   attachLoggerSink(s_ClientLogger, false);
+if (s_CoreLogger)     attachLoggerSink(s_CoreLogger, true);
+				if (s_ClientLogger)   attachLoggerSink(s_ClientLogger, false);
+
+				// logger 级 flush_on：确保文件日志逐条落盘（即使 registry 级设置未正确传播）
+				if (s_CoreLogger)     s_CoreLogger->flush_on(spdlog::level::trace);
+				if (s_ClientLogger)   s_ClientLogger->flush_on(spdlog::level::trace);
 		}
 		catch(const spdlog::spdlog_ex& e){
 			std::cout << "日志初始化失败：" << e.what() << '\n';

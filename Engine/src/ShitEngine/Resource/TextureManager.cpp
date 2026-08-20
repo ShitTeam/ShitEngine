@@ -43,7 +43,7 @@ namespace Shit {
 			return it->second.get();
 		}
 
-		ST_CORE_ERROR("没有找到纹理 {} ，正在加载 ...", filePath);
+		ST_CORE_DEBUG("纹理 {} 未命中缓存，正在加载 ...", filePath);
 
 		return loadTexture(filePath);
 	}

@@ -294,16 +294,16 @@ void SceneSerializer::fromJson(const json& doc, Scene* scene) {
 
 	// 2) 层级重建：parent = objects 数组下标（v1 文件无 parent 字段 → 根对象）
 	for (size_t i = 0; i < objects.size() && i < created.size(); ++i) {
-		const auto& obj = objects[i];
-		int parentIdx = (obj.contains("parent") && obj["parent"].is_number())
-			? obj["parent"].get<int>() : -1;
-		if (parentIdx >= 0 && parentIdx < static_cast<int>(created.size()) && parentIdx != static_cast<int>(i)) {
-			created[i]->setParent(created[static_cast<size_t>(parentIdx)]);
+			const auto& obj = objects[i];
+			int parentIdx = (obj.contains("parent") && obj["parent"].is_number())
+				? obj["parent"].get<int>() : -1;
+			if (parentIdx >= 0 && parentIdx < static_cast<int>(created.size()) && parentIdx != static_cast<int>(i)) {
+				created[i]->setParent(created[static_cast<size_t>(parentIdx)]);
+			}
 		}
-	}
 
-	// 3) 相机兜底
-	ensureDefaultCamera(scene);
-}
+		// 3) 相机兜底
+		ensureDefaultCamera(scene);
+	}
 
 } // namespace Shit
