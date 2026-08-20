@@ -3,6 +3,15 @@
   <h1>ShitEngine</h1>
   <p><strong>基于 C++20 与 SDL3 的轻量级 2D 游戏引擎</strong></p>
   <p>
+    <a href="https://github.com/ShitTeam/ShitEngine/actions/workflows/build.yml"><img src="https://github.com/ShitTeam/ShitEngine/actions/workflows/build.yml/badge.svg" alt="CI"></a>
+    <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Platform">
+    <img src="https://img.shields.io/badge/C%2B%2B-20-blue" alt="C++20">
+    <img src="https://img.shields.io/badge/SDL-3-green" alt="SDL3">
+    <img src="https://img.shields.io/badge/editor-Qt%20Widgets-brightgreen" alt="Editor">
+    <img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="License">
+    <a href="https://deepwiki.com/ShitTeam/ShitEngine"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
+  </p>
+  <p>
     <a href="https://github.com/ShitTeam/ShitEngine/actions">构建</a>
     · <a href="https://github.com/ShitTeam/ShitEngine">源代码</a>
     · <a href="https://engine.shitteam.top">文档</a>
@@ -27,7 +36,8 @@ ShitEngine 是一个从零构建、面向对象 + 组件化的轻量级 2D 游�
 - **类型安全事件总线** — `EventBus` 缓冲队列模式，回调内可安全订阅/派发
 - **动作/轴输入映射** — 键鼠三态（Down/Pressed/Released）+ `settings.json` / `config.json` 动作轴映射，编辑器「项目设置」页可视化编辑
 - **插件架构** — 插件 DLL = 脚本库（只导出身份 + `RegisterPluginTypes`），Runtime 与编辑器共用 `PluginManager`，C++ 行为可实例化/编辑/序列化
-- **Qt 可视化编辑器** — 进程内嵌引擎预览：场景树、属性检查器（反射字段 + 拖拽引用）、双视口、Gizmo 移动/旋转/缩放、撤销/重做、Unity 式播放三态（运行/暂停/停止 + 运行前快照回滚）、瓦片刷图、物理碰撞体/关节调试绘制、Animator 状态机图与帧动画 Dope Sheet 窗口、Unity 风格资源窗口、一键导出绿色免安装游戏包
+- **Qt 可视化编辑器** — 进程内嵌引擎预览：场景树、属性检查器（反射字段 + 拖拽引用 + **文件拖入自动填充路径字段**）、双视口、Gizmo 移动/旋转/缩放、撤销/重做、Unity 式播放三态（运行/暂停/停止 + 运行前快照回滚）、瓦片刷图、物理碰撞体/关节调试绘制、Animator 状态机图与帧动画 Dope Sheet 窗口、Unity 风格资源窗口、一键导出绿色免安装游戏包
+- **文件日志落盘** — 引擎与编辑器日志实时写入项目 `.shitengine/log/`（按启动时间归档、逐条 flush），进程崩溃时最后一段日志不丢失，配合编辑器日志面板排查问题
 
 ## 架构
 
