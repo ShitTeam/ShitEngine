@@ -69,10 +69,21 @@ namespace Shit {
 		std::unordered_map<std::type_index, std::unique_ptr<Component>>& getComponents() { return m_components; } ///< 获取全部组件（按 type_index 索引）
 
 		/// @brief 只读遍历全部组件（供系统补扫等使用，避免暴露内部可变 map）
+		/// 安全遍历：先快照指针再逐回调，且回调前重验组件仍归属本对象——
+		/// 回调内 removeComponent 修改 map 不会使迭代器失效，已移除的组件也不会被调用。
 		template <typename Fn>
 		void forEachComponent(Fn&& fn) {
+			std::vector<Component*> snapshot;
+			snapshot.reserve(m_components.size());
 			for (auto& [type, comp] : m_components) {
-				if (comp) fn(comp.get());
+				if (comp) snapshot.push_back(comp.get());
+			}
+			for (Component* comp : snapshot) {
+				bool owned = false;
+				for (auto& [type, c] : m_components) {
+					if (c.get() == comp) { owned = true; break; }
+				}
+				if (owned) fn(comp);
 			}
 		}
 

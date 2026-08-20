@@ -140,12 +140,16 @@ void Scene::addGameObject(std::unique_ptr<GameObject>&& gameObject)
 
 	GameObject* Scene::createGameObject(const std::string& name) {
 		auto go = std::unique_ptr<GameObject>(new GameObject(name));
-		go->setScene(this);
-		auto* ptr = go.get();
+		GameObject* ptr = go.get();
 		if (Game::IsRunning()) {
+			// 运行态：与 addGameObject 一致，先入待添加列表；setScene/onAttach 在
+			// processPendingAdditions 正式入容器时执行，保证回调期间对象已在场景中。
 			m_pendingAdditions.push_back(std::move(go));
 		} else {
+			// 非运行态：先入容器再 setScene（同 addGameObject 修复，
+			// onAttach 触发时对象已在 m_gameObjects，containsGameObject 等查询正确）
 			m_gameObjects.push_back(std::move(go));
+			m_gameObjects.back()->setScene(this);
 			bumpGeneration();
 		}
 		return ptr;
@@ -338,7 +342,9 @@ bool added = false;
 		// 追加的在 N 之后，留在容器中下帧处理，避免迭代期间 vector 重分配/失效。
 		const size_t count = m_pendingRemoveSystems.size();
 		for (size_t i = 0; i < count; ++i) {
-			const auto& type = m_pendingRemoveSystems[i];
+			// 按值拷贝：destroy() 回调内 push_back 追加条目会使 vector 重分配，
+			// 引用（const auto&）会悬垂——find 用悬垂 key 是未定义行为。
+			const std::type_index type = m_pendingRemoveSystems[i];
 			auto it = m_systemsMap.find(type);
 			if (it != m_systemsMap.end()) {
 				auto system_ptr = it->second.get();
