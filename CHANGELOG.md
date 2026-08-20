@@ -232,7 +232,7 @@
 
 ### 修复
 
-- 全面代码审查确认的 **43 个 Bug**（两轮审查，Workflow 验证）
+- 全面代码审查确认的 **43 个 Bug**
 - MSVC CI 构建失败 — 移除生成代码中的 ABI 相关 `static_assert`
 - `SDL_Quit` 顺序、`TTF_Init` 布尔返回值判断、`Renderer` 静态方法空指针守卫
 - `Game::Destroy` 空指针、`addComponent` 生命周期悬挂、场景切换悬垂
