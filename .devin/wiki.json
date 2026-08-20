@@ -1,0 +1,302 @@
+{
+  "repo_notes": [
+    {
+      "content": "要使用中文"
+    }
+  ],
+  "pages": [
+    {
+      "title": "ShitEngine Overview",
+      "purpose": "High-level introduction to ShitEngine: what it is, its architecture philosophy, key subsystems, and how the major components (Engine, Editor, Runtime, Tools) relate to each other. Links to all child sections for deeper dives.",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Getting Started & Project Structure",
+      "purpose": "How to build ShitEngine from source, configure CMake options (BUILD_TOOLS, BUILD_EDITOR, BUILD_RUNTIME, BUILD_EXAMPLES), set up a new project with the Editor wizard, and understand the directory layout (Engine/, Editor/, Runtime/, Tools/, Examples/).",
+      "parent": "ShitEngine Overview",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "CI/CD, Release Pipeline & API Docs",
+      "purpose": "Explains the GitHub Actions workflows: build matrix (Windows MSVC/MinGW, Linux, macOS), artifact packaging into the SDK, automated GitHub Releases from version tags via CHANGELOG.md parsing, and the Doxygen documentation deployment pipeline.",
+      "parent": "ShitEngine Overview",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Core Engine Architecture",
+      "purpose": "Overview of the engine's core runtime: the Game lifecycle, Scene/GameObject/Component model, System update pipeline, and the EngineContext. Links to child pages for each major subsystem.",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Game Lifecycle & Core Services",
+      "purpose": "Details the Game::Init/Run/Destroy lifecycle, Window management, Time, Config (settings.json), Log (spdlog-based), EventBus (buffered queue), and the EngineContext multi-context model used by the editor.",
+      "parent": "Core Engine Architecture",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Scene, GameObject & Component Model",
+      "purpose": "Deep dive into Scene (container, generation counter, UUID index, deferred add/remove), GameObject (hierarchy, component attachment), Component base class (lifecycle hooks: onCreate/onAttach/onDetach/onDestroy/onAfterDeserialize/onFieldChanged), ComponentRef<T> UUID references, and Prefab instantiation.",
+      "parent": "Core Engine Architecture",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "System Pipeline & Built-in Systems",
+      "purpose": "Explains the System base class, priority-based update ordering, and the three default systems: BehaviorSystem (drives Behavior::onStart/onUpdate), RenderSystem (camera/z-index sorting, multi-camera), and UIRenderSystem. Covers how systems claim components via onComponentAttached.",
+      "parent": "Core Engine Architecture",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Input System",
+      "purpose": "Covers the Input singleton: raw keyboard/mouse APIs (IsKeyDown/Pressed/Released), action and axis mappings configured in settings.json/config.json, SDL_Event handling, and the editor's mouse position injection mechanism for play mode.",
+      "parent": "Core Engine Architecture",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Engine Components & Subsystems",
+      "purpose": "Overview of all built-in components and major subsystems available to game developers. Links to child pages covering rendering, physics, animation, audio, UI, and resource management.",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Rendering Components",
+      "purpose": "Covers TransformComponent, SpriteRenderer (texturePath, zIndex, sprite sheet), CameraComponent (priority, zoom, viewport, letterbox), RendererComponent base class, Tilemap (grid-based rendering, m_gridData serialization), and the Renderer abstraction (BeginOffscreen/ReadPixels for editor OSR).",
+      "parent": "Engine Components & Subsystems",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Physics System (Box2D Integration)",
+      "purpose": "Details PhysicsSystem2D (gravity, pixelsPerMeter, self-healing deferred body creation), RigidBody2D (Dynamic/Kinematic/Static types), BoxCollider2D, CircleCollider2D, Joint2D types (Distance, Revolute/Hinge, Weld, Prismatic), and collision callbacks (onCollisionEnter/Stay/Exit) in Behavior.",
+      "parent": "Engine Components & Subsystems",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Animation System",
+      "purpose": "Covers AnimationClip (.anim asset format, frame sequences, looping), AnimationComponent (frame playback), the Animator state machine component (states, transitions, parameters: float/bool/trigger, m_animatorData JSON serialization), and the Animation render helper.",
+      "parent": "Engine Components & Subsystems",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Audio System",
+      "purpose": "Explains the layered audio architecture: AudioPlayer (master gain, track groups), AudioTrackGroup (group-level gain/pause/stop), AudioTrack (per-sound handle, shared_ptr lifetime), AudioSource component (world-space audio), and SDL3_mixer integration.",
+      "parent": "Engine Components & Subsystems",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "UI System",
+      "purpose": "Covers the retained-mode UI subsystem: UICanvas (root, sort order), UITransform (anchored layout), UIImage, UIText, UIButton (onClick), UITextInput/UITextArea/UITextBox, UIRendererComponent, UIRenderSystem, and the TextInputGate for SDL text input routing.",
+      "parent": "Engine Components & Subsystems",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Resource Management",
+      "purpose": "Describes the ResourceManager facade (singleton, path-keyed cache), TextureManager (SDL_Texture), AudioManager (MIX_Audio), FontManager (TTF_Font by path+size), and how resources are loaded, cached, and cleared across EngineContext lifetimes.",
+      "parent": "Engine Components & Subsystems",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Reflection & Serialization System",
+      "purpose": "Overview of the data-driven reflection pipeline: macros, TypeRegistry, SceneSerializer, and how they work together to enable the editor inspector, scene persistence, and plugin type isolation. Links to child pages for each layer.",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Reflection Macros & TypeRegistry",
+      "purpose": "Details SHIT_REFLECT(WhiteList/BlackList), SHIT_REFLECT_BODY, SHIT_ENUM, SHIT_META, and SHIT_API macros. Explains TypeInfo (name, size, factory, fields, baseType, source), FieldInfo (offset, size, FieldMeta), TypeInfoBuilder fluent API, TypeRegistry singleton (Register, ResolveBases, setRegistrationSource, unregisterTypesBySource), and SIOF mitigation strategy.",
+      "parent": "Reflection & Serialization System",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "ReflectionScanner Tool",
+      "purpose": "Explains the ReflectionScanner tool (libClang-based AST parser): how it finds SHIT_REFLECT-annotated classes, collects field annotations, generates .gen.h registration files, the setup_reflection_scan() CMake function, the reflect/run-reflectionscanner build targets, and when to manually re-run the scanner.",
+      "parent": "Reflection & Serialization System",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Scene Serialization (.scene & .prefab formats)",
+      "purpose": "Covers SceneSerializer (toJson/fromJson), the .scene v2 JSON format (version, objects array, parent index, DFS ordering), Prefab (sub-tree serialization/instantiation), syncSceneSystems logic, ensureDefaultCamera safety mechanism, ComponentRef<T> UUID persistence across save/load cycles, and backward compatibility with v1 scenes.",
+      "parent": "Reflection & Serialization System",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Plugin System & Runtime Host",
+      "purpose": "Overview of the plugin/scripting architecture: how user C++ scripts are compiled into DLLs, loaded by PluginManager, and integrated with the engine's type system. Links to child pages for the plugin ABI and the Runtime host.",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Plugin ABI & PluginManager",
+      "purpose": "Details the plugin C ABI (GetPluginABIVersion, GetPluginName, GetPluginVersion, RegisterPluginTypes), kAbiVersion constant, SHIT_PLUGIN_EXPORT macro, PluginManager (LoadFromConfig, RegisterAllTypes, UnloadAll, LoadedPlugin struct), plugin type isolation via setRegistrationSource/unregisterTypesBySource, and ABI compatibility requirements (Debug vs Release, _ITERATOR_DEBUG_LEVEL).",
+      "parent": "Plugin System & Runtime Host",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Runtime Host",
+      "purpose": "Explains the Runtime standalone executable: main.cpp flow (chdirToExecutableDir, Game::Init, PluginManager::LoadFromConfig, SceneManager::LoadSceneFromFile, Game::Run, Game::Destroy), config.json schema (scene path, plugins array), loadEmptySceneFallback, and how to package a game for distribution using the ExportDialog/GameExporter.",
+      "parent": "Plugin System & Runtime Host",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Editor",
+      "purpose": "Overview of the Qt6-based ShitEngine Editor: its major panels, the EnginePreview integration, and the project system. Links to child pages covering each major editor subsystem.",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "MainWindow & Editor Lifecycle",
+      "purpose": "Covers MainWindow as the central orchestrator: dock layout and persistence (kLayoutVersion, QSettings, project-specific state.ini), Play Mode lifecycle (snapshot → execute → rollback), dirty state tracking, Undo/Redo stack (full-scene JSON snapshots), scene open/save/new with rollback on failure, recent scenes, and keyboard shortcuts.",
+      "parent": "Editor",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "EnginePreview & Hot-Reload",
+      "purpose": "Details EnginePreview: off-screen rendering (BeginOffscreen/ReadPixels), the dual-pass tick() loop (game view pass + scene view pass), scene_camera vs game camera semantics, setPlaying(), reloadProjectPlugins hot-reload pipeline (snapshot → flush → DLL swap → restore), ensureCameras self-healing, and the ProjectWizard for new project creation.",
+      "parent": "Editor",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Viewport & Gizmo System",
+      "purpose": "Explains the Viewport widget: letterbox rendering, widgetToLogical/logicalToWidget coordinate transforms, worldToScreen/screenToWorld projection via scene_camera, Gizmo modes (Move/Rotate/Scale with snapping), collider handle editing (BoxCollider2D corners, CircleCollider2D radius), physics debug visualization (color-coded by RigidBody2D type), joint visualization, tilemap painting, and asset/prefab drag-and-drop.",
+      "parent": "Editor",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Scene Tree & Inspector",
+      "purpose": "Covers SceneTree (QTreeView + SceneTreeModel, CreateKind factory templates, drag-and-drop re-parenting, rename, scene_camera protection, undo/redo signal hooks), Inspector (reflection-driven widget generation for all field types, ComponentRef drag-and-drop, m_readbacks engine-to-UI sync, play mode lock, Scene System panel), and the component/system menus.",
+      "parent": "Editor",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Animation Editors (Animator & Dope Sheet)",
+      "purpose": "Covers the AnimatorDock/AnimatorGraphView (node-based state machine editor: add/remove states and transitions, parameter management, visual graph layout), AnimationDock/DopeSheetWidget (frame-by-frame clip editing, timeline UI), AnimatorWidget/AnimatorEditorWidget, and how they integrate with the Animator component's m_animatorData JSON carrier.",
+      "parent": "Editor",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Assets Dock, Script Builder & Project Settings",
+      "purpose": "Explains AssetsDock (file browser, drag-to-viewport, double-click scene open), ScriptBuilder (QProcess state machine for cmake configure+build, toolchain detection MSVC vs MinGW, Debug/Release ABI matching), ProjectSettingsDialog (input mappings, IDE path), ExportDialog/GameExporter (packaging standalone game), LogWidget (engine log forwarding), and IDEFinder.",
+      "parent": "Editor",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Examples & SDK Integration",
+      "purpose": "Overview of the Examples project: how to use the ShitEngine SDK from an external CMake project, the plugin export pattern, example scenes (PhysicsTest, UITest, AnimationTest, CoinCollect, TilemapTest, JointTest), and example behaviors (Player, CoinDemo, Behaviors).",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    }
+  ]
+}
