@@ -11,6 +11,7 @@
 
 class QFormLayout;
 class QScrollArea;
+class QLineEdit;
 class QPushButton;
 class QSpinBox;
 class QWidget;
@@ -112,7 +113,18 @@ private:
     void setDropActive(bool on);
     bool m_dropActive = false;
 
+    // ── P34：组件/字段搜索过滤 ──
+    /// 一个组件渲染的 QFormLayout 行区间（组件头行..最后一个字段行）+ 搜索关键字
+    struct ComponentSection {
+        int startRow = -1;
+        int endRow = -1;
+        QString searchKey;
+    };
+    void applyFilter();   ///< 按 m_searchEdit 文本显隐组件行区间（清空恢复全显）
+    std::vector<ComponentSection> m_sections;
+
     QScrollArea *m_scroll;
+    QLineEdit *m_searchEdit = nullptr;   ///< P34：组件/字段搜索框（表单顶部，不随重建移除）
     QWidget *m_content;
     QFormLayout *m_form;
 

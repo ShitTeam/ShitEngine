@@ -5,6 +5,7 @@
 #include <QWidget>
 
 class QTreeView;
+class QLineEdit;
 class QMenu;
 class SceneTreeModel;
 
@@ -12,6 +13,7 @@ namespace Shit { class Scene; class GameObject; struct TypeInfo; }
 
 /// 左侧场景树：列出当前场景的 GameObject 层级，选中联动属性检查器。
 /// 右键菜单：新建对象 / 添加组件 / 删除对象。
+/// P34：顶部名称过滤框（Ctrl+F 聚焦）——按名称过滤节点，保留祖先链。
 class SceneTree : public QWidget
 {
     Q_OBJECT
@@ -54,8 +56,12 @@ private:
     void deleteObject();
     void addComponent(const Shit::TypeInfo *type, Shit::GameObject *target);
 
+    /// P34：按过滤框文本递归显隐树节点（匹配节点保留整条祖先链）
+    void applyFilter();
+
     QTreeView *m_view;
     SceneTreeModel *m_model;
+    QLineEdit *m_filterEdit = nullptr;
     Shit::Scene *m_scene = nullptr;
 };
 

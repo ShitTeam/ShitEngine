@@ -300,15 +300,27 @@ private:
 Inspector::Inspector(QWidget *parent)
     : QWidget(parent)
     , m_scroll(new QScrollArea(this))
+    , m_searchEdit(new QLineEdit(this))
     , m_content(new QWidget)
     , m_form(new QFormLayout(m_content))
 {
-    m_scroll->setWidget(m_content);
-    m_scroll->setWidgetResizable(true);
-
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(2);
+
+    // P34：组件/字段搜索框（固定于面板顶部，不随 clear/重建移除）
+    m_searchEdit->setPlaceholderText(tr("搜索组件或字段…"));
+    m_searchEdit->setClearButtonEnabled(true);
+    m_searchEdit->setStyleSheet(
+        "QLineEdit { border: 1px solid #3a4a5a; border-radius: 3px;"
+        "             background: #1c2430; color: #e0e8f0; padding: 3px 6px; }"
+        "QLineEdit:focus { border-color: #7ac0ff; }");
+    layout->addWidget(m_searchEdit);
+    connect(m_searchEdit, &QLineEdit::textChanged, this, [this] { applyFilter(); });
+
     layout->addWidget(m_scroll);
+    m_scroll->setWidget(m_content);
+    m_scroll->setWidgetResizable(true);
 
     m_form->setContentsMargins(8, 8, 8, 8);
     m_form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
@@ -323,6 +335,7 @@ Inspector::Inspector(QWidget *parent)
 void Inspector::clear()
 {
     m_readbacks.clear();
+    m_sections.clear();             // P34：组件行区间随表单重建失效
     m_object = nullptr;
     m_selectedSystemName.clear();
     m_scenePanel = nullptr;         // 重置指针（旧 widget 由 m_form->removeRow 摘除后 Qt 父子关系回收）
@@ -359,6 +372,26 @@ void Inspector::refresh()
     }
     for (auto &readback : m_readbacks)
         readback();
+}
+
+void Inspector::applyFilter()
+{
+    const QString text = m_searchEdit->text().trimmed();
+
+    // 按组件区间显隐：行上的 label/field/spanning 控件统一 setVisible。
+    // 清空搜索框 = 全显（区间外行：对象名行/Add Component 按钮始终显示）。
+    for (const auto &sec : m_sections) {
+        const bool show = text.isEmpty() || sec.searchKey.contains(text, Qt::CaseInsensitive);
+        for (int r = sec.startRow; r <= sec.endRow; ++r) {
+            for (QFormLayout::ItemRole role : { QFormLayout::LabelRole,
+                                                QFormLayout::FieldRole,
+                                                QFormLayout::SpanningRole }) {
+                if (auto *item = m_form->itemAt(r, role))
+                    if (auto *w = item->widget())
+                        w->setVisible(show);
+            }
+        }
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -536,6 +569,10 @@ void Inspector::setGameObject(Shit::GameObject *object)
         if (!typeInfo || typeInfo->fields.empty())
             return; // 无反射元数据（如编辑器自定义 Behavior），跳过
 
+        // P34：记录组件渲染的 QFormLayout 行区间（搜索过滤用）
+        const int startRow = m_form->rowCount();
+        QString searchKey = normalizeTypeName(typeInfo->name);
+
         ++m_componentCount;
         // P20: 组件头可拖拽（携带自身 uuid + 类型名，供引用字段拖入）
         QList<std::pair<quint64, QString>> refs;
@@ -598,6 +635,15 @@ void Inspector::setGameObject(Shit::GameObject *object)
                 ++m_fieldCount;
             }
         }
+
+        // P34：搜索关键字 = 组件类型名 + 全部字段名/显示名；行区间 = 组件头行..最后字段行
+        for (const auto &f : typeInfo->fields) {
+            searchKey += " ";
+            searchKey += displayNameOf(f);
+            searchKey += " ";
+            searchKey += QString::fromStdString(f.name);
+        }
+        m_sections.push_back({ startRow, m_form->rowCount() - 1, searchKey });
     });
 
     emit buildInfo(m_componentCount, m_fieldCount);
