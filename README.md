@@ -9,6 +9,7 @@
     <img src="https://img.shields.io/badge/SDL-3-green" alt="SDL3">
     <img src="https://img.shields.io/badge/editor-Qt%20Widgets-brightgreen" alt="Editor">
     <img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="License">
+    <a href="https://github.com/ShitTeam/ShitEngine/releases"><img src="https://img.shields.io/github/v/release/ShitTeam/ShitEngine?sort=semver" alt="Release"></a>
     <a href="https://deepwiki.com/ShitTeam/ShitEngine"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
   </p>
   <p>
