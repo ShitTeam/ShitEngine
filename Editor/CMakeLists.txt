@@ -117,6 +117,29 @@ install(TARGETS Editor
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
+# ── Qt 运行库部署（P32）：cmake --install 后 SDK/安装目录自带 Qt DLL，双击 Editor.exe 即可运行 ──
+# 不与 CI 的 windeployqt 步骤冲突（CI 已显式部署，这里只覆盖本地开发安装）。
+# 从 Qt6_DIR（形如 <Qt>/lib/cmake/Qt6）反推 <Qt>/bin/windeployqt。
+if(WIN32)
+    set(_qt_deploy_root "${Qt6_DIR}/../..")
+    get_filename_component(_qt_deploy_root "${_qt_deploy_root}" ABSOLUTE)
+    set(_windeployqt_exe "${_qt_deploy_root}/bin/windeployqt.exe")
+    if(EXISTS "${_windeployqt_exe}")
+        install(CODE "
+            execute_process(COMMAND \"${_windeployqt_exe}\"
+                --no-translations
+                --dir \"\$<TARGET_FILE_DIR:Editor>\"
+                \"\$<TARGET_FILE:Editor>\"
+                RESULT_VARIABLE _wdq_rt)
+            if(NOT _wdq_rt EQUAL 0)
+                message(WARNING \"windeployqt 部署 Qt 运行库失败（exit \${_wdq_rt}），SDK 可能缺少 Qt DLL\")
+            endif()
+        ")
+    else()
+        message(WARNING "未找到 windeployqt：${_windeployqt_exe}（跳过 Qt 运行库部署）")
+    endif()
+endif()
+
 if(QT_VERSION_MAJOR EQUAL 6)
     qt_finalize_executable(Editor)
 endif()

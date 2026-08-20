@@ -1468,6 +1468,11 @@ void MainWindow::enterProject(const Project &project)
     m_projectSettings = new QSettings(project.stateFilePath(), QSettings::IniFormat);
     m_projectSettings->setFallbacksEnabled(false);   // 项目态独立于注册表
 
+    // P32：打开项目后引擎文件日志写入项目 .shitengine/log（不 chdir，
+    // 避免影响相对路径资源加载；关闭项目时恢复默认目录）
+    Shit::Log::SetLogDirectory((project.rootDir() + "/.shitengine/log").toStdString());
+    m_log->setDefaultDir(project.rootDir() + "/.shitengine/log");   // 日志面板保存默认目录
+
     // 3) 恢复项目布局/几何（无保存值则保持现状；版本不匹配忽略，沿用默认排列）
     {
         const QByteArray layout = m_projectSettings->value("dockState").toByteArray();
@@ -1525,6 +1530,9 @@ void MainWindow::closeProjectInternal()
     delete m_projectSettings;
     m_projectSettings = nullptr;
     m_project = Project();
+
+    Shit::Log::SetLogDirectory(std::string());   // 无项目：文件日志回落到默认（CWD/.shitengine/log）
+    m_log->setDefaultDir(QString());
 
     m_assets->applyProjectDir(m_settings.value("projectDir").toString());
     m_animatorDock->setProjectRoot(QString());   // 无项目：资产路径存绝对

@@ -50,6 +50,12 @@ namespace Shit {
 		/// 当前回调（供引擎内部 sink 读取）
 		static const MessageCallback& GetMessageCallback() { return s_messageCallback; }
 
+		/// @brief 设置文件日志目录（P32：编辑器打开项目后把日志写入项目 .shitengine/log）
+		/// dir 为最终日志目录（引擎内部不再拼接子目录）；空 = 恢复默认（进程工作目录/.shitengine/log）。
+		/// 未初始化时仅记录，Init() 按新目录创建；已初始化时重建文件 sink（旧文件关闭、
+		/// 新目录按当前时间新开归档文件）。幂等，可重复调用。
+		static void SetLogDirectory(const std::string& dir);
+
 	private:
 		static std::shared_ptr<spdlog::logger> s_CoreLogger;
 		static std::shared_ptr<spdlog::logger> s_ClientLogger;
