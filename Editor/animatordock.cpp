@@ -276,10 +276,18 @@ void AnimatorDock::setSelectedStateAsset(const QString &absPath, bool withClip)
     if (!m_animator || m_selState < 0) return;
     Shit::AnimatorState s = *m_animator->stateAt(m_selState);
     if (withClip) {
-        // 资产是状态剪辑的唯一来源：读取失败则不绑定（保持旧状态）
+        // 资产是状态剪辑的唯一来源；空路径 = 清除资产
         Shit::AnimationClip clip;
-        if (absPath.isEmpty() || !loadClipFromFile(absPath, clip)) return;
-        s.clip = clip;
+        if (absPath.isEmpty()) {
+            s.clip = Shit::AnimationClip{};
+        } else if (!loadClipFromFile(absPath, clip)) {
+            // P33：读取/解析失败不再静默（此前保持旧状态无任何提示，用户以为已绑定）
+            QMessageBox::warning(this, tr("动画资产"),
+                tr("无法读取 .anim 资产：\n%1\n\n文件可能已损坏、缺失或格式不受支持。").arg(absPath));
+            return;
+        } else {
+            s.clip = clip;
+        }
     }
     s.assetPath = absPath.toStdString();
     if (m_animator->setState(m_selState, s)) {

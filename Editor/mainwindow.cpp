@@ -268,6 +268,17 @@ MainWindow::MainWindow(QWidget *parent)
                 m_log->appendMessage(QString("[%1] %2").arg(isCore ? tr("引擎") : tr("游戏"), message), color);
             }, Qt::QueuedConnection);
 
+    // P33：插件加载失败 → 延迟弹窗（排队到事件循环空闲，避开构造/加载中途）：
+    // 此前 DLL 缺失/ABI 不匹配只进日志面板，用户打开项目后"Add Component 缺类型"难排查
+    connect(m_preview, &EnginePreview::pluginLoadFailed, this,
+            [this](const QString &detail) {
+                QTimer::singleShot(0, this, [this, detail] {
+                    QMessageBox::warning(this, tr("插件加载失败"),
+                        tr("项目插件加载失败：\n%1\n\n请在「项目 → 项目设置…」检查 SDK 与脚本构建，"
+                           "详细输出见日志面板。").arg(detail));
+                });
+            });
+
     // P12：播放态运行视口捕获键鼠 → 合成 SDL 事件转发给引擎（见 eventFilter）
     m_gameViewport->setFocusPolicy(Qt::StrongFocus);
     m_gameViewport->setMouseTracking(true);
@@ -289,8 +300,14 @@ if (Shit::Scene *sc = m_preview->getScene(); sc) {
 
         // P14：启动时自动恢复上次打开的项目（静默；项目损坏/被删则忽略，不影响启动）
         const QString lastProject = m_settings.value("lastProjectDir").toString();
-        if (!lastProject.isEmpty())
-            openProjectPath(lastProject, /*silent=*/true);
+        if (!lastProject.isEmpty() && !openProjectPath(lastProject, /*silent=*/true)) {
+            // P33：恢复失败不再静默——延迟弹窗说明（否则用户看到"就绪"误以为项目已打开）
+            QTimer::singleShot(0, this, [this] {
+                QMessageBox::information(this, tr("打开上次项目"),
+                    tr("上次打开的项目未能加载（可能已被移动或删除）。\n"
+                       "可通过「文件 → 打开项目…」重新选择。"));
+            });
+        }
     } else {
         m_log->appendMessage(tr("预览启动失败"), Qt::red);
     }
@@ -306,7 +323,12 @@ if (Shit::Scene *sc = m_preview->getScene(); sc) {
     connect(m_scriptBuilder, &ScriptBuilder::buildOutput, this,
             [this](const QString &line) { m_log->appendMessage(line); });
     connect(m_scriptBuilder, &ScriptBuilder::buildFailed, this,
-            [this](const QString &reason) { statusBar()->showMessage(tr("构建失败"), 3000); });
+            [this](const QString &reason) {
+                // P33：构建失败给用户明确原因（此前只 3 秒状态栏，原因被丢弃）
+                statusBar()->showMessage(tr("构建失败：%1").arg(reason), 8000);
+                QMessageBox::warning(this, tr("构建失败"),
+                    tr("脚本构建失败：\n%1\n\n详细输出见底部日志面板。").arg(reason));
+            });
     connect(m_scriptBuilder, &ScriptBuilder::buildFinished, this, &MainWindow::onBuildFinished);
     m_log->appendMessage(tr("ShitEngine 编辑器已启动"));
 }
@@ -837,7 +859,12 @@ void MainWindow::reloadAnimatorAsset(const QString &path)
         // 重新读 .anim 覆盖 clip
         Shit::AnimationClip clip;
         QFile f(savedAbs);
-        if (!f.open(QIODevice::ReadOnly)) continue;
+        if (!f.open(QIODevice::ReadOnly)) {
+            // P33：资产文件读不到/解析失败不再静默跳过（此前用户以为已同步，动画实际没更新）
+            QMessageBox::warning(this, tr("动画资产同步"),
+                tr("无法读取动画资产：\n%1\n\n文件可能已被移动或删除。状态的剪辑将保持旧版本。").arg(savedAbs));
+            break;
+        }
         const QByteArray data = f.readAll();
         f.close();
         bool ok = false;
@@ -845,7 +872,11 @@ void MainWindow::reloadAnimatorAsset(const QString &path)
             nlohmann::json j = nlohmann::json::parse(data.constData());
             ok = clip.fromJson(j);
         } catch (const std::exception &) { ok = false; }
-        if (!ok) continue;
+        if (!ok) {
+            QMessageBox::warning(this, tr("动画资产同步"),
+                tr("动画资产解析失败：\n%1\n\n文件可能已损坏。状态的剪辑将保持旧版本。").arg(savedAbs));
+            break;
+        }
 
         Shit::AnimatorState ns = *st;
         ns.clip = clip;
@@ -1704,8 +1735,10 @@ void MainWindow::onBuildFinished(bool success)
     // 构建成功：产物在 build/out/（MSBuild 写临时目录，避开编辑器对 bin/ DLL 的占用）
     const QString srcDll = m_project.buildOutDir() + "/" + m_project.pluginDllFileName();
     const QString dstDll = m_project.pluginDllPath();
-if (!QFile::exists(srcDll)) {
+// P33：构建产物缺失 → 状态栏红字（此前只有日志面板）
+    if (!QFile::exists(srcDll)) {
         m_log->appendMessage(tr("构建产物缺失（%1）——未重载 DLL").arg(srcDll), Qt::red);
+        statusBar()->showMessage(tr("构建产物缺失，脚本未更新"), 8000);
         return;
     }
 
@@ -1736,6 +1769,12 @@ if (!QFile::exists(srcDll)) {
         statusBar()->showMessage(tr("脚本已重载"), 3000);
     } else {
         m_log->appendMessage(tr("热重载失败：插件加载异常（详见日志）"), Qt::red);
+        // P33：热重载失败（最常见：DLL 被占用/复制失败）弹窗明示——此前仅日志红字，
+        // 用户可能浑然不觉场景仍是旧脚本
+        statusBar()->showMessage(tr("热重载失败，脚本未更新"), 8000);
+        QMessageBox::warning(this, tr("热重载失败"),
+            tr("新脚本未能加载：\n通常是因为 DLL 文件被占用或复制失败。\n\n"
+               "请关闭正在运行的游戏/导出进程后重试 Ctrl+B，详细输出见日志面板。"));
     }
 
     // 由「▶ 运行」触发的构建：成功后热重载完毕 → 进入运行态

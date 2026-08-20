@@ -22,6 +22,19 @@
 
 namespace Shit {
 
+// ── 最近一次加载失败描述（P33：编辑器弹窗提示用）──
+namespace {
+    std::string g_lastLoadError;
+    void setLoadError(const std::string& msg) {
+        g_lastLoadError = msg;
+        ST_CORE_ERROR("[PluginManager] {}", msg);
+    }
+}
+
+const std::string& PluginManager::GetLastLoadError() {
+    return g_lastLoadError;
+}
+
 // ── 平台抽象 ────────────────────────────────────────────
 
 void* PluginManager::loadLibrary(const std::string& path) {
@@ -53,11 +66,10 @@ void PluginManager::freeLibrary(void* handle) {
 bool PluginManager::loadPlugin(const std::string& path) {
     void* handle = loadLibrary(path);
     if (!handle) {
-        ST_CORE_ERROR("[PluginManager] Failed to load plugin: {}", path);
 #ifdef _WIN32
-        ST_CORE_ERROR("  GetLastError() = {}", GetLastError());
+        setLoadError(fmt::format("加载插件失败 {}（GetLastError={}）", path, GetLastError()));
 #else
-        ST_CORE_ERROR("  dlerror() = {}", dlerror());
+        setLoadError(fmt::format("加载插件失败 {}（dlerror={}）", path, dlerror()));
 #endif
         return false;
     }
@@ -73,7 +85,7 @@ bool PluginManager::loadPlugin(const std::string& path) {
     auto* regTypes = reinterpret_cast<RegisterTypesFn>(getSymbol(handle, "RegisterPluginTypes"));
 
     if (!getABI || !getName || !getVer || !regTypes) {
-        ST_CORE_ERROR("[PluginManager] Plugin '{}' missing required exports", path);
+        setLoadError(fmt::format("插件 {} 缺少必需导出函数（GetPluginABIVersion/GetPluginName/GetPluginVersion/RegisterPluginTypes）", path));
         freeLibrary(handle);
         return false;
     }
@@ -81,8 +93,7 @@ bool PluginManager::loadPlugin(const std::string& path) {
     // ABI 版本检查
     plugin.abiVersion = getABI();
     if (plugin.abiVersion != kAbiVersion) {
-        ST_CORE_ERROR("[PluginManager] Plugin '{}' has unsupported ABI version: {} (expected {})",
-            path, plugin.abiVersion, kAbiVersion);
+        setLoadError(fmt::format("插件 {} ABI 版本不匹配：{}（期望 {}）——请用当前引擎 SDK 重新构建脚本", path, plugin.abiVersion, kAbiVersion));
         freeLibrary(handle);
         return false;
     }
@@ -101,6 +112,8 @@ bool PluginManager::loadPlugin(const std::string& path) {
 // ── 从配置文件加载 ──────────────────────────────────────
 
 void PluginManager::LoadFromConfig(const std::string& configPath) {
+    g_lastLoadError.clear();   // P33：每次加载前重置，供编辑器检查本次加载是否失败
+
     std::ifstream file(configPath);
     if (!file.is_open()) {
         ST_CORE_ERROR("[PluginManager] Cannot open config file: {}", configPath);

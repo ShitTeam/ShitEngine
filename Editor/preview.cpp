@@ -136,6 +136,11 @@ bool EnginePreview::loadProjectConfig(const QString &configPath)
     }
     m_plugins->LoadFromConfig(configPath.toStdString());
     m_plugins->RegisterAllTypes();
+
+    // P33：加载失败（DLL 缺失/ABI 不匹配）→ 信号给 mainwindow 弹窗
+    const auto &err = Shit::PluginManager::GetLastLoadError();
+    if (!err.empty())
+        emit pluginLoadFailed(QString::fromStdString(err));
     return true;
 }
 
@@ -219,6 +224,11 @@ bool EnginePreview::reloadProjectPlugins(const QString &configPath,
     }
     m_plugins->LoadFromConfig(configPath.toStdString());
     m_plugins->RegisterAllTypes();
+
+    // P33：热重载路径同样报告加载失败（弹窗给用户，不再只进日志面板）
+    const auto &err = Shit::PluginManager::GetLastLoadError();
+    if (!err.empty())
+        emit pluginLoadFailed(QString::fromStdString(err));
 
     // 6) 从快照恢复场景（相机兜底：快照内含相机，不会新增）
     try {

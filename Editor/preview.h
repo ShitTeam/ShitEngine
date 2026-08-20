@@ -62,6 +62,9 @@ signals:
     void gameFrameReady(const QImage &image);
     /// 引擎 spdlog 日志转发（isCore=引擎/用户日志；level=spdlog 等级；message=文本）
     void engineLogMessage(bool isCore, int level, const QString &message);
+    /// P33：插件加载失败（DLL 缺失/ABI 不匹配等，detail 为引擎侧失败描述），
+    /// 由 mainwindow 弹窗提示用户（延迟到事件循环空闲，避开启动期）
+    void pluginLoadFailed(const QString &detail);
 
 private slots:
     void tick();

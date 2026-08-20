@@ -48,6 +48,10 @@ public:
     /// 必须在 Game::Init() 之后调用（引擎内置类型已注册）
     void RegisterAllTypes();
 
+    /// @brief 最近一次插件加载失败的描述（P33：编辑器据此弹窗提示用户）。
+    /// 每次 LoadFromConfig 开始时清空；加载成功/未加载任何插件时为空字符串。
+    static const std::string& GetLastLoadError();
+
     /// 卸载所有插件（FreeLibrary / dlclose）。注意：必须先于引擎销毁执行。
     void UnloadAll();
 
