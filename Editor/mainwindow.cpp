@@ -141,13 +141,12 @@ MainWindow::MainWindow(QWidget *parent)
         } else {
             s->setValue("dockStateDefault", saveState(kLayoutVersion));
         }
-        const QByteArray geo = s->value("windowGeometry").toByteArray();
-        if (!geo.isEmpty()) {
-            restoreGeometry(geo);   // 保存过：按保存几何恢复（含最大化标志）
-        } else {
-            // 首次启动无保存几何：默认最大化（此前固定 1280×800 小窗）。
-            // 之后退出时 saveProjectState 会保存当前几何，最大化偏好自动保留。
+        // P37b：视图菜单「启动时最大化窗口」默认开启 → 每次启动全屏；
+        // 关闭勾选后回落到保存的窗口几何（无保存几何则默认 1280×800）
+        if (m_settings.value("launchMaximized", true).toBool()) {
             showMaximized();
+        } else {
+            restoreGeometry(s->value("windowGeometry").toByteArray());
         }
         // P25e：跨分辨率/DPI 恢复的窗口几何可能超出可用屏幕（保存时屏大、恢复时屏小，
         // 右侧「属性」/底部「资源 日志」Dock 会被推到屏幕外）。restoreGeometry 异步生效，
@@ -501,6 +500,14 @@ void MainWindow::createMenus()
     auto *viewMenu = menuBar()->addMenu(tr("视图"));
     viewMenu->addAction(tr("恢复默认布局"), this, &MainWindow::resetDockLayout);
     viewMenu->addAction(tr("将当前布局设为默认"), this, &MainWindow::saveLayoutAsDefault);
+    // P37b：启动时最大化（默认开）——勾掉后按保存的窗口几何恢复，偏好持久化
+    auto *maximizedAction = viewMenu->addAction(tr("启动时最大化窗口"));
+    maximizedAction->setCheckable(true);
+    maximizedAction->setChecked(m_settings.value("launchMaximized", true).toBool());
+    connect(maximizedAction, &QAction::toggled, this, [this](bool on) {
+        m_settings.setValue("launchMaximized", on);
+        m_settings.sync();
+    });
 
     // 窗口菜单：列出全部 Dock 面板（勾选 = 可见）。面板右上角关闭后，
     // 可在此重新勾选打开；toggleViewAction 的勾选状态与面板可见性自动同步。
