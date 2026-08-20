@@ -36,6 +36,8 @@ public:
 signals:
     /// 选中某个对象（供属性检查器联动）
     void objectSelected(Shit::GameObject *object);
+    /// P36：任意选中变化（单选/多选增减），供检查器批量编辑模式联动
+    void selectionChanged();
     /// 场景结构将被修改（新建/删除对象、添加组件发生前 → 撤销 begin）
     void sceneActionStarted();
     /// 场景结构被修改（新建/删除对象、添加组件 → 会话 dirty / 撤销提交）

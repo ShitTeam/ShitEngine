@@ -48,6 +48,9 @@ public:
     bool isPlaying() const { return m_playAction && m_playAction->isChecked(); }
     /// 当前是否有打开的项目（无项目时编辑功能禁用）
     bool hasProject() const { return m_project.isValid(); }
+    /// P36：命令行入口——`--project <dir>` 打开项目；`<xxx.scene>` 打开场景
+    /// （scene 在项目目录内时连带打开该项目，供 .scene 文件关联使用）
+    void openFromCommandLine(const QString &projectDir, const QString &sceneFile);
 
 protected:
     /// 关闭前未保存提示（保存/不保存/取消）
@@ -116,6 +119,10 @@ private:
     nlohmann::json snapshot() const;                    ///< 当前场景快照（排除编辑器相机）
     void refreshDirtyFromSaved();                       ///< dirty = 当前快照 ≠ 存档快照
     void updateUndoActions();                           ///< 撤销/重做菜单项可用性
+    // ------------------------
+
+    // ---- P36 批量编辑 ----
+    void syncInspectorToSelection();                    ///< 按选中数量切换检查器模式（>1 批量 / 1 单选）
     // ------------------------
 
     // ---- P14 项目 ----

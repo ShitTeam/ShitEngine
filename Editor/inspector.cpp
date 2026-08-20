@@ -337,6 +337,8 @@ void Inspector::clear()
     m_readbacks.clear();
     m_sections.clear();             // P34：组件行区间随表单重建失效
     m_object = nullptr;
+    m_multiObjects.clear();         // P36：批量模式状态随重建失效
+    m_multiTypes.clear();
     m_selectedSystemName.clear();
     m_scenePanel = nullptr;         // 重置指针（旧 widget 由 m_form->removeRow 摘除后 Qt 父子关系回收）
     m_systemFieldsForm = nullptr;
@@ -402,6 +404,7 @@ bool Inspector::findFileDropTarget(const QString &filePath, Shit::Component **ou
                                    Shit::FieldInfo *outField) const
 {
     if (!m_object) return false;
+    if (!m_multiObjects.empty()) return false;   // P36：批量模式不接受文件拖拽（目标不唯一）
     if (m_playMode) return false;   // 播放态只读锁：不接受拖拽填充
 
     const QString ext = QFileInfo(filePath).suffix().toLower();
@@ -665,6 +668,220 @@ void Inspector::setGameObject(Shit::GameObject *object)
     connect(addBtn, &QPushButton::clicked, this, &Inspector::showAddComponentMenu);
 
     applyEditLock();   // 播放态编辑锁：重建后按当前播放状态重新禁用
+}
+
+// ═══════════════════════════════════════════════════════════════
+// P36: 批量编辑 —— 多选对象时渲染公共组件/字段，编辑写入全部选中对象
+// ═══════════════════════════════════════════════════════════════
+
+void Inspector::setGameObjects(const QList<Shit::GameObject *> &objects)
+{
+    clear();
+    if (objects.size() < 2) {
+        if (objects.size() == 1) setGameObject(objects.first());
+        return;
+    }
+    for (Shit::GameObject *go : objects)
+        if (go) m_multiObjects.push_back(go);
+    if (m_multiObjects.size() < 2) {   // 过滤后不足 → 回退单选
+        m_multiObjects.clear();
+        setGameObject(objects.first());
+        return;
+    }
+    m_object = nullptr;   // 批量模式：引用/文件拖拽禁用（目标不唯一）
+
+    auto *head = new QLabel(tr("已选 %1 个对象（公共字段批量编辑）").arg(m_multiObjects.size()), m_content);
+    head->setStyleSheet("color:#7ac0ff; font-weight:bold; padding:4px 0;");
+    m_form->addRow(head);
+
+    // 公共组件类型 = 首个对象组件集合 ∩ 其余对象
+    const auto &firstComps = m_multiObjects[0]->getComponents();
+    for (const auto &[typeIdx, comp] : firstComps) {
+        Q_UNUSED(comp)
+        const Shit::TypeInfo *ti = Shit::TypeRegistry::Get(typeIdx);
+        if (!ti || ti->fields.empty()) continue;
+        bool all = true;
+        for (size_t i = 1; i < m_multiObjects.size(); ++i) {
+            if (!m_multiObjects[i]->getComponents().count(typeIdx)) { all = false; break; }
+        }
+        if (all) m_multiTypes.emplace_back(typeIdx, ti);
+    }
+
+    if (m_multiTypes.empty()) {
+        m_form->addRow(new QLabel(tr("对象间没有公共组件，无法批量编辑"), m_content));
+        return;
+    }
+
+    for (const auto &[typeIdx, ti] : m_multiTypes) {
+        const int startRow = m_form->rowCount();
+        QString searchKey = normalizeTypeName(ti->name);
+        auto *title = new QLabel(normalizeTypeName(ti->name), m_content);
+        title->setStyleSheet("font-weight:bold; color:#2a7ab1; margin-top:6px;");
+        m_form->addRow(title);
+
+        for (const auto &field : ti->fields) {
+            if (field.isReference() && field.size == sizeof(uint64_t))
+                continue;   // P36：引用字段多对象共享 UUID 会串线，不提供批量编辑
+            if (metaOf(field) && metaOf(field)->readOnly) {
+                m_form->addRow(displayNameOf(field),
+                    new QLabel(fieldToString(field, static_cast<Shit::Component *>(multiComponentOf(m_multiObjects[0], typeIdx))), m_content));
+                searchKey += " " + displayNameOf(field) + " " + QString::fromStdString(field.name);
+                continue;
+            }
+            addMultiFieldRow(field, typeIdx);
+            searchKey += " " + displayNameOf(field) + " " + QString::fromStdString(field.name);
+        }
+        m_sections.push_back({ startRow, m_form->rowCount() - 1, searchKey });
+    }
+
+    emit buildInfo(static_cast<int>(m_multiTypes.size()), 0);
+    applyEditLock();
+}
+
+void *Inspector::multiComponentOf(Shit::GameObject *go, const std::type_index &typeIdx) const
+{
+    if (!go) return nullptr;
+    auto it = go->getComponents().find(typeIdx);
+    return it != go->getComponents().end() ? it->second.get() : nullptr;
+}
+
+void Inspector::addMultiFieldRow(const Shit::FieldInfo &field, const std::type_index &typeIdx)
+{
+    const QString name = displayNameOf(field);
+    // 基准值取自第一个对象（每帧回读也回显第一个对象的值）
+    auto *first = static_cast<Shit::Component *>(multiComponentOf(m_multiObjects[0], typeIdx));
+    void *p = first ? field.GetFieldPtr(first) : nullptr;
+
+    // 写回全部对象同类型组件
+    auto applyToAll = [this, field, typeIdx](const std::function<void(void *)> &write) {
+        emit fieldEdited();
+        for (Shit::GameObject *go : m_multiObjects) {
+            if (void *c = multiComponentOf(go, typeIdx)) {
+                write(field.GetFieldPtr(static_cast<Shit::Component *>(c)));
+                static_cast<Shit::Component *>(c)->onFieldChanged(field.name);
+            }
+        }
+        emit fieldCommitted();
+    };
+
+    const QString t = typeNameOf(field);
+    if (t == "float") {
+        auto *box = new QDoubleSpinBox(m_content);
+        const FieldMeta *m = metaOf(field);
+        if (m && m->range.min != m->range.max) box->setRange(m->range.min, m->range.max);
+        else box->setRange(-1e6, 1e6);
+        box->setSingleStep(m && m->step > 0.0f ? m->step : 0.1f);
+        box->setDecimals(3);
+        if (p) box->setValue(*reinterpret_cast<float *>(p));
+        connect(box, &QDoubleSpinBox::valueChanged, this, [applyToAll](double v) {
+            applyToAll([v](void *pp) { *reinterpret_cast<float *>(pp) = static_cast<float>(v); });
+        });
+        m_form->addRow(name, box);
+        m_readbacks.push_back([box, p] {
+            box->blockSignals(true);
+            if (p) box->setValue(*reinterpret_cast<float *>(p));
+            box->blockSignals(false);
+        });
+    }
+    else if (t == "int" && field.size == sizeof(int)) {
+        auto *box = new QSpinBox(m_content);
+        if (p) box->setValue(*reinterpret_cast<int *>(p));
+        connect(box, &QSpinBox::valueChanged, this, [applyToAll](int v) {
+            applyToAll([v](void *pp) { *reinterpret_cast<int *>(pp) = v; });
+        });
+        m_form->addRow(name, box);
+        m_readbacks.push_back([box, p] {
+            box->blockSignals(true);
+            if (p) box->setValue(*reinterpret_cast<int *>(p));
+            box->blockSignals(false);
+        });
+    }
+    else if (t == "bool") {
+        auto *check = new QCheckBox(m_content);
+        if (p) check->setChecked(*reinterpret_cast<bool *>(p));
+        connect(check, &QCheckBox::toggled, this, [applyToAll](bool on) {
+            applyToAll([on](void *pp) { *reinterpret_cast<bool *>(pp) = on; });
+        });
+        m_form->addRow(name, check);
+        m_readbacks.push_back([check, p] {
+            check->blockSignals(true);
+            if (p) check->setChecked(*reinterpret_cast<bool *>(p));
+            check->blockSignals(false);
+        });
+    }
+    else if (t == "Vector2") {
+        auto *row = new QWidget(m_content);
+        auto *layout = new QHBoxLayout(row);
+        layout->setContentsMargins(0, 0, 0, 0);
+        auto *xBox = new QDoubleSpinBox;
+        auto *yBox = new QDoubleSpinBox;
+        for (auto *box : { xBox, yBox })
+            box->setRange(-1e6, 1e6);
+        xBox->setDecimals(3); yBox->setDecimals(3);
+        if (p) {
+            auto *v = reinterpret_cast<Shit::Vector2 *>(p);
+            xBox->setValue(v->x); yBox->setValue(v->y);
+        }
+        layout->addWidget(xBox); layout->addWidget(yBox);
+        connect(xBox, &QDoubleSpinBox::valueChanged, this, [applyToAll](double v) {
+            applyToAll([v](void *pp) { reinterpret_cast<Shit::Vector2 *>(pp)->x = static_cast<float>(v); });
+        });
+        connect(yBox, &QDoubleSpinBox::valueChanged, this, [applyToAll](double v) {
+            applyToAll([v](void *pp) { reinterpret_cast<Shit::Vector2 *>(pp)->y = static_cast<float>(v); });
+        });
+        m_form->addRow(name, row);
+        m_readbacks.push_back([xBox, yBox, p] {
+            xBox->blockSignals(true); yBox->blockSignals(true);
+            if (p) {
+                auto *v = reinterpret_cast<Shit::Vector2 *>(p);
+                xBox->setValue(v->x); yBox->setValue(v->y);
+            }
+            xBox->blockSignals(false); yBox->blockSignals(false);
+        });
+    }
+    else if (t == "std::string") {
+        auto *edit = new QLineEdit(p ? QString::fromStdString(*reinterpret_cast<std::string *>(p)) : QString(), m_content);
+        connect(edit, &QLineEdit::textChanged, this, [applyToAll](const QString &text) {
+            applyToAll([text](void *pp) { *reinterpret_cast<std::string *>(pp) = text.toStdString(); });
+        });
+        m_form->addRow(name, edit);
+        m_readbacks.push_back([edit, p] {
+            edit->blockSignals(true);
+            if (p) edit->setText(QString::fromStdString(*reinterpret_cast<std::string *>(p)));
+            edit->blockSignals(false);
+        });
+    }
+    else {
+        // 枚举：下拉（值写 int32）
+        const Shit::TypeInfo *enumType = Shit::TypeRegistry::Get(field.typeName);
+        if (enumType && !enumType->enumValues.empty()) {
+            auto *combo = new QComboBox(m_content);
+            int cur = 0;
+            if (p) cur = *reinterpret_cast<int *>(p);
+            int sel = 0;
+            for (size_t i = 0; i < enumType->enumValues.size(); ++i) {
+                combo->addItem(QString::fromStdString(enumType->enumValues[i].name),
+                               static_cast<int>(enumType->enumValues[i].value));
+                if (enumType->enumValues[i].value == cur) sel = static_cast<int>(i);
+            }
+            combo->setCurrentIndex(sel);
+            connect(combo, &QComboBox::currentIndexChanged, this, [applyToAll, combo]() {
+                const int v = combo->currentData().toInt();
+                applyToAll([v](void *pp) { *reinterpret_cast<int *>(pp) = v; });
+            });
+            m_form->addRow(name, combo);
+            m_readbacks.push_back([combo, p] {
+                combo->blockSignals(true);
+                if (p) {
+                    const int v = *reinterpret_cast<int *>(p);
+                    const int idx = combo->findData(v);
+                    combo->setCurrentIndex(idx >= 0 ? idx : 0);
+                }
+                combo->blockSignals(false);
+            });
+        }
+        // 未知类型：不提供批量编辑（保持隐藏）
+    }
 }
 
 void Inspector::setPlayMode(bool playing)

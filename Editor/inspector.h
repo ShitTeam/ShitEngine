@@ -3,10 +3,12 @@
 
 #include <ShitEngine/Scene/Scene.h>
 
+#include <QList>
 #include <QWidget>
 
 #include <functional>
 #include <string>
+#include <typeindex>
 #include <vector>
 
 class QFormLayout;
@@ -40,6 +42,10 @@ public:
 
     /// 反射 object 的组件并渲染为编辑表单
     void setGameObject(Shit::GameObject *object);
+
+    /// P36：批量编辑模式——渲染多选对象的公共组件/字段，编辑写入全部选中对象。
+    /// 少于 2 个对象时回退 setGameObject；引用字段/只读字段不提供批量编辑。
+    void setGameObjects(const QList<Shit::GameObject *> &objects);
 
     /// 从组件重读当前值并更新控件（引擎 → 检查器实时同步）
     void refresh();
@@ -82,6 +88,11 @@ signals:
 private:
     /// 为单个字段生成一行编辑控件
     void addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj);
+
+    /// P36：批量字段行——控件值写入全部对象的同类型组件（typeIdx 为组件 type_index）
+    void addMultiFieldRow(const Shit::FieldInfo &field, const std::type_index &typeIdx);
+    /// 取对象上指定类型组件的反射指针（无该组件返回 nullptr）
+    void *multiComponentOf(Shit::GameObject *go, const std::type_index &typeIdx) const;
 
     /// 只读字段/未知类型的字符串展示
     QString fieldToString(const Shit::FieldInfo &field, Shit::Component *obj) const;
@@ -128,8 +139,13 @@ private:
     QWidget *m_content;
     QFormLayout *m_form;
 
-    /// 当前正在编辑的对象（nullptr = 未选中）；添加组件后需重建表单
+    /// 当前正在编辑的对象（nullptr = 未选中/批量模式）；添加组件后需重建表单
     Shit::GameObject *m_object = nullptr;
+
+    /// P36：批量编辑目标对象（空 = 单选模式）
+    std::vector<Shit::GameObject *> m_multiObjects;
+    /// P36：公共组件类型（首个对象组件 ∩ 其余对象）
+    std::vector<std::pair<std::type_index, const Shit::TypeInfo *>> m_multiTypes;
 
     /// 每个字段的"组件 → 控件"回读函数（refresh 时逐行调用）
     std::vector<std::function<void()>> m_readbacks;

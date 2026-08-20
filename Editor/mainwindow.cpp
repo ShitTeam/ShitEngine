@@ -250,10 +250,17 @@ MainWindow::MainWindow(QWidget *parent)
 
     // P3：场景树选中 → 属性检查器 + 场景视图 Gizmo + 瓦片面板 + Animator 状态机窗口
     connect(m_sceneTree, &SceneTree::objectSelected, this, [this](Shit::GameObject *obj) {
-        m_inspector->setGameObject(obj);
+        syncInspectorToSelection();
         m_sceneViewport->setSelectedObject(obj);
         m_tileset->setGameObject(obj);
         m_animatorDock->setGameObject(obj);
+    });
+    // P36：多选增减（Ctrl/Shift）→ 批量编辑模式（单选由 objectSelected 兜底实时刷新）
+    connect(m_sceneTree, &SceneTree::selectionChanged, this, [this] {
+        // 多选时有 currentChanged 也会触发 objectSelected → 这里只在多选时接管，
+        // 单选交给 objectSelected（避免 Gizmo 绑定的对象与 currentIndex 脱节）
+        if (m_sceneTree->selectedObjects().size() > 1)
+            syncInspectorToSelection();
     });
     connect(m_inspector, &Inspector::buildInfo, this, [this](int components, int fields) {
         m_log->appendMessage(QString("检查器: 渲染 %1 个组件 / %2 个字段").arg(components).arg(fields));
@@ -1717,6 +1724,37 @@ void MainWindow::onBuildScripts()
     m_scriptBuilder->build(m_project.scriptsDir(), m_project.buildDir(),
                            m_project.sdkDir(), m_project.binDir());
     statusBar()->showMessage(tr("正在构建脚本…"));
+}
+
+void MainWindow::openFromCommandLine(const QString &projectDir, const QString &sceneFile)
+{
+    QString project = projectDir;
+    // 打开 .scene：若它在某项目目录内（向上找 config.json）则连带打开该项目
+    if (project.isEmpty() && !sceneFile.isEmpty()) {
+        QDir dir = QFileInfo(sceneFile).absoluteDir();
+        while (!dir.isRoot()) {
+            if (QFileInfo::exists(dir.filePath(QStringLiteral("config.json")))) {
+                project = dir.absolutePath();
+                break;
+            }
+            dir.cdUp();
+        }
+    }
+    if (!project.isEmpty())
+        openProjectPath(project, /*silent=*/true);
+    if (!sceneFile.isEmpty())
+        openScenePath(sceneFile);
+}
+
+void MainWindow::syncInspectorToSelection()
+{
+    const auto objs = m_sceneTree->selectedObjects();
+    if (objs.size() > 1)
+        m_inspector->setGameObjects(objs);
+    else if (objs.size() == 1)
+        m_inspector->setGameObject(objs.first());
+    else
+        m_inspector->setGameObject(nullptr);
 }
 
 void MainWindow::onBuildFinished(bool success)

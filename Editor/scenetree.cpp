@@ -77,6 +77,12 @@ SceneTree::SceneTree(QWidget *parent)
                 emit objectSelected(m_model->gameObjectAt(current));
             });
 
+    // P36：多选变化（Ctrl/Shift 增减）→ 检查器批量编辑模式
+    connect(m_view->selectionModel(), &QItemSelectionModel::selectionChanged,
+            this, [this](const QItemSelection &, const QItemSelection &) {
+                emit selectionChanged();
+            });
+
     // P11 撤销接线：按下（含进入编辑/发起拖拽）→ begin；模型编辑完成（重命名/改层级）→ 提交
     connect(m_view, &QTreeView::pressed, this, [this] { emit sceneActionStarted(); });
     connect(m_view, &QTreeView::doubleClicked, this, [this](const QModelIndex &) {
