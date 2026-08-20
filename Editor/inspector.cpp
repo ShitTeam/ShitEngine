@@ -18,6 +18,11 @@
 #include <QCursor>
 #include <QDoubleSpinBox>
 #include <QDrag>
+#include <QDragEnterEvent>
+#include <QDragLeaveEvent>
+#include <QDragMoveEvent>
+#include <QDropEvent>
+#include <QFileInfo>
 #include <QFormLayout>
 #include <QFrame>
 #include <QHBoxLayout>
@@ -29,6 +34,7 @@
 #include <QScrollArea>
 #include <QSpinBox>
 #include <QToolButton>
+#include <QUrl>
 #include <QVBoxLayout>
 
 #include <cstring>
@@ -72,6 +78,34 @@ QDoubleSpinBox *makeSpin(float value)
     box->setDecimals(3);
     box->setValue(value);
     return box;
+}
+
+/// 文件扩展名（小写，无点）→ 可自动填充的路径字段关键字（小写）。
+/// 字段名（去 m_ 前缀）包含任一关键字即视为该文件的匹配目标。
+QStringList fileExtKeywords(const QString &ext)
+{
+    if (ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "bmp"
+        || ext == "webp" || ext == "gif") {
+        return {"texture", "sprite", "sheet", "tileset", "icon"};
+    }
+    if (ext == "wav" || ext == "ogg" || ext == "mp3" || ext == "flac") {
+        return {"audio", "sound", "music"};
+    }
+    if (ext == "ttf" || ext == "otf" || ext == "ttc") {
+        return {"font"};
+    }
+    if (ext == "anim") return {"anim", "clip", "state"};
+    if (ext == "scene") return {"scene"};
+    if (ext == "prefab") return {"prefab"};
+    return {};
+}
+
+/// 该字段是否为"路径类 string 字段"（可接受文件拖入填充）
+bool fieldAcceptsFiles(const Shit::FieldInfo &field)
+{
+    if (typeNameOf(field) != "std::string") return false;
+    if (const FieldMeta *m = metaOf(field); m && m->readOnly) return false;
+    return true;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -279,6 +313,10 @@ Inspector::Inspector(QWidget *parent)
     m_form->setContentsMargins(8, 8, 8, 8);
     m_form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
 
+    // P31：文件拖到属性面板 → 自动填充匹配的路径字段（拖拽悬停时虚线高亮）
+    setAcceptDrops(true);
+    setStyleSheet("Inspector[dropActive=\"true\"] { border: 2px dashed #7ac0ff; }");
+
     clear();
 }
 
@@ -321,6 +359,131 @@ void Inspector::refresh()
     }
     for (auto &readback : m_readbacks)
         readback();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// P31: 面板级文件拖拽 —— 文件拖到属性面板自动填充匹配的路径字段
+// ═══════════════════════════════════════════════════════════════
+
+bool Inspector::findFileDropTarget(const QString &filePath, Shit::Component **outComp,
+                                   Shit::FieldInfo *outField) const
+{
+    if (!m_object) return false;
+    if (m_playMode) return false;   // 播放态只读锁：不接受拖拽填充
+
+    const QString ext = QFileInfo(filePath).suffix().toLower();
+    const QStringList kws = fileExtKeywords(ext);
+
+    std::vector<std::pair<Shit::Component *, const Shit::FieldInfo *>> fallback;
+    bool match = false;
+    Shit::Component *hitComp = nullptr;
+    const Shit::FieldInfo *hitField = nullptr;
+
+    m_object->forEachComponent([&](Shit::Component *comp) {
+        const Shit::TypeInfo *ti = Shit::TypeRegistry::Get(std::type_index(typeid(*comp)));
+        if (!ti) return;
+        for (const auto &field : ti->fields) {
+            if (!fieldAcceptsFiles(field)) continue;
+            fallback.emplace_back(comp, &field);
+            if (kws.isEmpty()) continue;  // 扩展名不在已知表：只走"唯一候选"兜底
+            QString name = QString::fromStdString(field.name).toLower();
+            if (name.startsWith("m_")) name = name.mid(2);
+            for (const auto &kw : kws) {
+                if (name.contains(kw)) {
+                    hitComp = comp;
+                    hitField = &field;
+                    match = true;
+                    return;  // 首个匹配即停止（组件/字段遍历顺序稳定）
+                }
+            }
+        }
+    });
+    if (match) {
+        if (outComp) *outComp = hitComp;
+        if (outField) *outField = *hitField;
+        return true;
+    }
+
+    // 兜底：扩展名不在已知表，且对象只有一个路径字段 → 视为匹配目标
+    //（如自定义 AssetPath 类字段），避免拖入被静默拒绝
+    if (fallback.size() == 1) {
+        if (outComp) *outComp = fallback[0].first;
+        if (outField) *outField = *fallback[0].second;
+        return true;
+    }
+    return false;
+}
+
+void Inspector::setDropActive(bool on)
+{
+    if (m_dropActive == on) return;
+    m_dropActive = on;
+    setProperty("dropActive", on);
+    style()->unpolish(this);
+    style()->polish(this);
+}
+
+void Inspector::dragEnterEvent(QDragEnterEvent *event)
+{
+    if (event->mimeData()->hasUrls()) {
+        for (const QUrl &url : event->mimeData()->urls()) {
+            if (url.isLocalFile() && findFileDropTarget(url.toLocalFile(), nullptr, nullptr)) {
+                event->acceptProposedAction();
+                setDropActive(true);
+                return;
+            }
+        }
+    }
+    QWidget::dragEnterEvent(event);
+}
+
+void Inspector::dragMoveEvent(QDragMoveEvent *event)
+{
+    if (event->mimeData()->hasUrls()) {
+        for (const QUrl &url : event->mimeData()->urls()) {
+            if (url.isLocalFile() && findFileDropTarget(url.toLocalFile(), nullptr, nullptr)) {
+                event->acceptProposedAction();
+                return;
+            }
+        }
+    }
+    QWidget::dragMoveEvent(event);
+}
+
+void Inspector::dragLeaveEvent(QDragLeaveEvent *event)
+{
+    setDropActive(false);
+    QWidget::dragLeaveEvent(event);
+}
+
+void Inspector::dropEvent(QDropEvent *event)
+{
+    setDropActive(false);
+    if (!event->mimeData()->hasUrls()) {
+        QWidget::dropEvent(event);
+        return;
+    }
+
+    for (const QUrl &url : event->mimeData()->urls()) {
+        if (!url.isLocalFile()) continue;
+        const QString path = QFileInfo(url.toLocalFile()).absoluteFilePath();
+        Shit::Component *comp = nullptr;
+        Shit::FieldInfo field;
+        if (!findFileDropTarget(path, &comp, &field)) continue;
+
+        // 与检查器其他编辑一致：先标记 dirty + 撤销起点，写回，再提交撤销
+        emit fieldEdited();
+        *reinterpret_cast<std::string *>(field.GetFieldPtr(comp)) = path.toStdString();
+        comp->onFieldChanged(field.name);
+        emit fieldCommitted();
+
+        refresh();  // 块信号回读更新对应控件显示
+        ST_INFO("[Inspector] 文件拖入 {} -> {}.{}", path.toStdString(),
+                comp->getOwner() ? comp->getOwner()->getName() : "?", field.name);
+        event->acceptProposedAction();
+        return;
+    }
+    QWidget::dropEvent(event);
 }
 
 void Inspector::setGameObject(Shit::GameObject *object)
@@ -948,6 +1111,9 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
     else if (typeNameOf(field) == "std::string") {
         auto *p = reinterpret_cast<std::string *>(field.GetFieldPtr(obj));
         auto *edit = new QLineEdit(QString::fromStdString(*p), m_content);
+        // P31：路径类字段关闭 QLineEdit 自身的文本拖拽——文件拖入由面板级
+        // 拖拽统一接管（自动填充路径），否则 QLineEdit 会把 "file:///…" 当文本吃掉
+        if (fieldAcceptsFiles(field)) edit->setAcceptDrops(false);
         connect(edit, &QLineEdit::textChanged, this, [this, obj, field](const QString &text) {
             *reinterpret_cast<std::string *>(field.GetFieldPtr(obj)) = text.toStdString();
             obj->onFieldChanged(field.name);

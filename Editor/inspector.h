@@ -94,6 +94,24 @@ private:
     /// 移除选中对象的某个组件（refuse 为 true 时先做基础设施拒删判断，拒绝则提示不执行）
     void removeComponentFromObject(Shit::Component *component);
 
+protected:
+    // ── 面板级文件拖拽（P31）：资源面板/文件管理器拖文件到属性面板，
+    // 按扩展名语义自动填充匹配的路径类 string 字段 ──
+    void dragEnterEvent(QDragEnterEvent *event) override;
+    void dragMoveEvent(QDragMoveEvent *event) override;
+    void dragLeaveEvent(QDragLeaveEvent *event) override;
+    void dropEvent(QDropEvent *event) override;
+
+private:
+    /// 找该文件可自动填充的字段（std::string 非只读 + 扩展名→字段名关键字匹配；
+    /// 扩展名不在已知表时仅当对象只有一个候选字段才兜底）。返回 false 表示无匹配。
+    bool findFileDropTarget(const QString &filePath, Shit::Component **outComp,
+                            Shit::FieldInfo *outField) const;
+
+    /// 拖拽悬停高亮开关（QSS 属性选择器）
+    void setDropActive(bool on);
+    bool m_dropActive = false;
+
     QScrollArea *m_scroll;
     QWidget *m_content;
     QFormLayout *m_form;
