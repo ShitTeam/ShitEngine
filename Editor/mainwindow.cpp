@@ -129,7 +129,8 @@ MainWindow::MainWindow(QWidget *parent)
     // P13：Dock 布局持久化 —— 项目级 .shitengine/state.ini（无项目时回退全局注册表）。
     // 有上次布局恢复之；否则恢复「默认布局」（P17：可经「视图 → 将当前布局设为默认」
     // 覆盖，即自定义启动时的初始排列）；首次启动无默认时保存出厂布局为默认。
-    // 窗口几何同理。P21：布局带版本号——旧版布局作废时自动落回 createDocks 默认排列。
+    // P21：布局带版本号——旧版布局作废时自动落回 createDocks 默认排列。
+    // P37b：窗口大小/位置不保存不恢复——启动一律最大化。
     {
         QSettings *s = stateSettings();
         const QByteArray userLayout = s->value("dockState").toByteArray();
@@ -141,13 +142,8 @@ MainWindow::MainWindow(QWidget *parent)
         } else {
             s->setValue("dockStateDefault", saveState(kLayoutVersion));
         }
-        // P37b：视图菜单「启动时最大化窗口」默认开启 → 每次启动全屏；
-        // 关闭勾选后回落到保存的窗口几何（无保存几何则默认 1280×800）
-        if (m_settings.value("launchMaximized", true).toBool()) {
-            showMaximized();
-        } else {
-            restoreGeometry(s->value("windowGeometry").toByteArray());
-        }
+        // P37b：不保存窗口大小——每次启动一律最大化。
+        showMaximized();
         // P25e：跨分辨率/DPI 恢复的窗口几何可能超出可用屏幕（保存时屏大、恢复时屏小，
         // 右侧「属性」/底部「资源 日志」Dock 会被推到屏幕外）。restoreGeometry 异步生效，
         // 此刻 frameGeometry 尚未更新（Windows SetWindowPos 异步），延迟到几何应用后钳制。
@@ -500,14 +496,6 @@ void MainWindow::createMenus()
     auto *viewMenu = menuBar()->addMenu(tr("视图"));
     viewMenu->addAction(tr("恢复默认布局"), this, &MainWindow::resetDockLayout);
     viewMenu->addAction(tr("将当前布局设为默认"), this, &MainWindow::saveLayoutAsDefault);
-    // P37b：启动时最大化（默认开）——勾掉后按保存的窗口几何恢复，偏好持久化
-    auto *maximizedAction = viewMenu->addAction(tr("启动时最大化窗口"));
-    maximizedAction->setCheckable(true);
-    maximizedAction->setChecked(m_settings.value("launchMaximized", true).toBool());
-    connect(maximizedAction, &QAction::toggled, this, [this](bool on) {
-        m_settings.setValue("launchMaximized", on);
-        m_settings.sync();
-    });
 
     // 窗口菜单：列出全部 Dock 面板（勾选 = 可见）。面板右上角关闭后，
     // 可在此重新勾选打开；toggleViewAction 的勾选状态与面板可见性自动同步。
@@ -1536,12 +1524,10 @@ void MainWindow::enterProject(const Project &project)
     Shit::Log::SetLogDirectory((project.rootDir() + "/.shitengine/log").toStdString());
     m_log->setDefaultDir(project.rootDir() + "/.shitengine/log");   // 日志面板保存默认目录
 
-    // 3) 恢复项目布局/几何（无保存值则保持现状；版本不匹配忽略，沿用默认排列）
+    // 3) 恢复项目布局（窗口大小不恢复——P37b：一律最大化启动）
     {
         const QByteArray layout = m_projectSettings->value("dockState").toByteArray();
         if (!layout.isEmpty()) restoreState(layout, kLayoutVersion);
-        const QByteArray geo = m_projectSettings->value("windowGeometry").toByteArray();
-        if (!geo.isEmpty()) restoreGeometry(geo);
     }
 
     // 4) 资源窗口绑定整个项目根（Unity 式：树里可见 Assets/ Scenes/ Scripts/）；
@@ -1613,7 +1599,7 @@ QSettings *MainWindow::stateSettings() const
 void MainWindow::saveProjectState()
 {
     stateSettings()->setValue("dockState", saveState(kLayoutVersion));
-    stateSettings()->setValue("windowGeometry", saveGeometry());
+    // P37b：不保存窗口大小/位置——启动一律最大化
     stateSettings()->sync();
 }
 
