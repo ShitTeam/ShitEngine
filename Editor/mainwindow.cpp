@@ -429,6 +429,11 @@ void MainWindow::createDocks()
 
     setDockNestingEnabled(true);
     resize(1280, 800);
+
+    // P37：捕获出厂默认布局——「恢复默认布局」的兜底。
+    // 此前默认布局从未入库：布局一旦被改动并在退出时自动保存（dockState），
+    // 就永远回不到初始排列（resetDockLayout 只认手动保存的 dockStateDefault）。
+    m_factoryLayout = saveState(kLayoutVersion);
 }
 
 void MainWindow::createMenus()
@@ -1232,12 +1237,18 @@ void MainWindow::updateRecentMenu()
 
 void MainWindow::resetDockLayout()
 {
-    const QByteArray def = stateSettings()->value("dockStateDefault").toByteArray();
-    if (!def.isEmpty() && restoreState(def, kLayoutVersion)) {
-        statusBar()->showMessage(tr("已恢复默认布局"), 2000);
-    } else {
-        statusBar()->showMessage(tr("当前布局即为默认"), 2000);
+    // 优先恢复用户手动「将当前布局设为默认」的自定义默认；
+    // 没存过则回落到出厂默认布局（createDocks 的初始排列）。
+    const QByteArray userDef = stateSettings()->value("dockStateDefault").toByteArray();
+    if (!userDef.isEmpty() && restoreState(userDef, kLayoutVersion)) {
+        statusBar()->showMessage(tr("已恢复自定义默认布局"), 2000);
+        return;
     }
+    if (!m_factoryLayout.isEmpty() && restoreState(m_factoryLayout, kLayoutVersion)) {
+        statusBar()->showMessage(tr("已恢复出厂布局"), 2000);
+        return;
+    }
+    statusBar()->showMessage(tr("当前布局即为默认"), 2000);
 }
 
 /// P17：把当前 Dock 布局存为默认（写入项目 .shitengine/state.ini 或全局注册表的

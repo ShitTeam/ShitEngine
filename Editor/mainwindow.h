@@ -142,6 +142,7 @@ private:
     void exitPlayMode();                                ///< 停止运行：恢复运行前快照（Unity 语义）
     // ------------------------
 
+    QByteArray m_factoryLayout;                     ///< 出厂默认 Dock 布局（createDocks 后捕获，恢复兜底）
     Ui::MainWindow *ui;
 
     Viewport *m_sceneViewport;
