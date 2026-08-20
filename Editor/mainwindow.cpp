@@ -141,7 +141,14 @@ MainWindow::MainWindow(QWidget *parent)
         } else {
             s->setValue("dockStateDefault", saveState(kLayoutVersion));
         }
-        restoreGeometry(s->value("windowGeometry").toByteArray());
+        const QByteArray geo = s->value("windowGeometry").toByteArray();
+        if (!geo.isEmpty()) {
+            restoreGeometry(geo);   // 保存过：按保存几何恢复（含最大化标志）
+        } else {
+            // 首次启动无保存几何：默认最大化（此前固定 1280×800 小窗）。
+            // 之后退出时 saveProjectState 会保存当前几何，最大化偏好自动保留。
+            showMaximized();
+        }
         // P25e：跨分辨率/DPI 恢复的窗口几何可能超出可用屏幕（保存时屏大、恢复时屏小，
         // 右侧「属性」/底部「资源 日志」Dock 会被推到屏幕外）。restoreGeometry 异步生效，
         // 此刻 frameGeometry 尚未更新（Windows SetWindowPos 异步），延迟到几何应用后钳制。
