@@ -10,6 +10,7 @@
 ### 新增
 
 - **文件日志落盘（引擎）**：日志除控制台外同时写入当前项目 `.shitengine/log/log_YYYYMMDD_HHMMSS.txt`（按启动时间归档），每条日志即时 flush——进程崩溃时最后一段日志不再丢失，方便排查闪退
+- **文件拖到属性面板自动填充（P31，编辑器）**：从资源面板或文件管理器把文件拖到检查器，按扩展名语义自动匹配选中对象的路径类 `std::string` 字段并填充（图片→texture/sprite/sheet，音频→audio/sound，字体→font，`.anim`→anim/clip，`.scene`/`.prefab`→scene/prefab；扩展名不在已知表且对象只有一个路径字段时兜底填充）；写入接入既有 dirty + 撤销栈，拖拽悬停虚线高亮提示，播放态只读锁拒绝
 
 ### 修复
 
