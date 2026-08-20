@@ -9,7 +9,14 @@
 
 ### 新增
 
-（无）
+- **文件日志落盘（引擎）**：日志除控制台外同时写入当前项目 `.shitengine/log/log_YYYYMMDD_HHMMSS.txt`（按启动时间归档），每条日志即时 flush——进程崩溃时最后一段日志不再丢失，方便排查闪退
+
+### 修复
+
+- **`forEachComponent` 迭代器失效（高）**：`onAttach`/`onStart` 等回调内 `removeComponent` 修改组件 map 会使实时遍历的迭代器失效（`System::init` 补扫等路径）；改为快照遍历 + 回调前归属重验
+- **`createGameObject` 挂在场景时序不一致（中）**：与已修复的 `addGameObject` 不同，`createGameObject` 先 `setScene` 后入容器，`onAttach` 触发时对象尚不在 `m_gameObjects`，运行态下组件挂载时 `m_scene` 为 null 不注册不索引；已统一为「先入容器再 setScene」
+- **`processPendingRemoveSystems` 悬垂引用（低）**：`destroy()` 回调内 `unregisterSystem` 追加条目使 vector 重分配后，循环持有的 `const auto&` 引用悬垂；改为按值拷贝
+- **`m_viewportRatio` 反射类型名错误**：libclang 解析退化 `int`，修正为 `SDL_FRect`
 
 ---
 
