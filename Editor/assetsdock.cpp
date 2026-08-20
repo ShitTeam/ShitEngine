@@ -1,14 +1,20 @@
 #include "assetsdock.h"
 
+#include <QAction>
 #include <QCoreApplication>
 #include <QDir>
+#include <QFile>
+#include <QFileDialog>
 #include <QFileIconProvider>
 #include <QFileInfo>
 #include <QFileSystemModel>
 #include <QHash>
 #include <QImage>
+#include <QInputDialog>
 #include <QItemSelectionModel>
 #include <QListView>
+#include <QMenu>
+#include <QMessageBox>
 #include <QPixmap>
 #include <QSettings>
 #include <QSortFilterProxyModel>
@@ -181,6 +187,14 @@ AssetsDock::AssetsDock(QWidget *parent)
     // 网格双击：目录 → 进入并联动树；.scene/.prefab/.anim → 请求打开
     connect(m_gridView, &QListView::doubleClicked, this, &AssetsDock::onGridDoubleClicked);
 
+    // P35：右键菜单（树 / 网格）——刷新 / 新建文件夹 / 重命名 / 删除 / 导入
+    m_treeView->setContextMenuPolicy(Qt::CustomContextMenu);
+    m_gridView->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_treeView, &QTreeView::customContextMenuRequested,
+            this, &AssetsDock::showTreeContextMenu);
+    connect(m_gridView, &QListView::customContextMenuRequested,
+            this, &AssetsDock::showGridContextMenu);
+
     // 默认根目录：上次记忆 → 无则应用目录
     QSettings settings(QStringLiteral("ShitTeam"), QStringLiteral("ShitEngineEditor"));
     const QString last = settings.value("projectDir").toString();
@@ -238,4 +252,141 @@ void AssetsDock::onGridDoubleClicked(const QModelIndex &index)
         emit prefabOpenRequested(path);
     else if (ext == QStringLiteral("anim"))
         emit animOpenRequested(path);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// P35: 资产文件操作（右键菜单）
+// ═══════════════════════════════════════════════════════════════
+
+QString AssetsDock::currentDir() const
+{
+    const QModelIndex srcRoot = m_assetFilter->mapToSource(m_gridView->rootIndex());
+    return srcRoot.isValid() ? m_model->filePath(srcRoot) : m_model->rootPath();
+}
+
+void AssetsDock::refreshAll()
+{
+    // QFileSystemModel 自动监视目录变更，这里强制刷新过滤（新建/删除后立即反映）
+    m_model->setRootPath(m_model->rootPath());
+    m_dirFilter->invalidate();
+    m_assetFilter->invalidate();
+}
+
+void AssetsDock::showTreeContextMenu(const QPoint &pos)
+{
+    // 树右键：以树当前选中目录（或网格当前目录）为基准
+    const QModelIndex idx = m_treeView->indexAt(pos);
+    QString base = m_projectDir;
+    if (idx.isValid()) {
+        const QModelIndex src = m_dirFilter->mapToSource(idx);
+        if (m_model->isDir(src)) base = m_model->filePath(src);
+    } else {
+        base = currentDir();
+    }
+
+    auto *menu = new QMenu(this);
+    menu->addAction(tr("刷新"), this, [this] { refreshAll(); });
+    menu->addAction(tr("新建文件夹…"), this, [this, base] {
+        bool ok = false;
+        const QString name = QInputDialog::getText(this, tr("新建文件夹"),
+            tr("文件夹名称："), QLineEdit::Normal, QString(), &ok);
+        if (!ok || name.trimmed().isEmpty()) return;
+        const QString dir = base + "/" + name.trimmed();
+        if (QDir().mkpath(dir)) {
+            refreshAll();
+            navigateTo(dir);
+        } else {
+            QMessageBox::warning(this, tr("新建文件夹"), tr("创建失败：\n%1").arg(dir));
+        }
+    });
+    menu->addAction(tr("导入文件…"), this, [this, base] { importFilesInto(base); });
+    menu->exec(m_treeView->viewport()->mapToGlobal(pos));
+    delete menu;
+}
+
+void AssetsDock::showGridContextMenu(const QPoint &pos)
+{
+    const QModelIndex idx = m_gridView->indexAt(pos);
+    const QModelIndex src = idx.isValid() ? m_assetFilter->mapToSource(idx) : QModelIndex();
+    const bool isDir = src.isValid() && m_model->isDir(src);
+    const bool haveItem = src.isValid();
+
+    auto *menu = new QMenu(this);
+    menu->addAction(tr("刷新"), this, [this] { refreshAll(); });
+    menu->addAction(tr("新建文件夹…"), this, [this] {
+        bool ok = false;
+        const QString name = QInputDialog::getText(this, tr("新建文件夹"),
+            tr("文件夹名称："), QLineEdit::Normal, QString(), &ok);
+        if (!ok || name.trimmed().isEmpty()) return;
+        const QString dir = currentDir() + "/" + name.trimmed();
+        if (QDir().mkpath(dir)) {
+            refreshAll();
+            navigateTo(dir);
+        } else {
+            QMessageBox::warning(this, tr("新建文件夹"), tr("创建失败：\n%1").arg(dir));
+        }
+    });
+    menu->addAction(tr("导入文件…"), this, [this] { importFilesInto(currentDir()); });
+
+    if (haveItem && !isDir) {
+        // 资产文件：重命名 / 删除（目录在树里操作；删除从网格也能做）
+        menu->addSeparator();
+        menu->addAction(tr("重命名…"), this, [this, src] { renameItem(src); });
+        menu->addAction(tr("删除"), this, [this, src] { deleteItem(src); });
+    }
+
+    menu->exec(m_gridView->viewport()->mapToGlobal(pos));
+    delete menu;
+}
+
+void AssetsDock::renameItem(const QModelIndex &srcIdx)
+{
+    const QString path = m_model->filePath(srcIdx);
+    bool ok = false;
+    const QString newName = QInputDialog::getText(this, tr("重命名"),
+        tr("新名称："), QLineEdit::Normal, QFileInfo(path).fileName(), &ok);
+    if (!ok || newName.trimmed().isEmpty() || newName.trimmed() == QFileInfo(path).fileName())
+        return;
+    // QFileSystemModel::setData 执行真实文件系统重命名
+    if (!m_model->setData(srcIdx, newName.trimmed()))
+        QMessageBox::warning(this, tr("重命名"),
+            tr("重命名失败：\n%1").arg(path));
+    refreshAll();
+}
+
+void AssetsDock::deleteItem(const QModelIndex &srcIdx)
+{
+    const QString path = m_model->filePath(srcIdx);
+    const bool isDir = m_model->isDir(srcIdx);
+    if (QMessageBox::question(this, tr("删除"),
+            isDir ? tr("删除文件夹及其全部内容？\n%1").arg(path)
+                  : tr("删除文件？\n%1").arg(path),
+            QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes)
+        return;
+    if (!m_model->remove(srcIdx))
+        QMessageBox::warning(this, tr("删除"),
+            tr("删除失败（文件可能被占用）：\n%1").arg(path));
+    refreshAll();
+}
+
+void AssetsDock::importFilesInto(const QString &destDir)
+{
+    const QStringList files = QFileDialog::getOpenFileNames(this, tr("导入资源"),
+        m_projectDir, tr("素材文件 (*.png *.jpg *.jpeg *.bmp *.wav *.ttf *.otf *.scene *.prefab *.anim)"));
+    if (files.isEmpty()) return;
+
+    int copied = 0;
+    for (const QString &f : files) {
+        const QString target = destDir + "/" + QFileInfo(f).fileName();
+        if (QFileInfo::exists(target)) {
+            QMessageBox::warning(this, tr("导入资源"),
+                tr("文件已存在，跳过：\n%1").arg(target));
+            continue;
+        }
+        if (QFile::copy(f, target))
+            ++copied;
+    }
+    refreshAll();
+    if (copied > 0)
+        navigateTo(destDir);   // 导入后定位到目标目录，新文件立即可见
 }
