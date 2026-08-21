@@ -1090,6 +1090,12 @@ void MainWindow::onViewportSpriteFrameDropped(const QString &texturePath, int fr
     Shit::Scene *scene = m_preview ? m_preview->getScene() : nullptr;
     if (!scene || texturePath.isEmpty()) return;
 
+    // .sprite 里存的是相对项目根的路径，需要解析为绝对路径
+    QString absTexPath = texturePath;
+    if (!QFileInfo(texturePath).isAbsolute()) {
+        absTexPath = (hasProject() ? m_project.rootDir() : QString()) + "/" + texturePath;
+    }
+
     // 落点逻辑像素 → 世界坐标（用场景内第一个相机）
     Shit::Vector2 world{ 0.0f, 0.0f };
     for (auto &go : scene->getGameObjects()) {
@@ -1101,15 +1107,15 @@ void MainWindow::onViewportSpriteFrameDropped(const QString &texturePath, int fr
     }
 
     undoBegin();
-    const QString base = QFileInfo(texturePath).baseName();
+    const QString base = QFileInfo(absTexPath).baseName();
     auto *go = scene->createGameObject("Sprite_" + base.toStdString() + "_" + std::to_string(frameIndex));
     if (auto *t = go->addComponent<Shit::TransformComponent>())
         t->setPosition(world);
     if (auto *sr = go->addComponent<Shit::SpriteRenderer>()) {
-        sr->setTexturePath(texturePath.toStdString());
+        sr->setTexturePath(absTexPath.toStdString());
         // 计算帧源矩形：基于网格参数（margin + spacing）定位帧在纹理中的位置
         // 加载纹理图片获取尺寸来计算 tilesPerRow
-        QImage tex(texturePath);
+        QImage tex(absTexPath);
         const int texW = tex.isNull() ? 0 : tex.width();
         const int tileW = static_cast<int>(frameWidth);
         const int tileH = static_cast<int>(frameHeight);
