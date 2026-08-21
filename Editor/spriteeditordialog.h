@@ -30,6 +30,8 @@ private slots:
     void onGridChanged();
 
 private:
+    void autoCalcFrameSize();  ///< 按图片尺寸/行列/边距/间距自动推算帧宽高
+
     QLabel *m_preview;
     QSpinBox *m_rowsSpin;
     QSpinBox *m_colsSpin;
@@ -39,6 +41,7 @@ private:
     QDoubleSpinBox *m_spacingSpin;
     QImage m_image;
     QString m_imagePath;
+    bool m_autoCalc = true;  ///< 自动推算模式（改行/列/边距/间距时自动更新帧宽高）
 };
 
 #endif // SPRITEEDITORDIALOG_H

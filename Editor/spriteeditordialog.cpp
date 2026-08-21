@@ -85,12 +85,12 @@ SpriteEditorDialog::SpriteEditorDialog(const QString &imagePath, QWidget *parent
     mainLayout->addWidget(m_preview, 2);
     mainLayout->addLayout(rightLayout);
 
-    connect(m_rowsSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &SpriteEditorDialog::onGridChanged);
-    connect(m_colsSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &SpriteEditorDialog::onGridChanged);
+    connect(m_rowsSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, [this] { autoCalcFrameSize(); onGridChanged(); });
+    connect(m_colsSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, [this] { autoCalcFrameSize(); onGridChanged(); });
     connect(m_fwSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &SpriteEditorDialog::onGridChanged);
     connect(m_fhSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &SpriteEditorDialog::onGridChanged);
-    connect(m_marginSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &SpriteEditorDialog::onGridChanged);
-    connect(m_spacingSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &SpriteEditorDialog::onGridChanged);
+    connect(m_marginSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this] { autoCalcFrameSize(); onGridChanged(); });
+    connect(m_spacingSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this] { autoCalcFrameSize(); onGridChanged(); });
 
     connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
@@ -137,4 +137,23 @@ void SpriteEditorDialog::onGridChanged()
         painter.drawLine(static_cast<int>(x), 0, static_cast<int>(x), pix.height());
     }
     m_preview->setPixmap(pix);
+}
+
+void SpriteEditorDialog::autoCalcFrameSize()
+{
+    if (m_image.isNull() || !m_autoCalc) return;
+    const float w = static_cast<float>(m_image.width());
+    const float h = static_cast<float>(m_image.height());
+    const float margin = static_cast<float>(m_marginSpin->value());
+    const float spacing = static_cast<float>(m_spacingSpin->value());
+    const int cols = m_colsSpin->value();
+    const int rows = m_rowsSpin->value();
+    if (cols <= 0 || rows <= 0) return;
+
+    const float fw = (w - margin * 2 + spacing) / cols;
+    const float fh = (h - margin * 2 + spacing) / rows;
+    if (fw > 0 && fh > 0) {
+        m_fwSpin->setValue(qMax(1.0, fw));
+        m_fhSpin->setValue(qMax(1.0, fh));
+    }
 }

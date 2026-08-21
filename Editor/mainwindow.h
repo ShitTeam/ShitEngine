@@ -77,6 +77,10 @@ private slots:
     void pickSceneAt(float x, float y);  ///< 场景视图点击拾取
     void onViewportAssetDropped(const QString &path, float logicalX, float logicalY); ///< 资源图拖入视口 → 建精灵
     void onPrefabDropped(const QString &path, float logicalX, float logicalY); ///< .prefab 拖入视口 → 实例化（P25c）
+    /// P38：精灵帧拖入视口 → 创建带源矩形的精灵 GameObject
+    void onViewportSpriteFrameDropped(const QString &texturePath, int frameIndex,
+                                      float frameWidth, float frameHeight,
+                                      float margin, float spacing);
     void onPrefabOpenRequested(const QString &path);  ///< 资产面板双击 .prefab → 实例化（P25c）
     void onAnimOpenRequested(const QString &path);    ///< 资产面板双击 .anim → 应用剪辑到选中对象 Animator 状态（P28）
     void reloadAnimatorAsset(const QString &path);    ///< 方案 A：Animation 窗口保存 .anim → 同步引用该资产的 Animator 状态

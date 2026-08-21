@@ -238,6 +238,9 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_sceneViewport, &Viewport::assetDropped, this, &MainWindow::onViewportAssetDropped);
     // P25c：.prefab 预置资产（拖入视口实例化 / 双击实例化 / 场景树存为预置）
     connect(m_sceneViewport, &Viewport::prefabDropped, this, &MainWindow::onPrefabDropped);
+    // P38：精灵帧拖入场景视口 → 创建带源矩形的精灵 GameObject
+    connect(m_sceneViewport, &Viewport::spriteFrameDropped, this,
+            &MainWindow::onViewportSpriteFrameDropped);
     connect(m_assets, &AssetsDock::prefabOpenRequested, this, &MainWindow::onPrefabOpenRequested);
     connect(m_sceneTree, &SceneTree::prefabSaveRequested, this, &MainWindow::onSaveObjectAsPrefab);
     // P28：.anim 剪辑资产 → 应用到选中对象的 Animator 状态
@@ -1077,6 +1080,55 @@ void MainWindow::onViewportAssetDropped(const QString &path, float logicalX, flo
     m_sceneTree->selectObject(go);  // 选中新精灵 → 检查器 + Gizmo
     m_log->appendMessage(QString("已从资源创建精灵: %1 @(%2, %3)")
         .arg(base).arg(world.x, 0, 'f', 1).arg(world.y, 0, 'f', 1));
+}
+
+// P38：精灵帧拖入场景视口 → 创建带源矩形的精灵 GameObject
+void MainWindow::onViewportSpriteFrameDropped(const QString &texturePath, int frameIndex,
+                                              float frameWidth, float frameHeight,
+                                              float margin, float spacing)
+{
+    Shit::Scene *scene = m_preview ? m_preview->getScene() : nullptr;
+    if (!scene || texturePath.isEmpty()) return;
+
+    // 落点逻辑像素 → 世界坐标（用场景内第一个相机）
+    Shit::Vector2 world{ 0.0f, 0.0f };
+    for (auto &go : scene->getGameObjects()) {
+        if (auto *cam = go->getComponent<Shit::CameraComponent>()) {
+            world = cam->screenToWorld({ m_sceneViewport->width() / 2.0f,
+                                         m_sceneViewport->height() / 2.0f });
+            break;
+        }
+    }
+
+    undoBegin();
+    const QString base = QFileInfo(texturePath).baseName();
+    auto *go = scene->createGameObject("Sprite_" + base.toStdString() + "_" + std::to_string(frameIndex));
+    if (auto *t = go->addComponent<Shit::TransformComponent>())
+        t->setPosition(world);
+    if (auto *sr = go->addComponent<Shit::SpriteRenderer>()) {
+        sr->setTexturePath(texturePath.toStdString());
+        // 计算帧源矩形：基于网格参数（margin + spacing）定位帧在纹理中的位置
+        // 加载纹理图片获取尺寸来计算 tilesPerRow
+        QImage tex(texturePath);
+        const int texW = tex.isNull() ? 0 : tex.width();
+        const int tileW = static_cast<int>(frameWidth);
+        const int tileH = static_cast<int>(frameHeight);
+        const int mg = static_cast<int>(margin);
+        const int sp = static_cast<int>(spacing);
+        const int tilesPerRow = (tileW > 0 && texW > 0) ? qMax(1, (texW - mg + sp) / (tileW + sp)) : 1;
+        const int col = frameIndex % tilesPerRow;
+        const int row = frameIndex / tilesPerRow;
+        const float sx = mg + col * (tileW + sp);
+        const float sy = mg + row * (tileH + sp);
+        sr->setSourceRect(SDL_FRect{ sx, sy, frameWidth, frameHeight });
+    }
+    undoCommit(tr("拖入精灵帧 %1 [%2]").arg(base).arg(frameIndex));
+    setDirty(true);
+
+    m_sceneTree->setScene(scene);
+    m_sceneTree->selectObject(go);
+    m_log->appendMessage(QString("已从精灵帧创建精灵: %1 [%2] @(%3, %4)")
+        .arg(base).arg(frameIndex).arg(world.x, 0, 'f', 1).arg(world.y, 0, 'f', 1));
 }
 
 void MainWindow::onSceneFrameReady(const QImage &frame)

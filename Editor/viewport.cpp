@@ -1,5 +1,7 @@
 #include "viewport.h"
+#include "spritesheetdock.h"
 
+#include <nlohmann/json.hpp>
 #include <ShitEngine.h>
 #include <ShitEngine/Core/EngineContext.h>
 
@@ -883,6 +885,10 @@ void Viewport::wheelEvent(QWheelEvent *event)
 
 void Viewport::dragEnterEvent(QDragEnterEvent *event)
 {
+    if (event->mimeData()->hasFormat(kSpriteFrameMime)) {
+        event->acceptProposedAction();
+        return;
+    }
     QString path;
     if (firstImageFile(event->mimeData(), path) || firstPrefabFile(event->mimeData(), path)) {
         event->acceptProposedAction();
@@ -893,6 +899,10 @@ void Viewport::dragEnterEvent(QDragEnterEvent *event)
 
 void Viewport::dragMoveEvent(QDragMoveEvent *event)
 {
+    if (event->mimeData()->hasFormat(kSpriteFrameMime)) {
+        event->acceptProposedAction();
+        return;
+    }
     QString path;
     if (firstImageFile(event->mimeData(), path) || firstPrefabFile(event->mimeData(), path)) {
         event->acceptProposedAction();
@@ -903,6 +913,28 @@ void Viewport::dragMoveEvent(QDragMoveEvent *event)
 
 void Viewport::dropEvent(QDropEvent *event)
 {
+    // P38：精灵帧拖入 → 发送帧参数信号
+    if (event->mimeData()->hasFormat(kSpriteFrameMime)) {
+        const QByteArray data = event->mimeData()->data(kSpriteFrameMime);
+        nlohmann::json payload;
+        try { payload = nlohmann::json::parse(data.constData()); } catch (...) { event->ignore(); return; }
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+        const QPoint pos = event->position().toPoint();
+#else
+        const QPoint pos = event->pos();
+#endif
+        Q_UNUSED(pos);
+        emit spriteFrameDropped(
+            QString::fromStdString(payload.value("texture", "")),
+            payload.value("frameIndex", 0),
+            payload.value("frameWidth", 0.0f),
+            payload.value("frameHeight", 0.0f),
+            payload.value("margin", 0.0f),
+            payload.value("spacing", 0.0f));
+        event->acceptProposedAction();
+        return;
+    }
+
     QString path;
     const bool isPrefab = firstPrefabFile(event->mimeData(), path);
     if (!isPrefab && !firstImageFile(event->mimeData(), path)) {

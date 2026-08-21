@@ -68,6 +68,9 @@ signals:
     void assetDropped(const QString &path, float logicalX, float logicalY);
     /// .prefab 预置资产被拖入视口（逻辑像素坐标；供实例化用，P25c）
     void prefabDropped(const QString &path, float logicalX, float logicalY);
+    /// P38：精灵帧被拖入视口（纹理路径 + 帧索引 + 帧宽高 + 边距 + 间距；供创建带源矩形的精灵用）
+    void spriteFrameDropped(const QString &texturePath, int frameIndex,
+                            float frameWidth, float frameHeight, float margin, float spacing);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
