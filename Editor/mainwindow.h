@@ -31,6 +31,7 @@ class AssetsDock;
 class TilesetDock;
 class AnimatorDock;
 class AnimationDock;
+class SpriteSheetDock;
 
 namespace Shit { class Scene; class GameObject; }   ///< 播放中场景同步成员用（仅指针，不要求完整类型）
 
@@ -175,6 +176,7 @@ private:
     QMenu *m_recentMenu = nullptr;
     AssetsDock *m_assets = nullptr;
     TilesetDock *m_tileset = nullptr;   ///< 瓦片选择面板（P27 增强）：选中 Tilemap 时显示瓦片网格
+    SpriteSheetDock *m_spriteSheetDock = nullptr;  ///< P38：精灵表视图 Dock
     AnimatorDock *m_animatorDock = nullptr;  ///< 状态机窗口（P28）：Unity 风格可视化状态机编辑
     AnimationDock *m_animationDock = nullptr; ///< 帧动画窗口（P29）：Unity 风格 .anim 资产编辑器
     std::vector<QDockWidget *> m_docks;   ///< 全部 Dock 面板（「窗口」菜单勾选显隐，关闭后可重新打开）

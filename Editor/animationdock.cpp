@@ -4,6 +4,8 @@
 #include <QCheckBox>
 #include <QCoreApplication>
 #include <QDoubleSpinBox>
+#include <QDragEnterEvent>
+#include <QDropEvent>
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
@@ -14,6 +16,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
+#include <QMimeData>
 #include <QPixmap>
 #include <QPushButton>
 #include <QScrollArea>
@@ -166,6 +169,9 @@ AnimationDock::AnimationDock(QWidget *parent)
     timer->setInterval(16);
     connect(timer, &QTimer::timeout, this, &AnimationDock::advancePlayback);
     timer->start();
+
+    // P38：接受精灵拖入（从 SpriteSheetDock 或资源面板拖入）
+    setAcceptDrops(true);
 
     updateTitle();
 }
@@ -527,4 +533,70 @@ void AnimationDock::refreshTimelinePixmaps()
                          .scaled(56, 56, Qt::KeepAspectRatio, Qt::FastTransformation);
         m_timeline->setFramePixmap(frameId, QPixmap::fromImage(img));
     }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// P38：精灵拖入 Animation 窗口
+// ═══════════════════════════════════════════════════════════════
+
+static constexpr const char *kSpriteFrameMime = "application/x-sprite-frame";
+
+void AnimationDock::dragEnterEvent(QDragEnterEvent *event)
+{
+    if (event->mimeData()->hasFormat(kSpriteFrameMime))
+        event->acceptProposedAction();
+}
+
+void AnimationDock::dropEvent(QDropEvent *event)
+{
+    const QByteArray data = event->mimeData()->data(kSpriteFrameMime);
+    if (data.isEmpty()) return;
+
+    nlohmann::json payload;
+    try { payload = nlohmann::json::parse(data.constData()); } catch (...) { return; }
+
+    const QString texturePath = QString::fromStdString(payload.value("texture", ""));
+    const int rows = payload.value("rows", 1);
+    const int cols = payload.value("cols", 1);
+    const float fw = payload.value("frameWidth", 0.0f);
+    const float fh = payload.value("frameHeight", 0.0f);
+    const float margin = payload.value("margin", 0.0f);
+    const float spacing = payload.value("spacing", 0.0f);
+    const int frameIndex = payload.value("frameIndex", 0);
+
+    addSpriteFrames(texturePath, rows, cols, fw, fh, margin, spacing, { frameIndex });
+    event->acceptProposedAction();
+}
+
+void AnimationDock::addSpriteFrames(const QString &texturePath, int rows, int cols,
+                                    float frameWidth, float frameHeight,
+                                    float margin, float spacing,
+                                    const std::vector<int> &frameIds)
+{
+    if (frameIds.empty()) return;
+
+    // 无剪辑打开时自动新建
+    if (!m_clipValid) {
+        m_clip = Shit::AnimationClip();
+        m_clip.texturePath = texturePath.toStdString();
+        m_clip.rows = rows;
+        m_clip.cols = cols;
+        m_clip.frameWidth = frameWidth;
+        m_clip.frameHeight = frameHeight;
+        m_clip.margin = margin;
+        m_clip.spacing = spacing;
+        m_clip.duration = 0.1f;
+        m_clip.loop = true;
+        m_clipValid = true;
+        m_filePath.clear();
+        loadClip(m_clip);
+        updateTitle();
+        rebuildFrameGrid();
+    }
+
+    // 追加帧到序列
+    for (int fid : frameIds)
+        m_clip.frames.push_back(fid);
+
+    notifyClipChanged();
 }

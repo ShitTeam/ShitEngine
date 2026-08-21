@@ -48,6 +48,10 @@ set(PROJECT_SOURCES
         dopesheetwidget.h
         animationdock.cpp
         animationdock.h
+        spriteeditordialog.cpp
+        spriteeditordialog.h
+        spritesheetdock.cpp
+        spritesheetdock.h
         project.cpp
         project.h
         projectwizard.cpp

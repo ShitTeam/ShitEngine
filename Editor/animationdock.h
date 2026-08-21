@@ -46,6 +46,12 @@ public:
     /// 标记已保存（mainwindow 保存后调用）
     void markSaved() { m_dirty = false; updateTitle(); }
 
+    /// P38：从精灵表拖入帧——追加到当前剪辑的帧序列（若无剪辑则自动新建）
+    /// 参数由外部解析自 application/x-sprite-frame MIME 数据
+    void addSpriteFrames(const QString &texturePath, int rows, int cols,
+                         float frameWidth, float frameHeight,
+                         float margin, float spacing, const std::vector<int> &frameIds);
+
 signals:
     /// 剪辑数据被修改（mainwindow 接 dirty / 标题栏）
     void changed();
@@ -81,6 +87,10 @@ private:
     void advancePlayback();
     /// 当前剪辑总时长（秒）
     float totalDuration() const;
+
+    // P38：接受精灵拖入
+    void dragEnterEvent(QDragEnterEvent *event) override;
+    void dropEvent(QDropEvent *event) override;
 
     Shit::AnimationClip m_clip;
     bool m_clipValid = false;

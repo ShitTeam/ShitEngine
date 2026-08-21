@@ -1,5 +1,7 @@
 #include "assetsdock.h"
 
+#include <nlohmann/json.hpp>
+
 #include <QAction>
 #include <QCoreApplication>
 #include <QDir>
@@ -22,12 +24,16 @@
 #include <QTreeView>
 #include <QVBoxLayout>
 
+#include "spriteeditordialog.h"
+
+#include <fstream>
+
 namespace {
 
 /// 引擎可用素材的文件后缀白名单
 const QStringList &allowedSuffixes()
 {
-    static const QStringList kAllowed = { "png", "jpg", "jpeg", "bmp", "wav", "ttf", "otf", "scene", "prefab", "anim" };
+    static const QStringList kAllowed = { "png", "jpg", "jpeg", "bmp", "wav", "ttf", "otf", "scene", "prefab", "anim", "sprite" };
     return kAllowed;
 }
 
@@ -40,6 +46,12 @@ bool isImageAsset(const QString &path)
 {
     static const QStringList kImages = { "png", "jpg", "jpeg", "bmp" };
     return kImages.contains(QFileInfo(path).suffix().toLower());
+}
+
+/// 是否是精灵表元数据文件
+bool isSpriteFile(const QString &path)
+{
+    return QFileInfo(path).suffix().toLower() == "sprite";
 }
 
 /// 生成目录（Unity 里不可见的基础设施目录）——不在资源窗口中显示
@@ -252,6 +264,8 @@ void AssetsDock::onGridDoubleClicked(const QModelIndex &index)
         emit prefabOpenRequested(path);
     else if (ext == QStringLiteral("anim"))
         emit animOpenRequested(path);
+    else if (ext == QStringLiteral("sprite"))
+        emit spriteFileRequested(path);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -333,6 +347,36 @@ void AssetsDock::showGridContextMenu(const QPoint &pos)
         menu->addSeparator();
         menu->addAction(tr("重命名…"), this, [this, src] { renameItem(src); });
         menu->addAction(tr("删除"), this, [this, src] { deleteItem(src); });
+
+        // P38：图片文件 → "定义为精灵表…"（生成 .sprite 元数据）
+        const QString path = m_model->filePath(src);
+        if (isImageAsset(path)) {
+            menu->addSeparator();
+            menu->addAction(tr("定义为精灵表…"), this, [this, path] {
+                SpriteEditorDialog dlg(path, this);
+                if (dlg.exec() != QDialog::Accepted) return;
+                const SpriteSheetParams p = dlg.params();
+                // 生成 .sprite JSON（纹理路径相对于项目根）
+                const QString texRel = m_projectDir.isEmpty()
+                    ? path : QDir(m_projectDir).relativeFilePath(path);
+                nlohmann::json j;
+                j["texture"] = texRel.toStdString();
+                j["rows"] = p.rows;
+                j["cols"] = p.cols;
+                j["frameWidth"] = p.frameWidth;
+                j["frameHeight"] = p.frameHeight;
+                j["margin"] = p.margin;
+                j["spacing"] = p.spacing;
+                const QString spritePath = QFileInfo(path).absolutePath() + "/"
+                    + QFileInfo(path).baseName() + ".sprite";
+                std::ofstream out(spritePath.toStdString());
+                out << j.dump(4) << std::endl;
+                if (!out.good()) {
+                    QMessageBox::warning(this, tr("定义精灵表"), tr("保存失败：\n%1").arg(spritePath));
+                }
+                refreshAll();
+            });
+        }
     }
 
     menu->exec(m_gridView->viewport()->mapToGlobal(pos));

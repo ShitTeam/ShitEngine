@@ -30,6 +30,8 @@ signals:
     void prefabOpenRequested(const QString &path);
     /// 双击 .anim 文件请求编辑动画剪辑（P28：应用于选中对象的 Animator 状态）
     void animOpenRequested(const QString &path);
+    /// P38：双击 .sprite 文件请求在精灵表视图中打开
+    void spriteFileRequested(const QString &path);
 
 public slots:
     /// 绑定根目录（P14：打开项目时设为整个项目根；仍可经由树浏览其它目录）

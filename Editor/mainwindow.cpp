@@ -48,6 +48,7 @@
 #include "tilesetdock.h"
 #include "animatordock.h"
 #include "animationdock.h"
+#include "spritesheetdock.h"
 #include "undostack.h"
 #include "project.h"
 #include "projectwizard.h"
@@ -242,6 +243,18 @@ MainWindow::MainWindow(QWidget *parent)
     // P28：.anim 剪辑资产 → 应用到选中对象的 Animator 状态
     // P29：改为在 Animation 窗口打开（制作/编辑 .anim 资产）；如需应用到 Animator 状态仍可用 onAnimOpenRequested
     connect(m_assets, &AssetsDock::animOpenRequested, this, &MainWindow::onAnimationOpenRequested);
+    // P38：双击 .sprite → 切到精灵表 Dock 并打开
+    connect(m_assets, &AssetsDock::spriteFileRequested, this, [this](const QString &path) {
+        // 找到精灵表 Dock 并显示
+        for (auto *dock : m_docks) {
+            if (dock->objectName() == "spriteSheetDock") {
+                dock->show();
+                dock->raise();
+                break;
+            }
+        }
+        m_spriteSheetDock->openSpriteFile(path);
+    });
 
     // 单一引擎预览：共享场景，双视口同源（编辑一处，双视图同步）
     m_preview = new EnginePreview(this);
@@ -428,6 +441,15 @@ void MainWindow::createDocks()
     tabifyDockWidget(assetsDock, logDock);
     tabifyDockWidget(assetsDock, tilesetDock);
     assetsDock->raise();
+
+    // P38：精灵表视图 Dock（默认隐藏；资源面板双击 .sprite 时显示）
+    auto *spriteSheetDockW = new QDockWidget(tr("精灵表"), this);
+    spriteSheetDockW->setObjectName("spriteSheetDock");
+    m_spriteSheetDock = new SpriteSheetDock(spriteSheetDockW);
+    spriteSheetDockW->setWidget(m_spriteSheetDock);
+    addDockWidget(Qt::RightDockWidgetArea, spriteSheetDockW);
+    spriteSheetDockW->hide();   // 默认隐藏，按需从窗口菜单或双击 .sprite 显示
+    m_docks.push_back(spriteSheetDockW);
 
     setDockNestingEnabled(true);
     resize(1280, 800);
