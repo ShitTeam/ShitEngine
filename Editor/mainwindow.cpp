@@ -1556,6 +1556,7 @@ void MainWindow::enterProject(const Project &project)
     //    最近场景切到项目级列表；Animator 相对路径基准设为项目根
     m_assets->applyProjectDir(project.rootDir());
     m_animatorDock->setProjectRoot(project.rootDir());
+    m_spriteSheetDock->setProjectRoot(project.rootDir());
     updateRecentMenu();
 
     // 5) 插件 + 场景：卸载旧插件（项目脚本库）→ 加载本项目插件 → 载入项目场景
@@ -1607,6 +1608,7 @@ void MainWindow::closeProjectInternal()
 
     m_assets->applyProjectDir(m_settings.value("projectDir").toString());
     m_animatorDock->setProjectRoot(QString());   // 无项目：资产路径存绝对
+    m_spriteSheetDock->setProjectRoot(QString());
     updateRecentMenu();          // 最近场景回退到全局列表
     updateProjectMenus();
     updateWindowTitle();

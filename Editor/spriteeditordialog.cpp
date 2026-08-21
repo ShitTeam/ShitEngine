@@ -78,9 +78,6 @@ SpriteEditorDialog::SpriteEditorDialog(const QString &imagePath, QWidget *parent
     rightLayout->addWidget(paramsGroup);
     rightLayout->addStretch(1);
 
-    auto *totalLabel = new QLabel;
-    rightLayout->addWidget(totalLabel);
-
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     rightLayout->addWidget(buttons);
 

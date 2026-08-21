@@ -18,8 +18,6 @@
 
 #include <fstream>
 
-static constexpr const char *kSpriteFrameMime = "application/x-sprite-frame";
-
 SpriteSheetDock::SpriteSheetDock(QWidget *parent)
     : QWidget(parent)
     , m_scroll(new QScrollArea(this))
@@ -202,5 +200,3 @@ void SpriteSheetDock::mouseMoveEvent(QMouseEvent *event)
         m_dragging = false;
     }
 }
-
-#include "spritesheetdock.moc"

@@ -9,7 +9,11 @@
 
 #include "spriteeditordialog.h"
 
+/// P38：精灵帧拖拽 MIME 类型（SpriteSheetDock → AnimationDock）
+static constexpr const char *kSpriteFrameMime = "application/x-sprite-frame";
+
 class QScrollArea;
+class QLabel;
 class QMouseEvent;
 
 /// P38：精灵表视图 Dock — 显示 .sprite 文件的切帧缩略图网格，点选+拖拽到 Animation 窗口

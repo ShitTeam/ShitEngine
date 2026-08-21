@@ -1,5 +1,6 @@
 #include "animationdock.h"
 #include "dopesheetwidget.h"
+#include "spritesheetdock.h"
 
 #include <QCheckBox>
 #include <QCoreApplication>
@@ -477,8 +478,12 @@ void AnimationDock::rebuildFrameGrid()
 
     const int tileW = static_cast<int>(m_clip.frameWidth);
     const int tileH = static_cast<int>(m_clip.frameHeight);
-    const int tilesPerRow = sheet.width() / tileW;
-    const int tileCount = (sheet.width() / tileW) * (sheet.height() / tileH);
+    const int margin = static_cast<int>(m_clip.margin);
+    const int spacing = static_cast<int>(m_clip.spacing);
+    // P38 修复：帧切分需考虑 margin 和 spacing
+    const int tilesPerRow = qMax(1, (sheet.width() - margin + spacing) / (tileW + spacing));
+    const int tilesPerCol = qMax(1, (sheet.height() - margin + spacing) / (tileH + spacing));
+    const int tileCount = tilesPerRow * tilesPerCol;
     if (tilesPerRow <= 0 || tileCount <= 0) return;
 
     auto *grid = new QGridLayout(m_gridHost);
@@ -487,8 +492,10 @@ void AnimationDock::rebuildFrameGrid()
     const int maxCols = 3;
     const int pw = 60, ph = 60;
     for (int id = 0; id < tileCount; ++id) {
-        const int sx = (id % tilesPerRow) * tileW;
-        const int sy = (id / tilesPerRow) * tileH;
+        const int col = id % tilesPerRow;
+        const int row = id / tilesPerRow;
+        const int sx = margin + col * (tileW + spacing);
+        const int sy = margin + row * (tileH + spacing);
         QImage img = sheet.copy(sx, sy, tileW, tileH)
                          .scaled(pw, ph, Qt::KeepAspectRatio, Qt::FastTransformation);
         auto *btn = new QToolButton(m_gridHost);
@@ -521,13 +528,17 @@ void AnimationDock::refreshTimelinePixmaps()
     if (!m_sheetValid || m_sheetImage.isNull()) { m_timeline->clearPixmaps(); return; }
     const int tileW = static_cast<int>(m_clip.frameWidth);
     const int tileH = static_cast<int>(m_clip.frameHeight);
+    const int margin = static_cast<int>(m_clip.margin);
+    const int spacing = static_cast<int>(m_clip.spacing);
     if (tileW <= 0 || tileH <= 0) return;
-    const int tilesPerRow = m_sheetImage.width() / tileW;
+    const int tilesPerRow = qMax(1, (m_sheetImage.width() - margin + spacing) / (tileW + spacing));
     if (tilesPerRow <= 0) return;
     for (int frameId : m_clip.frames) {
         if (frameId < 0) continue;
-        const int sx = (frameId % tilesPerRow) * tileW;
-        const int sy = (frameId / tilesPerRow) * tileH;
+        const int col = frameId % tilesPerRow;
+        const int row = frameId / tilesPerRow;
+        const int sx = margin + col * (tileW + spacing);
+        const int sy = margin + row * (tileH + spacing);
         if (sx + tileW > m_sheetImage.width() || sy + tileH > m_sheetImage.height()) continue;
         QImage img = m_sheetImage.copy(sx, sy, tileW, tileH)
                          .scaled(56, 56, Qt::KeepAspectRatio, Qt::FastTransformation);
@@ -538,8 +549,6 @@ void AnimationDock::refreshTimelinePixmaps()
 // ═══════════════════════════════════════════════════════════════
 // P38：精灵拖入 Animation 窗口
 // ═══════════════════════════════════════════════════════════════
-
-static constexpr const char *kSpriteFrameMime = "application/x-sprite-frame";
 
 void AnimationDock::dragEnterEvent(QDragEnterEvent *event)
 {
