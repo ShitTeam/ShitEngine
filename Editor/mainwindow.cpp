@@ -268,7 +268,11 @@ MainWindow::MainWindow(QWidget *parent)
 
     // P3：场景树选中 → 属性检查器 + 场景视图 Gizmo + 瓦片面板 + Animator 状态机窗口
     connect(m_sceneTree, &SceneTree::objectSelected, this, [this](Shit::GameObject *obj) {
-        syncInspectorToSelection();
+        // 直接用 currentChanged 传入的 obj（确定性最高）。
+        // 此前调用 syncInspectorToSelection() → selectedObjects()，
+        // 但 Qt 的 currentChanged 在 selectionChanged 之前触发，
+        // 此时 selectedObjects() 可能仍返回旧选择 → 显示错误对象的属性。
+        m_inspector->setGameObject(obj);
         m_sceneViewport->setSelectedObject(obj);
         m_tileset->setGameObject(obj);
         m_animatorDock->setGameObject(obj);
