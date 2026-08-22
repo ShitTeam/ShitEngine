@@ -59,7 +59,7 @@ std::string Generator::generateTypeFile(const ReflectedType& type, const std::st
 
     out << "#pragma once\n\n";
     // 用尖括号 include 源文件路径（已由 main.cpp 修正为相对于 includeRoot 的路径）。
-    // 约束：编译此 .gen.h 时，includeRoot 必须在 -I 路径中（Engine/include 或 Examples/src），
+    // 约束：编译此 .gen.h 时，includeRoot 必须在 -I 路径中（如 Engine/include 或插件项目源码根），
     // 否则 #include <相对路径> 找不到源文件。CMake 的 target_include_directories 已保证。
     out << "#include <" << type.sourceFile << ">\n";
     out << "#include <ShitEngine/Reflection/TypeRegistry.h>\n\n";

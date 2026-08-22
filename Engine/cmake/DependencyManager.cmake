@@ -80,7 +80,7 @@ macro(find_or_fetch_dependency DEP_NAME PACKAGE_NAME GIT_REPO GIT_TAG LOCAL_PATH
             set(SDL_INSTALL_TESTS OFF CACHE BOOL "" FORCE)
         endif()
         
-        # 其他库的通用选项（不用 CACHE FORCE，避免覆盖主项目的 BUILD_EXAMPLES）
+        # 其他库的通用选项（不用 CACHE FORCE，普通变量即可传给 FetchContent 子构建）
         set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
         set(BUILD_EXAMPLES OFF)
         set(BUILD_DOCS OFF CACHE BOOL "" FORCE)

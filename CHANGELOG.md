@@ -7,6 +7,10 @@
 
 ## [Unreleased]
 
+### 移除
+
+- **清理 Examples 残留引用**：`Examples/` 示例工程已随 ffa1a5a 删除，本次清掉全部残留——CMakePresets.json 与 CI 工作流中失效的 `BUILD_EXAMPLES` 变量（4+4 处）、`.gitignore` 的 `Examples/bin|lib/`、Runtime 默认启动场景改回现存 `Scenes/Preview.scene`（原指向已随示例删除的 PhysicsTest.scene）、Runtime/CMakeLists.txt 注释与 ReflectionScanner 文档注释中的 ExamplePlugin/Examples 提及、AGENTS.md/CLAUDE.md 架构图与插件架构节的示例路径、`.devin/wiki.json` 页面元数据改写为 SDK 集成；历史版本条目与 ROADMAP 按「记录当时状态」惯例保持原样
+
 ## [1.4.2] - 2026-08-22
 
 ### 新增

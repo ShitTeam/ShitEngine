@@ -16,7 +16,7 @@
     },
     {
       "title": "Getting Started & Project Structure",
-      "purpose": "How to build ShitEngine from source, configure CMake options (BUILD_TOOLS, BUILD_EDITOR, BUILD_RUNTIME, BUILD_EXAMPLES), set up a new project with the Editor wizard, and understand the directory layout (Engine/, Editor/, Runtime/, Tools/, Examples/).",
+      "purpose": "How to build ShitEngine from source, configure CMake options (BUILD_TOOLS, BUILD_EDITOR, BUILD_RUNTIME), set up a new project with the Editor wizard, and understand the directory layout (Engine/, Editor/, Runtime/, Tools/).",
       "parent": "ShitEngine Overview",
       "page_notes": [
         {
@@ -290,8 +290,8 @@
       ]
     },
     {
-      "title": "Examples & SDK Integration",
-      "purpose": "Overview of the Examples project: how to use the ShitEngine SDK from an external CMake project, the plugin export pattern, example scenes (PhysicsTest, UITest, AnimationTest, CoinCollect, TilemapTest, JointTest), and example behaviors (Player, CoinDemo, Behaviors).",
+      "title": "SDK Integration",
+      "purpose": "How to consume the ShitEngine SDK from an external CMake project: find_package integration, building a script-plugin DLL against the SDK, and the plugin export pattern (identity export + RegisterPluginTypes reflection registration).",
       "page_notes": [
         {
           "content": ""

@@ -197,11 +197,8 @@ if(WIN32)
     install(CODE "
         file(GLOB _SDK_DLLS \"${CMAKE_BINARY_DIR}/bin/*.dll\")
         foreach(_f IN LISTS _SDK_DLLS)
-            get_filename_component(_n \"\${_f}\" NAME)
-            if(NOT _n MATCHES \"ExamplePlugin\")
-                file(INSTALL DESTINATION \"\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}\"
-                     TYPE FILE FILES \"\${_f}\")
-            endif()
+            file(INSTALL DESTINATION \"\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}\"
+                 TYPE FILE FILES \"\${_f}\")
         endforeach()
     ")
 elseif(APPLE)

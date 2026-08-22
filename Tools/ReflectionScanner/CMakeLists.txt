@@ -4,7 +4,7 @@
 #
 # 注意：system include / resource dir 检测与 setup_reflection_scan() 函数定义
 # 已移至 ReflectionScanSetup.cmake，由顶层 CMakeLists.txt include，
-# 以便 Engine/Examples 在第三方依赖配置后调用并传入 glm/SDL3 等 include 路径。
+# 以便 Engine 等子目录在第三方依赖配置后调用并传入 glm/SDL3 等 include 路径。
 
 cmake_minimum_required(VERSION 3.20)
 project(ReflectionScanner VERSION 1.3.0 LANGUAGES C CXX)

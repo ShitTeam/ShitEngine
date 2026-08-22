@@ -33,8 +33,6 @@ external/
 Thumbs.db
 
 # Project specific
-Examples/bin/
-Examples/lib/
 build_prefab/
 .claude/
 .codebuild/

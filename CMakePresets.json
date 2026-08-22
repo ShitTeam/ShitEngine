@@ -28,7 +28,6 @@
             },
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
-                "BUILD_EXAMPLES": "ON",
                 "BUILD_TOOLS": "ON"
             }
         },
@@ -38,7 +37,6 @@
             "inherits": "x64-debug",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
-                "BUILD_EXAMPLES": "ON",
                 "BUILD_TOOLS": "ON"
             }
         },
@@ -84,7 +82,6 @@
             "cacheVariables": {
                 "BUILD_EDITOR": "ON",
                 "BUILD_TOOLS": "ON",
-                "BUILD_EXAMPLES": "ON",
                 "BUILD_RUNTIME": "ON"
             }
         },
@@ -110,7 +107,6 @@
             "cacheVariables": {
                 "BUILD_EDITOR": "ON",
                 "BUILD_TOOLS": "ON",
-                "BUILD_EXAMPLES": "ON",
                 "BUILD_RUNTIME": "ON"
             }
         }

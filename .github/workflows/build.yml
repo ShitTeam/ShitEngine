@@ -48,7 +48,6 @@ jobs:
             -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} `
             -DBUILD_TOOLS=OFF `
             -DBUILD_EDITOR=ON `
-            -DBUILD_EXAMPLES=ON `
             -DBUILD_RUNTIME=ON
 
       - name: Build
@@ -102,7 +101,6 @@ jobs:
             -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
             -DBUILD_TOOLS=OFF \
             -DBUILD_EDITOR=ON \
-            -DBUILD_EXAMPLES=ON \
             -DBUILD_RUNTIME=ON
 
       - name: Build
@@ -167,7 +165,6 @@ jobs:
           -DCMAKE_BUILD_TYPE=$BUILD_TYPE
           -DBUILD_TOOLS=OFF
           -DBUILD_EDITOR=ON
-          -DBUILD_EXAMPLES=ON
           -DBUILD_RUNTIME=ON
 
       - name: Build
@@ -216,7 +213,6 @@ jobs:
           -DCMAKE_PREFIX_PATH="$(brew --prefix qt@6)"
           -DBUILD_TOOLS=OFF
           -DBUILD_EDITOR=ON
-          -DBUILD_EXAMPLES=ON
           -DBUILD_RUNTIME=ON
 
       - name: Build

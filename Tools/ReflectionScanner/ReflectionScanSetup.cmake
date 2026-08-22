@@ -1,7 +1,7 @@
 # ReflectionScanSetup.cmake
 # 反射扫描的配置期检测与 setup_reflection_scan() 函数定义。
 # 由顶层 CMakeLists.txt 在 add_subdirectory(Tools/ReflectionScanner) 之后 include，
-# 以便 Engine / Examples 子目录（在第三方依赖配置完成后）能调用 setup_reflection_scan()，
+# 以便 Engine 等子目录（在第三方依赖配置完成后）能调用 setup_reflection_scan()，
 # 并把 glm/SDL3 等依赖的 include 路径传给 Scanner（否则反射头里的 Vector2=glm::vec2、
 # SDL_FRect 等类型会解析失败，导致 typeName 退化、字段信息错误）。
 
@@ -74,7 +74,7 @@ set(_REFLECT_CLANG_RESOURCE_DIR "${_REFLECT_CLANG_RESOURCE_DIR}" CACHE INTERNAL
 #   - 强制运行目标 (run-reflectionscanner-<scope>)
 #
 # 参数:
-#   SCOPE_NAME   作用域名称 (engine / examples)
+#   SCOPE_NAME   作用域名称 (engine / plugin 等自定义作用域)
 #   INPUT_DIR    扫描输入目录
 #   OUTPUT_DIR   生成代码输出目录
 #   INCLUDE_ROOT include 路径裁剪前缀（决定生成代码中 #include <...> 的路径）
