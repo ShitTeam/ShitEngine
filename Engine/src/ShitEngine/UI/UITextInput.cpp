@@ -61,7 +61,8 @@ namespace Shit {
 
 	TTF_Font* UITextInput::acquireFont() {
 		if (m_fontPath.empty()) return nullptr;
-		TTF_Font* font = ResourceManager::GetFont(m_fontPath, m_fontSize);
+		Font* fontAsset = ResourceManager::Load<Font>(m_fontPath, m_fontSize);
+		TTF_Font* font = fontAsset ? fontAsset->get() : nullptr;
 		if (font) {
 			int h = TTF_GetFontHeight(font);
 			m_fontHeight = static_cast<float>(h > 0 ? h : 20);

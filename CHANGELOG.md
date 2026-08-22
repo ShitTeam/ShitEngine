@@ -11,6 +11,10 @@
 
 - **固定步长脚本驱动 `Behavior::onFixedUpdate(float)`（引擎）**：把固定步循环从 `PhysicsSystem2D` 内部提升到 `Scene` 层——`Scene` 以固定节拍（60Hz、单帧最多 3 步防死亡螺旋）按系统优先级调用新的 `System::fixedUpdate(fixedDt)` 虚钩子（默认空实现）：`BehaviorSystem` 在其中补跑 onStart 并驱动 `Behavior::onFixedUpdate`，随后 `PhysicsSystem2D` 步进一次并派发该步接触事件——脚本施力/设速与物理模拟严格同拍（Unity FixedUpdate 模型），不再受渲染帧率影响；高帧率下部分渲染帧不执行固定步属预期行为。全局暂停时固定步整体冻结，编辑器单步调试照常可用；未覆写 onFixedUpdate 的行为零成本。**行为变更**：碰撞回调改为每固定步派发一次（原先整帧聚合派发）——Enter/Exit 触发时机不变，Stay 从每渲染帧变为每固定步一次
 
+### 变更
+
+- **ResourceManager 模板化重构（引擎，破坏性）**：统一入口改为 `ResourceManager::Load<T>(key...)`——返回封装资源指针（懒加载，`->get()` 取底层句柄），配套 `Find<T>`（仅查询）/ `Unload<T>` / `Clear<T>`；缓存键由 `ResourceTraits<T>` 特化描述（内置 Texture/Audio 字符串键、Font 的 FontKey 复合键，`Load<Font>("a.ttf", 24.f)` 直传即可），类型注册表按 type_index 懒建缓存——新增资源类型继承 `Resource` + 特化 traits 即自动接入缓存/`GetResourceByUuid`/全量清理，管理器零改动。**删除旧 per-type 门面** `LoadTexture/GetTexture/GetTextureAsset/UnloadTexture/ClearAllTextures/ClearTexture/LoadAudio/GetAudio/GetAudioAsset/UnloadAudio/ClearAudio/LoadFont/GetFont/GetFontAsset/ClearAllFonts/ClearFont`（引擎内 14 处调用点已迁移；Editor 仅用 SetAssetRoot 不受影响）；`Init/Destroy/SetAudioMixer/SetAssetRoot/ResolveAssetPath/GetResourceByUuid` 签名不变。行为语义保持：懒加载、失败不缓存下次重试、资产根两级回退、Audio mixer 注入时机
+
 ### 修复
 
 - **全源码审查修复 6 处 BUG（引擎 + 编辑器）**：
