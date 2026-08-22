@@ -13,13 +13,59 @@ namespace Shit {
 
     BehaviorSystem::~BehaviorSystem() = default;
 
-    void BehaviorSystem::update() {
+    void BehaviorSystem::flushPendingBehaviors() {
         // 处理延迟添加
         for (auto& b : m_pendingBehaviors) {
             if (b) m_behaviors.push_back(b);
             else ST_CORE_WARN("试图注册 Behavior 空指针！");
         }
         m_pendingBehaviors.clear();
+    }
+
+    void BehaviorSystem::compactTombstones() {
+        // 压缩墓碑（遍历后统一清理，避免遍历期间 vector 元素移动导致跳过/悬垂）
+        if (std::find(m_behaviors.begin(), m_behaviors.end(), nullptr) != m_behaviors.end()) {
+            m_behaviors.erase(
+                std::remove(m_behaviors.begin(), m_behaviors.end(), nullptr),
+                m_behaviors.end());
+        }
+    }
+
+    void BehaviorSystem::fixedUpdate(float fixedDt) {
+        // 处理延迟添加（与变步长阶段共用同一队列，先到先处理）
+        flushPendingBehaviors();
+
+        // 正常由 Scene 在非暂停态调用；防御性再查一次暂停，也覆盖直接调用场景。
+        // 冻结语义与 update 一致：onStart 照常执行（避免卡在未启动状态），onFixedUpdate 冻结。
+        const bool paused = Shit::Game::IsPaused();
+
+        // 与 update 相同的墓碑安全遍历：用户代码可能注销/销毁当前或后续 Behavior，
+        // unregisterBehavior 会把条目置为墓碑（nullptr），遍历结束后统一压缩。
+        for (size_t i = 0; i < m_behaviors.size(); ++i) {
+            Behavior* b = m_behaviors[i];
+            if (!b) continue;
+            GameObject* owner = b->getOwner();
+            if (owner && !owner->isActiveInHierarchy()) continue;   // 失活对象不驱动（重新激活后 onStart 照常补跑）
+            if (!b->isStarted()) {
+                b->onStart();
+                // onStart 可能注销/销毁当前 Behavior（removeComponent/removeGameObject）：
+                // 条目可能已被置为墓碑（nullptr），重新读取，避免对已释放内存 setStarted/onFixedUpdate。
+                b = m_behaviors[i];
+                if (!b) continue;
+                b->setStarted(true);
+            }
+            if (!paused) {
+                b->onFixedUpdate(fixedDt);
+                // 调用后不再触碰 b：其可能已注销/销毁，循环尾部统一压缩墓碑
+            }
+        }
+
+        compactTombstones();
+    }
+
+    void BehaviorSystem::update() {
+        // 处理延迟添加
+        flushPendingBehaviors();
 
         // 全局暂停：冻结 onUpdate（onStart 仍执行，避免新组件卡在未启动状态）
         const bool paused = Shit::Game::IsPaused();
@@ -45,12 +91,7 @@ namespace Shit {
             }
         }
 
-        // 压缩墓碑（遍历后统一清理，避免遍历期间 vector 元素移动导致跳过/悬垂）
-        if (std::find(m_behaviors.begin(), m_behaviors.end(), nullptr) != m_behaviors.end()) {
-            m_behaviors.erase(
-                std::remove(m_behaviors.begin(), m_behaviors.end(), nullptr),
-                m_behaviors.end());
-        }
+        compactTombstones();
     }
 
     void BehaviorSystem::destroy() {

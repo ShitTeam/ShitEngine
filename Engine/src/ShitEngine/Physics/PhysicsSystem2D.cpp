@@ -58,11 +58,26 @@ PhysicsSystem2D::~PhysicsSystem2D() = default;
 	}
 
 	void PhysicsSystem2D::update() {
+		// 物理完全由固定步驱动（fixedUpdate，节拍来自 Scene 固定步循环）；变步长阶段无事可做
+	}
+
+	void PhysicsSystem2D::fixedUpdate(float fixedDt) {
 		if (!m_initialized) return;
-		if (Shit::Game::IsPaused()) return;  // 全局暂停：冻结物理模拟
+		if (Shit::Game::IsPaused()) return;  // 防御：正常由 Scene 在非暂停态调用
 
-		b2WorldId worldId = Internal::MakeWorldId(m_worldIndex, m_worldGeneration);
+		ensureSimulationState();
 
+		const b2WorldId worldId = Internal::MakeWorldId(m_worldIndex, m_worldGeneration);
+
+		// 步进一个固定步长。注意：Box2D 的接触事件缓冲每次 b2World_Step 都会清空——
+		// 事件收集必须在步进后立刻执行（processContactEventsForStep），不能跨步攒批。
+		b2World_Step(worldId, fixedDt, 4);
+
+		syncTransformsFromBodies();
+		processContactEventsForStep();
+	}
+
+	void PhysicsSystem2D::ensureSimulationState() {
 		// 补建物理体：认领时 Transform 尚未挂载的刚体（.scene 组件顺序不定）在就绪后
 		// 创建——仅当 Transform 已存在才重试，避免永久缺 Transform 的对象每帧告警
 		for (auto* body : m_bodies) {
@@ -91,31 +106,9 @@ PhysicsSystem2D::~PhysicsSystem2D() = default;
 			if (wantEnabled) b2Body_Enable(bodyId);
 			else            b2Body_Disable(bodyId);
 		}
+	}
 
-		// 使用固定时间步长保证物理稳定性，避免低帧率导致穿透。
-		// 注意：Box2D 的接触事件缓冲每次 b2World_Step 都会清空——事件收集必须
-		// 放进子步循环逐步执行，否则一帧跑多个子步时前面子步的 Begin/End 事件丢失。
-		constexpr float FIXED_TIME_STEP = 1.0f / 60.0f;
-		constexpr int MAX_SUB_STEPS = 3;
-
-		std::unordered_set<ContactPair, ContactPairHash> prevActive = m_activeContacts; // 本帧处理前集合（上一帧状态）
-		std::vector<ContactPair> entered;
-		std::vector<ContactPair> exited;
-
-		float dt = Shit::Time::GetDeltaTime();
-		m_accumulator += dt;
-		int steps = 0;
-		while (m_accumulator >= FIXED_TIME_STEP && steps < MAX_SUB_STEPS) {
-			b2World_Step(worldId, FIXED_TIME_STEP, 4);
-			m_accumulator -= FIXED_TIME_STEP;
-			++steps;
-			collectContactEvents(entered, exited);
-		}
-		// 防止 accumulator 无限增长（如断点调试时）
-		if (m_accumulator > FIXED_TIME_STEP * MAX_SUB_STEPS) {
-			m_accumulator = FIXED_TIME_STEP * MAX_SUB_STEPS;
-		}
-
+	void PhysicsSystem2D::syncTransformsFromBodies() {
 		// 将所有 Dynamic 和 Kinematic 刚体的位置/旋转同步到 TransformComponent
 		// 注：Static 刚体不受物理引擎驱动，无需同步
 		for (auto* body : m_bodies) {
@@ -135,13 +128,20 @@ PhysicsSystem2D::~PhysicsSystem2D() = default;
 			// Transform 的旋转以「度」为单位（与编辑器/SDL 渲染约定一致）
 			transform->setRotation(glm::degrees(angle));
 		}
+	}
 
-		// --- 接触事件 → 对象级碰撞回调（onCollisionEnter/Stay/Exit） ---
-		// Begin/End 接触事件（形状级）已在子步循环内经 collectContactEvents 逐步收集。
-		// 语义：Enter — 本帧新开始的接触；Exit — 本帧结束的接触（形状可能已销毁导致
-		// 解析失败，由 destroyRigidBody / 碰撞体卸下时的清理兜底）。
+	void PhysicsSystem2D::processContactEventsForStep() {
+		// 本固定步的碰撞回调（onCollisionEnter/Stay/Exit）。语义：
+		// Enter — 本步新开始的接触；Stay — 上一步已接触且本步仍接触；Exit — 本步结束的接触
+		//（形状可能已销毁导致解析失败，由 destroyRigidBody / 碰撞体卸下时的清理兜底）。
 
-		// Stay：上一帧在集合、本帧事件处理后仍在集合的对
+		std::unordered_set<ContactPair, ContactPairHash> prevActive = m_activeContacts; // 本步处理前集合
+
+		std::vector<ContactPair> entered;
+		std::vector<ContactPair> exited;
+		collectContactEvents(entered, exited);
+
+		// Stay：本步处理后仍在集合、且处理前已在集合的对
 		std::vector<ContactPair> stayed;
 		for (const ContactPair& pair : m_activeContacts) {
 			if (prevActive.count(pair)) stayed.push_back(pair);

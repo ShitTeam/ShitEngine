@@ -2,6 +2,7 @@
 #include "ShitEngine/Scene/Scene.h"
 #include "ShitEngine/Core/Log.h"
 #include "ShitEngine/Core/Game.h"
+#include "ShitEngine/Core/Time.h"
 #include "ShitEngine/GameObject/GameObject.h"
 #include "ShitEngine/GameObject/Prefab.h"
 #include "ShitEngine/Component/Behavior.h"
@@ -60,6 +61,27 @@ namespace Shit {
 			m_isSystemsNeedSort = false;
 		}
 
+		// ── 固定步阶段：以固定节拍（默认 60Hz）驱动 fixedUpdate，与渲染帧率解耦 ──
+		// 各系统按 priority 顺序执行：BehaviorSystem(0) 的 onFixedUpdate 先于
+		// PhysicsSystem2D(50) 的物理步进——脚本在本步施加的力/速度立即参与本步模拟。
+		// 高帧率下部分渲染帧一次固定步都不跑（累加不足一步）、低帧率下一帧连跑多步；
+		// 全局暂停时整体冻结（与「暂停冻结 onUpdate + 物理」语义一致）。
+		if (!Game::IsPaused()) {
+			m_fixedAccumulator += Time::GetDeltaTime();
+			int steps = 0;
+			while (m_fixedAccumulator >= FIXED_TIME_STEP && steps < MAX_FIXED_STEPS_PER_FRAME) {
+				for (size_t i = 0; i < m_systems.size(); ++i) {
+					if (m_systems[i]) m_systems[i]->fixedUpdate(FIXED_TIME_STEP);
+				}
+				m_fixedAccumulator -= FIXED_TIME_STEP;
+				++steps;
+			}
+			// 防止累积器无限增长（断点调试/卡顿后爆发）——超出上限即丢弃，进入慢动作而非穿透
+			if (m_fixedAccumulator > FIXED_TIME_STEP * MAX_FIXED_STEPS_PER_FRAME)
+				m_fixedAccumulator = FIXED_TIME_STEP * MAX_FIXED_STEPS_PER_FRAME;
+		}
+
+		// ── 变步长阶段：每渲染帧一次 ──
 		for (size_t i = 0; i < m_systems.size(); ++i) {
 			// 用下标迭代并读取实时 size()：若某系统 update 中动态注册新系统，
 			// push_back 不会使下标失效；用实时 size() 保证遍历完所有已注册系统。

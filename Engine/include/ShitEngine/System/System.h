@@ -24,6 +24,11 @@ namespace Shit {
 
         virtual void init();        ///< 初始化（可覆写）
         virtual void update() = 0;    ///< 每帧更新（纯虚）
+
+        /// 固定步长驱动（默认空实现，按需覆写）：由 Scene 在固定步循环内按优先级顺序调用，
+        /// 一个渲染帧可能执行 0~N 次（默认 60Hz，见 Scene::FIXED_TIME_STEP）。
+        /// 与物理同拍/需要稳定帧率的逻辑（施力、设速度、计时器）放这里，而不是 update()。
+        virtual void fixedUpdate(float /*fixedDt*/) { }
         virtual void destroy() = 0;   ///< 销毁（纯虚）
 
         /// @brief 反射字段被编辑器直写后回调（供子系统把字段变更实时同步到运行时状态）

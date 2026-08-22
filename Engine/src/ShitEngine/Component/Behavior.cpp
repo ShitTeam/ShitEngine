@@ -25,6 +25,9 @@ namespace Shit {
 	void Behavior::onStart() {}
 	void Behavior::onUpdate() {}
 
+	// 固定步回调默认空实现：不需要固定步逻辑的行为无需覆写（Scene 固定步循环经 BehaviorSystem 驱动）
+	void Behavior::onFixedUpdate(float /*fixedDt*/) {}
+
 	// 碰撞回调默认空实现：子类按需覆写
 	void Behavior::onCollisionEnter(GameObject*) {}
 	void Behavior::onCollisionStay(GameObject*) {}

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <cstdint>
 #include <typeindex>
 #include <vector>
@@ -46,7 +46,11 @@ namespace Shit {
 		Scene& operator=(Scene&&) = delete;
 
 		void init();    ///< 注册默认系统（BehaviorSystem + RenderSystem + UIRenderSystem），幂等
-		void update();           ///< 更新所有 System + 处理延迟操作
+		void update();           ///< 更新所有 System（固定步循环 + 变步长遍历）+ 处理延迟操作
+
+		// --- 固定步长驱动 ---
+		static constexpr float FIXED_TIME_STEP = 1.0f / 60.0f; ///< 固定步长（秒）：onFixedUpdate 与物理模拟的共同节拍
+		static constexpr int MAX_FIXED_STEPS_PER_FRAME = 3;    ///< 单渲染帧最大固定步数（超出丢弃，防死亡螺旋）
 		void destroy(); ///< 销毁所有对象与系统
 
 		/// @brief 是否已注册任何 System（SceneManager 用于自动初始化，防止漏调 init() 导致空场景）
@@ -193,5 +197,6 @@ template <typename T>
 		std::vector<std::type_index> m_pendingRemoveSystems;
 		bool m_isSystemsNeedSort = false;
 		bool m_isInited = false;  ///< init() 是否已执行（幂等守卫）
+		float m_fixedAccumulator = 0.0f; ///< 固定步累积器（Scene 级统一时钟：Behavior onFixedUpdate 与物理步进共用）
 	};
 }
