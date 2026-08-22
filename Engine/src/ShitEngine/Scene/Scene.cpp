@@ -23,6 +23,7 @@ namespace Shit {
 	bool Scene::hasEnabledCamera() {
 		auto check = [](GameObject* go) -> bool {
 			if (!go || go->getName() == "scene_camera") return false;  // 编辑器相机（约定名）不参与判定
+			if (!go->isActiveInHierarchy()) return false;              // 失活对象上的相机不算
 			const auto* cam = go->getComponent<CameraComponent>();
 			return cam && cam->isEnabled();
 		};

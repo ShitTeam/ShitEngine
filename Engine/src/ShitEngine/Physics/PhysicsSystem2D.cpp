@@ -79,6 +79,19 @@ PhysicsSystem2D::~PhysicsSystem2D() = default;
 			createJoint(joint);
 		}
 
+		// 同步对象失活状态到物理体：失活对象的刚体移出模拟（不步进、不产生接触），
+		// 重新启用后恢复。Enable/Disable 开销大，仅在状态实际变化时调用
+		for (auto* body : m_bodies) {
+			if (!body || !body->m_bodyValid) continue;
+			auto* owner = body->getOwner();
+			if (!owner) continue;
+			const bool wantEnabled = owner->isActiveInHierarchy();
+			b2BodyId bodyId = Internal::MakeBodyId(body->m_bodyIndex, body->m_bodyWorld0, body->m_bodyGeneration);
+			if (b2Body_IsEnabled(bodyId) == wantEnabled) continue;
+			if (wantEnabled) b2Body_Enable(bodyId);
+			else            b2Body_Disable(bodyId);
+		}
+
 		// 使用固定时间步长保证物理稳定性，避免低帧率导致穿透
 		constexpr float FIXED_TIME_STEP = 1.0f / 60.0f;
 		constexpr int MAX_SUB_STEPS = 3;

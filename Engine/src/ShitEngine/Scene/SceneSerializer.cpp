@@ -200,6 +200,8 @@ json SceneSerializer::toJson(Scene* scene, const std::vector<std::string>& exclu
 
 		json entry;
 		entry["name"] = go->getName();
+		if (!go->getTag().empty()) entry["tag"] = go->getTag();   // 空标签/启用态不写，保持旧文件兼容
+		if (!go->isActive()) entry["active"] = false;
 		GameObject* parent = go->getParent();
 		const bool parentExcluded = parent && excluded.count(parent);
 		entry["parent"] = (parent && !parentExcluded) ? indexOf.at(parent) : -1;
@@ -251,6 +253,8 @@ doc["objects"] = std::move(objects);
 		indexOf[go] = static_cast<int>(objects.size());
 		json entry;
 		entry["name"] = go->getName();
+		if (!go->getTag().empty()) entry["tag"] = go->getTag();   // 空标签/启用态不写，保持旧文件兼容
+		if (!go->isActive()) entry["active"] = false;
 		GameObject* parent = go->getParent();
 		entry["parent"] = (go != root && parent) ? indexOf.at(parent) : -1;
 		entry["data"] = Prefab::Capture(go).toJson();
@@ -290,6 +294,8 @@ void SceneSerializer::fromJson(const json& doc, Scene* scene) {
 		}
 		const std::string name = obj.value("name", "Object");
 		auto* go = scene->createGameObject(name);
+		go->setTag(obj.value("tag", ""));            // 对象级属性（旧文件无字段 → 空标签）
+		go->setActive(obj.value("active", true));    // 旧文件无字段 → 默认启用（no-op）
 		if (obj.contains("data") && obj["data"].is_array())
 			Prefab::FromJson(obj["data"]).apply(go);
 		// 兜底 TransformComponent（多数系统依赖；与 Prefab::instantiate 行为一致）

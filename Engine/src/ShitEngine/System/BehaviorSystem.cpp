@@ -29,6 +29,8 @@ namespace Shit {
         for (size_t i = 0; i < m_behaviors.size(); ++i) {
             Behavior* b = m_behaviors[i];
             if (!b) continue;
+            GameObject* owner = b->getOwner();
+            if (owner && !owner->isActiveInHierarchy()) continue;   // 失活对象不驱动（重新激活后 onStart 照常补跑）
             if (!b->isStarted()) {
                 b->onStart();
                 // onStart 可能注销/销毁当前 Behavior（removeComponent/removeGameObject）：

@@ -69,6 +69,8 @@ namespace Shit {
 			CameraComponent* camera = m_cameras[i];
 			if (!camera) continue;
 			if (!camera->isEnabled()) continue;   // 禁用的相机不参与本次渲染（编辑器双视图分离用）
+			GameObject* camOwner = camera->getOwner();
+			if (camOwner && !camOwner->isActiveInHierarchy()) continue;   // 失活对象上的相机不渲染
 
 			SDL_FRect vpRatio = camera->getViewportRatio();
 			SDL_Rect viewport;
@@ -97,6 +99,8 @@ namespace Shit {
 			for (size_t j = 0; j < m_renderers.size(); ++j) {
 				RendererComponent* renderer = m_renderers[j];
 				if (!renderer || !renderer->isVisible()) continue;
+				GameObject* owner = renderer->getOwner();
+				if (owner && !owner->isActiveInHierarchy()) continue;   // 失活对象不渲染（随父链级联）
 				renderer->onRender(m_renderer, camera);
 			}
 		}

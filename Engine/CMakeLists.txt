@@ -62,9 +62,7 @@ add_library(ShitEngine SHARED
     "src/ShitEngine/Render/SpriteSheet.cpp"
     # Resource
     "src/ShitEngine/Resource/ResourceManager.cpp"
-    "src/ShitEngine/Resource/TextureManager.cpp"
-    "src/ShitEngine/Resource/AudioManager.cpp"
-    "src/ShitEngine/Resource/FontManager.cpp"
+    "src/ShitEngine/Resource/Resource.cpp"
     # System
     "src/ShitEngine/System/System.cpp"
     "src/ShitEngine/System/BehaviorSystem.cpp"

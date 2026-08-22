@@ -41,6 +41,7 @@ namespace Shit {
 			if (!renderer || !renderer->isVisible()) continue;
 			GameObject* owner = renderer->getOwner();
 			if (!owner) continue;
+			if (!owner->isActiveInHierarchy()) continue;   // 失活对象不参与渲染/射线/按钮（一处过滤三处生效）
 			UITransform* transform = owner->getComponent<UITransform>();
 			if (!transform) continue;
 

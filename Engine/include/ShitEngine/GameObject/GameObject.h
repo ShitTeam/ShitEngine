@@ -58,12 +58,31 @@ namespace Shit {
 		Scene* getScene() const { return m_scene; }
 		bool isNeedDestroy() const { return m_needDestroy; }
 
+		/// 自身启用标志（isActiveInHierarchy 为含父链的最终生效状态）
+		bool isActive() const { return m_active; }
+		/// 层级生效状态：自身与所有祖先都启用（Unity 语义：父失活子随失活）
+		bool isActiveInHierarchy() const {
+			if (!m_active) return false;
+			for (const GameObject* p = m_parent; p; p = p->m_parent)
+				if (!p->m_active) return false;
+			return true;
+		}
+		void setActive(bool active) {
+			if (active == m_active) return;
+			m_active = active;   // 渲染/行为/UI/物理按 isActiveInHierarchy 过滤
+			if (m_scene) m_scene->bumpGeneration();
+		}
+
 		void setName(const std::string& name) {
 			if (name == m_name) return;
 			m_name = name;   // 场景树显示名随结构变更同步（编辑器据此刷新树）
 			if (m_scene) m_scene->bumpGeneration();
 		}
-		void setTag(const std::string& tag) { m_tag = tag; }  ///< 设置标签（用于分类，如 "enemy"、"player"）
+		void setTag(const std::string& tag) {
+			if (tag == m_tag) return;
+			m_tag = tag;   // 编辑器属性面板可编辑，改后需联动刷新
+			if (m_scene) m_scene->bumpGeneration();
+		}
 		void setScene(Scene* scene);  ///< 设置所属场景（同时触发未注册组件的 onAttach）
 		void setNeedDestroy(bool needDestroy) { m_needDestroy = needDestroy; }
 		std::unordered_map<std::type_index, std::unique_ptr<Component>>& getComponents() { return m_components; } ///< 获取全部组件（按 type_index 索引）
@@ -230,6 +249,7 @@ new_component_ptr->onCreate(); // onCreate：轻量初始化
 
 		std::string m_name; // 游戏物体名称
 		std::string m_tag; // 标签
+		bool m_active = true; // 是否启用（失活对象不渲染/不更新行为/UI/物理，随父链级联）
 		Scene* m_scene = nullptr; // 所在 Scene 指针
 		std::unordered_map<std::type_index, std::unique_ptr<Component>> m_components; // 挂载的组件
 		bool m_needDestroy = false; // 是否需要销毁（由 Scene 负责销毁）
