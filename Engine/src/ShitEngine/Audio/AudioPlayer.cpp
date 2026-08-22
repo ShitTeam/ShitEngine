@@ -96,7 +96,7 @@ void AudioPlayer::destroy() {
     m_groups.clear();
 
     // 在 MIX_Quit 前清空音频缓存，避免 MIX_DestroyAudio 在 MIX_Quit 后调用
-    ResourceManager::ClearAudio();
+    ResourceManager::Clear<Audio>();
     ResourceManager::SetAudioMixer(nullptr);
 
     if (m_mixer) {
@@ -147,7 +147,8 @@ std::shared_ptr<AudioTrack> AudioPlayer::play(const std::string& filePath, Audio
         return nullptr;
     }
 
-    MIX_Audio* audio = ResourceManager::GetAudio(filePath);
+    Audio* audioAsset = ResourceManager::Load<Audio>(filePath);
+    MIX_Audio* audio = audioAsset ? audioAsset->get() : nullptr;
     if (!audio) {
         ST_CORE_ERROR("AudioPlayer 加载音频失败: {}", filePath);
         return nullptr;

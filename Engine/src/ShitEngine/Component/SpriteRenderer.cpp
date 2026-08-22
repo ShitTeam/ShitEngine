@@ -14,7 +14,8 @@
 namespace Shit {
 	void SpriteRenderer::onRender(SDL_Renderer* renderer, const CameraComponent* camera) const
 	{
-		SDL_Texture* texture = ResourceManager::GetTexture(m_sprite.getTexturePath());
+		Texture* textureAsset = ResourceManager::Load<Texture>(m_sprite.getTexturePath());
+		SDL_Texture* texture = textureAsset ? textureAsset->get() : nullptr;
 		if (!texture) return;
 
 		auto* transform = getOwner()->getComponent<TransformComponent>();
@@ -60,7 +61,8 @@ namespace Shit {
 	void SpriteRenderer::setTexturePath(const std::string& texturePath) {
 		// 保留路径本身（即使纹理暂时加载失败也保留，便于序列化往返不丢数据）
 		m_texturePath = texturePath;
-		SDL_Texture* texture = ResourceManager::GetTexture(texturePath);
+		Texture* textureAsset = ResourceManager::Load<Texture>(texturePath);
+		SDL_Texture* texture = textureAsset ? textureAsset->get() : nullptr;
 		if (!texture) {
 			ST_CORE_ERROR("无法获取路径为 {} 的纹理！", texturePath);
 			return;
@@ -70,12 +72,13 @@ namespace Shit {
 
 	void SpriteRenderer::onAfterDeserialize() {
 		if (m_texturePath.empty()) return;
-		// 反射直写字段后 m_sprite 仍为空，这里按路径重载（GetTexture 懒加载）
+		// 反射直写字段后 m_sprite 仍为空，这里按路径重载（Load<Texture> 懒加载）
 		setTexturePath(m_texturePath);
 	}
 
 	SDL_FRect SpriteRenderer::getGlobalBounds() {
-		SDL_Texture* texture = ResourceManager::GetTexture(m_sprite.getTexturePath());
+		Texture* textureAsset = ResourceManager::Load<Texture>(m_sprite.getTexturePath());
+		SDL_Texture* texture = textureAsset ? textureAsset->get() : nullptr;
 		if (!texture) return SDL_FRect{};
 
 		auto* transform = getOwner()->getComponent<TransformComponent>();
@@ -103,7 +106,8 @@ namespace Shit {
 // ═══════════════════════════════════════════════════════════════
 
 Rect SpriteRenderer::fullTextureRect() const {
-	SDL_Texture* texture = ResourceManager::GetTexture(m_texturePath);
+	Texture* textureAsset = ResourceManager::Load<Texture>(m_texturePath);
+	SDL_Texture* texture = textureAsset ? textureAsset->get() : nullptr;
 	if (!texture) return Rect{0.0f, 0.0f, 0.0f, 0.0f};
 	float w = 0.0f, h = 0.0f;
 	SDL_GetTextureSize(texture, &w, &h);

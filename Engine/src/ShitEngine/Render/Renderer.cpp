@@ -90,7 +90,8 @@ namespace Shit {
         auto& instance = GetInstance();
         SDL_Renderer* renderer = instance.raw();
         if (!renderer) return;  // 渲染器未初始化/已销毁
-        SDL_Texture* texture = ResourceManager::GetTexture(sprite.getTexturePath());
+        Texture* textureAsset = ResourceManager::Load<Texture>(sprite.getTexturePath());
+        SDL_Texture* texture = textureAsset ? textureAsset->get() : nullptr;
         if (!texture) {
             ST_CORE_ERROR("DrawSprite: 无法获取纹理 {}", sprite.getTexturePath());
             return;

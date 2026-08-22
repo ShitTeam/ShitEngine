@@ -1,4 +1,4 @@
-﻿#include "ShitEngine/Core/pch.h"
+#include "ShitEngine/Core/pch.h"
 #include "ShitEngine/Core/EngineContext.h"
 #include "ShitEngine/Resource/ResourceManager.h"
 #include "ShitEngine/Core/Log.h"
@@ -15,13 +15,11 @@ namespace Shit {
 	ResourceManager::ResourceManager() = default;
 
 	ResourceManager::~ResourceManager() {
-		// 手动先清缓存（字体关闭所有 TTF_Font），再 TTF_Quit()：
+		// 手动先清全部类型缓存（字体关闭所有 TTF_Font），再 TTF_Quit()：
 		// 成员析构发生在函数体之后，届时不能保证 TTF 仍可用。
 		// 仅当本上下文确实调用了 TTF_Init 才 TTF_Quit：TTF 是进程级全局，
 		// 未 init 的上下文若依 TTF_WasInit() 退出，会关掉其他活动上下文的字体。
-		m_fonts.clear();
-		m_audioCache.clear();
-		m_textures.clear();
+		clear();
 		if (m_ttfInitialized) {
 			TTF_Quit();
 			m_ttfInitialized = false;
@@ -41,122 +39,24 @@ namespace Shit {
 	}
 
 	void ResourceManager::clear() {
-		if (!m_textures.empty()) {
-			ST_CORE_DEBUG("正在清除所有 {} 个缓存的纹理。", m_textures.size());
-			m_textures.clear();
-		}
-		if (!m_audioCache.empty()) {
-			ST_CORE_DEBUG("正在清除所有 {} 个缓存的音频。", m_audioCache.size());
-			m_audioCache.clear();
-		}
-		if (!m_fonts.empty()) {
-			ST_CORE_DEBUG("正在清除所有 {} 个缓存的字体。", m_fonts.size());
-			m_fonts.clear();
+		// 遍历类型注册表逐缓存清理——自动覆盖未来新增的资源类型
+		for (auto& [id, cache] : m_caches) {
+			if (!cache || cache->size() == 0) continue;
+			ST_CORE_DEBUG("正在清除所有 {} 个缓存的{}。", cache->size(), cache->typeName());
+			cache->clear();
 		}
 	}
 
-	// ── 内部：三类缓存的统一取数（懒加载；失败不缓存，下次重试） ──
-
-	Texture* ResourceManager::textureAsset(const std::string& filePath) {
-		if (Texture* hit = m_textures.find(filePath)) return hit;
-		ST_CORE_DEBUG("纹理 {} 未命中缓存，正在加载 ...", filePath);
-		const std::string resolved = ResolveAssetPath(filePath);
-		return m_textures.getOrLoad(filePath, [&] { return std::make_unique<Texture>(resolved); });
+	std::unordered_map<std::type_index, std::unique_ptr<TypedCacheBase>>::iterator
+	ResourceManager::registerCache(std::type_index id, std::unique_ptr<TypedCacheBase> cache) {
+		return m_caches.emplace(id, std::move(cache)).first;
 	}
 
-	Audio* ResourceManager::audioAsset(const std::string& filePath) {
-		if (Audio* hit = m_audioCache.find(filePath)) return hit;
-		ST_CORE_DEBUG("音频 {} 未命中缓存，正在加载 ...", filePath);
-		const std::string resolved = ResolveAssetPath(filePath);
-		// mixer 注入到新建 Audio（旧缓存条目的 mixer 指针在 AudioPlayer 生命周期内有效）
-		return m_audioCache.getOrLoad(filePath, [&] {
-			auto audio = std::make_unique<Audio>(resolved);
-			audio->setMixer(m_mixer);
-			return audio;
-		});
-	}
-
-	Font* ResourceManager::fontAsset(const std::string& filePath, float fontSize) {
-		const FontKey key{ filePath, fontSize };
-		if (Font* hit = m_fonts.find(key)) return hit;
-		ST_CORE_DEBUG("字体 {} ({}) 未命中缓存，正在加载 ...", filePath, fontSize);
-		const std::string resolved = ResolveAssetPath(filePath);
-		return m_fonts.getOrLoad(key, [&] { return std::make_unique<Font>(resolved, fontSize); });
-	}
-
-	// ── 门面：纹理 ──
-
-	SDL_Texture* ResourceManager::LoadTexture(const std::string& filePath) {
-		Texture* t = GetInstance().textureAsset(filePath);
-		return t ? t->get() : nullptr;
-	}
-
-	SDL_Texture* ResourceManager::GetTexture(const std::string& filePath) {
-		Texture* t = GetInstance().textureAsset(filePath);
-		return t ? t->get() : nullptr;
-	}
-
-	Texture* ResourceManager::GetTextureAsset(const std::string& filePath) {
-		return GetInstance().textureAsset(filePath);
-	}
-
-	void ResourceManager::UnloadTexture(const std::string& filePath) {
-		if (!GetInstance().m_textures.unload(filePath))
-			ST_CORE_WARN("尝试卸载不存在的纹理 {}", filePath);
-		else
-			ST_CORE_DEBUG("卸载纹理 {}", filePath);
-	}
-
-	void ResourceManager::ClearAllTextures() { GetInstance().m_textures.clear(); }
-	void ResourceManager::ClearTexture() { GetInstance().m_textures.clear(); }
-
-	// ── 门面：音频 ──
-
-	MIX_Audio* ResourceManager::LoadAudio(const std::string& filePath) {
-		Audio* a = GetInstance().audioAsset(filePath);
-		return a ? a->get() : nullptr;
-	}
-
-	MIX_Audio* ResourceManager::GetAudio(const std::string& filePath) {
-		Audio* a = GetInstance().audioAsset(filePath);
-		return a ? a->get() : nullptr;
-	}
-
-	Audio* ResourceManager::GetAudioAsset(const std::string& filePath) {
-		return GetInstance().audioAsset(filePath);
-	}
-
-	void ResourceManager::UnloadAudio(const std::string& filePath) {
-		if (!GetInstance().m_audioCache.unload(filePath))
-			ST_CORE_WARN("尝试卸载不存在的音频 {}", filePath);
-		else
-			ST_CORE_DEBUG("卸载音频 {}", filePath);
-	}
-
-	void ResourceManager::ClearAudio() { GetInstance().m_audioCache.clear(); }
+	// ── 混音器注入（AudioPlayer 生命周期管理） ──
 
 	void ResourceManager::SetAudioMixer(MIX_Mixer* mixer) {
 		GetInstance().m_mixer = mixer;
 	}
-
-	// ── 门面：字体 ──
-
-	TTF_Font* ResourceManager::LoadFont(const std::string& filePath, float fontSize) {
-		Font* f = GetInstance().fontAsset(filePath, fontSize);
-		return f ? f->get() : nullptr;
-	}
-
-	TTF_Font* ResourceManager::GetFont(const std::string& filePath, float fontSize) {
-		Font* f = GetInstance().fontAsset(filePath, fontSize);
-		return f ? f->get() : nullptr;
-	}
-
-	Font* ResourceManager::GetFontAsset(const std::string& filePath, float fontSize) {
-		return GetInstance().fontAsset(filePath, fontSize);
-	}
-
-	void ResourceManager::ClearAllFonts() { GetInstance().m_fonts.clear(); }
-	void ResourceManager::ClearFont() { GetInstance().m_fonts.clear(); }
 
 	// ── 资产根 ──
 
@@ -184,16 +84,18 @@ namespace Shit {
 		return path;   // 根下不存在：原样交底层（沿用旧行为，让调用方收到加载失败）
 	}
 
-	// ── uuid 查询 ──
+	// ── uuid 查询（遍历全部已注册缓存；自动覆盖未来新增资源类型） ──
 
 	Resource* ResourceManager::GetResourceByUuid(std::uint64_t uuid) {
+		Resource* found = nullptr;
 		auto& rm = GetInstance();
-		for (const auto& [key, res] : rm.m_textures.entries())
-			if (res->getUuid() == uuid) return res.get();
-		for (const auto& [key, res] : rm.m_audioCache.entries())
-			if (res->getUuid() == uuid) return res.get();
-		for (const auto& [key, res] : rm.m_fonts.entries())
-			if (res->getUuid() == uuid) return res.get();
-		return nullptr;
+		for (auto& [id, cache] : rm.m_caches) {
+			if (!cache) continue;
+			cache->forEachResource([&found, uuid](Resource* res) {
+				if (!found && res && res->getUuid() == uuid) found = res;
+			});
+			if (found) break;
+		}
+		return found;
 	}
 }

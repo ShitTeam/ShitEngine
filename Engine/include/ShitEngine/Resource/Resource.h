@@ -1,8 +1,10 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 
 #include "ShitEngine/Core/Core.h"
@@ -21,12 +23,15 @@ namespace Shit {
 	enum class ResourceState { Unloaded, Loaded, Failed };
 
 	/**
-	 * @brief 资源基类 —— 所有引擎资产（Texture / Font / Audio）的统一封装
+	 * @brief 资源基类 —— 所有引擎资产（Texture / Font / Audio / 自定义类型）的统一封装
 	 *
 	 * 所有权模型：管理器独占（缓存持 unique_ptr），调用方借用指针。
 	 * 缓存生命周期 = 整个引擎会话（Game::Destroy 统一销毁），销毁顺序集中受控
 	 * （音频先于 mixer、纹理先于 Renderer、再 SDL_Quit）——因此借用裸指针安全。
 	 * 将来热重载应走 load() 原地重载（同一 wrapper 换内部句柄），借用指针保持有效。
+	 *
+	 * 扩展新资源类型：继承本类实现 load()/release()，再特化 ResourceManager.h 中的
+	 * ResourceTraits<T> 即接入缓存/uuid 查询/全量清理——管理器零改动。
 	 */
 	class SHIT_API Resource {
 	public:
@@ -114,45 +119,24 @@ namespace Shit {
 		void setMixer(MIX_Mixer* mixer) { m_mixer = mixer; }
 
 	private:
-		MIX_Mixer* m_mixer = nullptr;   // 非所有，AudioManager 注入（生命周期由 AudioPlayer 管理）
+		MIX_Mixer* m_mixer = nullptr;   // 非所有，AudioPlayer 注入（生命周期由 AudioPlayer 管理）
 		MIX_Audio* m_audio = nullptr;
 	};
 
 	/**
-	 * @brief 泛型资源缓存外壳 —— 统一「查缓存 → 工厂创建 → 加载 → 插入」模式
+	 * @brief 类型擦除缓存接口 —— ResourceManager 按资源类型注册缓存，经此统一遍历/清理
 	 *
-	 * 加载失败不缓存：下次请求重试（与旧懒加载行为一致，文件后补/修复后自愈）。
+	 * 引擎/插件侧新增的资源类型缓存都以此基类指针进入管理器的类型注册表，
+	 * GetResourceByUuid / 全量清理 / 日志计数只依赖本接口（无跨 DLL 模板问题）。
 	 */
-	template <typename Key, typename Res, typename Hash = std::hash<Key>>
-	class ResourceCache {
+	class SHIT_API TypedCacheBase {
 	public:
-		/// 查缓存命中直接返回；未命中用工厂创建 Res 并 load()，成功才入缓存
-		template <typename Make>
-		Res* getOrLoad(const Key& key, Make&& make) {
-			if (auto it = m_cache.find(key); it != m_cache.end())
-				return it->second.get();
-			std::unique_ptr<Res> res = make();
-			if (!res || !res->load())
-				return nullptr;
-			Res* ptr = res.get();
-			m_cache.emplace(key, std::move(res));
-			return ptr;
-		}
+		virtual ~TypedCacheBase() = default;
 
-		Res* find(const Key& key) const {
-			if (auto it = m_cache.find(key); it != m_cache.end())
-				return it->second.get();
-			return nullptr;
-		}
-
-		bool unload(const Key& key) { return m_cache.erase(key) > 0; }
-		void clear() { m_cache.clear(); }
-		bool empty() const { return m_cache.empty(); }
-		size_t size() const { return m_cache.size(); }
-
-		const std::unordered_map<Key, std::unique_ptr<Res>, Hash>& entries() const { return m_cache; }
-
-	private:
-		std::unordered_map<Key, std::unique_ptr<Res>, Hash> m_cache;
+		virtual void clear() = 0;
+		virtual size_t size() const = 0;
+		virtual std::string_view typeName() const = 0;   ///< 日志用类型名（来自 ResourceTraits<T>::kTypeName）
+		/// 遍历缓存内全部资源封装（uuid 查询用；顺序不保证）
+		virtual void forEachResource(const std::function<void(Resource*)>& fn) const = 0;
 	};
 }

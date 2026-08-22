@@ -14,7 +14,8 @@ namespace Shit {
 	UIImage::~UIImage() = default;
 
 	void UIImage::onRender(const SDL_FRect& screenRect) {
-		SDL_Texture* texture = ResourceManager::GetTexture(m_sprite.getTexturePath());
+		Texture* textureAsset = ResourceManager::Load<Texture>(m_sprite.getTexturePath());
+		SDL_Texture* texture = textureAsset ? textureAsset->get() : nullptr;
 		if (!texture) {
 			ST_CORE_ERROR("UIImage: 无法获取纹理 {}", m_sprite.getTexturePath());
 			return;

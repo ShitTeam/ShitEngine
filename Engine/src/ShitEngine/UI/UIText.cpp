@@ -19,7 +19,8 @@ namespace Shit {
 
 	TTF_Font* UIText::getLoadedFont() {
 		if (m_fontPath.empty()) return nullptr;
-		TTF_Font* font = ResourceManager::GetFont(m_fontPath, m_fontSize);
+		Font* fontAsset = ResourceManager::Load<Font>(m_fontPath, m_fontSize);
+		TTF_Font* font = fontAsset ? fontAsset->get() : nullptr;
 		if (!font) {
 			ST_CORE_ERROR("UIText: 无法获取字体 {} ({}): {}", m_fontPath, m_fontSize, SDL_GetError());
 		}

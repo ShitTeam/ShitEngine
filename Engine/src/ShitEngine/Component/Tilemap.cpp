@@ -28,7 +28,7 @@ namespace Shit {
 		parseGridData();
 		if (!m_texturePath.empty()) {
 			// 触发纹理懒加载（ResourceManager 按路径缓存）
-			ResourceManager::GetTexture(m_texturePath);
+			ResourceManager::Load<Texture>(m_texturePath);
 		}
 		ensureTileBuffer();
 	}
@@ -42,7 +42,7 @@ namespace Shit {
 			syncGridData();
 		} else if (fieldName == "m_texturePath") {
 			if (!m_texturePath.empty()) {
-				ResourceManager::GetTexture(m_texturePath);
+				ResourceManager::Load<Texture>(m_texturePath);
 			}
 		}
 	}
@@ -52,7 +52,8 @@ namespace Shit {
 	// ═══════════════════════════════════════════════════════════
 
 	void Tilemap::onRender(SDL_Renderer* renderer, const CameraComponent* camera) const {
-		SDL_Texture* texture = ResourceManager::GetTexture(m_texturePath);
+		Texture* textureAsset = ResourceManager::Load<Texture>(m_texturePath);
+		SDL_Texture* texture = textureAsset ? textureAsset->get() : nullptr;
 		if (!texture || m_tiles.empty()) return;
 
 		float texW = 0.0f, texH = 0.0f;
@@ -144,7 +145,7 @@ namespace Shit {
 	void Tilemap::setTexturePath(const std::string& path) {
 		m_texturePath = path;
 		if (!path.empty()) {
-			ResourceManager::GetTexture(path);
+			ResourceManager::Load<Texture>(path);
 		}
 	}
 
