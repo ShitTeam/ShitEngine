@@ -100,6 +100,10 @@ private:
 			/// @brief 清除接触对集合中所有包含指定刚体的项（刚体/形状销毁时调用，防残留泄漏）
 			void cleanupContactPairs(const RigidBody2D* body);
 
+			/// @brief 收集当前子步的接触事件到 entered/exited（每个 b2World_Step 后调用：
+			/// Box2D 的事件缓冲随步进清空，多子步帧必须逐步收集，否则前面子步的事件丢失）
+			void collectContactEvents(std::vector<ContactPair>& entered, std::vector<ContactPair>& exited);
+
 			/// @brief 把一对接触对象的碰撞回调派发给两个 GameObject 上已启动的 Behavior
 			void dispatchContact(const ContactPair& pair, CollisionPhase phase);
 

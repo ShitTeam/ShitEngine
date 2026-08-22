@@ -5,6 +5,7 @@
 #include "ShitEngine/Component/SpriteRenderer.h"
 #include "ShitEngine/Core/Time.h"
 #include "ShitEngine/Core/Log.h"
+#include "ShitEngine/Resource/ResourceManager.h"
 #include "ShitEngine/GameObject/GameObject.h"
 
 #include <nlohmann/json.hpp>
@@ -210,7 +211,7 @@ namespace Shit {
         for (auto& s : m_states) {
             if (!s.assetPath.empty()) {
                 AnimationClip clip;
-                if (loadClipFromFile(s.assetPath, clip))
+                if (loadClipFromFile(ResourceManager::ResolveAssetPath(s.assetPath), clip))
                     s.clip = std::move(clip);
                 else
                     ST_CORE_WARN("[Animator] 状态 '{}' 的 .anim 资产加载失败: {}", s.name, s.assetPath);

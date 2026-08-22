@@ -92,9 +92,16 @@ PhysicsSystem2D::~PhysicsSystem2D() = default;
 			else            b2Body_Disable(bodyId);
 		}
 
-		// 使用固定时间步长保证物理稳定性，避免低帧率导致穿透
+		// 使用固定时间步长保证物理稳定性，避免低帧率导致穿透。
+		// 注意：Box2D 的接触事件缓冲每次 b2World_Step 都会清空——事件收集必须
+		// 放进子步循环逐步执行，否则一帧跑多个子步时前面子步的 Begin/End 事件丢失。
 		constexpr float FIXED_TIME_STEP = 1.0f / 60.0f;
 		constexpr int MAX_SUB_STEPS = 3;
+
+		std::unordered_set<ContactPair, ContactPairHash> prevActive = m_activeContacts; // 本帧处理前集合（上一帧状态）
+		std::vector<ContactPair> entered;
+		std::vector<ContactPair> exited;
+
 		float dt = Shit::Time::GetDeltaTime();
 		m_accumulator += dt;
 		int steps = 0;
@@ -102,6 +109,7 @@ PhysicsSystem2D::~PhysicsSystem2D() = default;
 			b2World_Step(worldId, FIXED_TIME_STEP, 4);
 			m_accumulator -= FIXED_TIME_STEP;
 			++steps;
+			collectContactEvents(entered, exited);
 		}
 		// 防止 accumulator 无限增长（如断点调试时）
 		if (m_accumulator > FIXED_TIME_STEP * MAX_SUB_STEPS) {
@@ -129,16 +137,30 @@ PhysicsSystem2D::~PhysicsSystem2D() = default;
 		}
 
 		// --- 接触事件 → 对象级碰撞回调（onCollisionEnter/Stay/Exit） ---
-		// Box2D 在步进时缓冲 Begin/End 接触事件（形状级）。语义：
-		//   Enter — 本帧新开始的接触（集合中不存在）
-		//   Stay  — 上一帧已在集合、本帧仍在集合的对（每帧一次）
-		//   Exit  — 本帧结束的接触（end 事件；形状可能已销毁导致解析失败，
-		//            由 destroyRigidBody / 碰撞体卸下时的清理兜底）
-		b2ContactEvents contactEvents = b2World_GetContactEvents(worldId);
+		// Begin/End 接触事件（形状级）已在子步循环内经 collectContactEvents 逐步收集。
+		// 语义：Enter — 本帧新开始的接触；Exit — 本帧结束的接触（形状可能已销毁导致
+		// 解析失败，由 destroyRigidBody / 碰撞体卸下时的清理兜底）。
 
-		std::unordered_set<ContactPair, ContactPairHash> prevActive = m_activeContacts; // 本帧处理前集合（上一帧状态）
-		std::vector<ContactPair> entered;
-		std::vector<ContactPair> exited;
+		// Stay：上一帧在集合、本帧事件处理后仍在集合的对
+		std::vector<ContactPair> stayed;
+		for (const ContactPair& pair : m_activeContacts) {
+			if (prevActive.count(pair)) stayed.push_back(pair);
+		}
+
+		// 派发（先 Enter 后 Stay 再 Exit）。回调可能销毁对象（播放态走延时删除，
+		// 编辑态立即删除）——派发函数内逐对校验刚体仍注册、对象仍在场景。
+		for (const ContactPair& pair : entered) dispatchContact(pair, CollisionPhase::Enter);
+		for (const ContactPair& pair : stayed) dispatchContact(pair, CollisionPhase::Stay);
+		for (const ContactPair& pair : exited) dispatchContact(pair, CollisionPhase::Exit);
+	}
+
+	// 收集单个子步的接触事件（每次 b2World_Step 后调用；Box2D 事件缓冲随步进清空）。
+	// Begin — 新接触入集合并记 Enter（已在集合中的接触重建不重复 Enter，Stay 覆盖）；
+	// End   — 接触出集合并记 Exit。形状已失效的事件由刚体/碰撞体销毁路径的清理兜底。
+	void PhysicsSystem2D::collectContactEvents(
+		std::vector<ContactPair>& entered, std::vector<ContactPair>& exited) {
+		const b2WorldId worldId = Internal::MakeWorldId(m_worldIndex, m_worldGeneration);
+		b2ContactEvents contactEvents = b2World_GetContactEvents(worldId);
 		for (int i = 0; i < contactEvents.beginCount; ++i) {
 			const b2ContactBeginTouchEvent& ev = contactEvents.beginEvents[i];
 			if (!b2Shape_IsValid(ev.shapeIdA) || !b2Shape_IsValid(ev.shapeIdB)) continue;
@@ -151,7 +173,6 @@ PhysicsSystem2D::~PhysicsSystem2D() = default;
 			if (m_activeContacts.insert(pair).second) {
 				entered.push_back(pair);
 			}
-			// 已在集合中（接触重建/休眠唤醒）：不重复 Enter，Stay 语义已覆盖
 		}
 		for (int i = 0; i < contactEvents.endCount; ++i) {
 			const b2ContactEndTouchEvent& ev = contactEvents.endEvents[i];
@@ -166,18 +187,6 @@ PhysicsSystem2D::~PhysicsSystem2D() = default;
 				exited.push_back(pair);
 			}
 		}
-
-		// Stay：上一帧在集合、本帧事件处理后仍在集合的对
-		std::vector<ContactPair> stayed;
-		for (const ContactPair& pair : m_activeContacts) {
-			if (prevActive.count(pair)) stayed.push_back(pair);
-		}
-
-		// 派发（先 Enter 后 Stay 再 Exit）。回调可能销毁对象（播放态走延时删除，
-		// 编辑态立即删除）——派发函数内逐对校验刚体仍注册、对象仍在场景。
-		for (const ContactPair& pair : entered) dispatchContact(pair, CollisionPhase::Enter);
-		for (const ContactPair& pair : stayed) dispatchContact(pair, CollisionPhase::Stay);
-		for (const ContactPair& pair : exited) dispatchContact(pair, CollisionPhase::Exit);
 	}
 
 	void PhysicsSystem2D::destroy() {

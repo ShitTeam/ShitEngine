@@ -87,6 +87,9 @@ namespace Shit {
 
 	void CircleCollider2D::onFieldChanged(const std::string& fieldName) {
 		if (fieldName == "m_radius") setRadius(m_radius);   // 直写后同步到已创建的形状
+		else if (fieldName == "m_density") setDensity(m_density);
+		else if (fieldName == "m_friction") setFriction(m_friction);
+		else if (fieldName == "m_restitution") setRestitution(m_restitution);
 	}
 
 	void CircleCollider2D::setDensity(float density) {

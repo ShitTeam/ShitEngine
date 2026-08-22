@@ -7,6 +7,16 @@
 
 ## [Unreleased]
 
+### 修复
+
+- **全源码审查修复 6 处 BUG（引擎 + 编辑器）**：
+  - **物理碰撞事件低帧率丢失（高）**：固定步进循环一帧最多跑 3 个子步，但接触事件只在循环外取一次——Box2D 的事件缓冲每次 `b2World_Step` 都会清空，多子步帧前面子步的 Begin/End 事件全部静默丢失。新增 `PhysicsSystem2D::collectContactEvents` 移入子步循环逐步收集，Enter/Stay/Exit 派发语义不变
+  - **编辑态删除对象不级联子物体（中）**：运行态 `removeGameObject` 走 `destroy()` 级联标记整个子树，编辑态只删对象本身、子物体被遗留提升为根——同一 API 两种语义。编辑态对齐级联销毁（含 `removeGameObjectByName`）；批量删除/清场循环中已随父级销毁的指针只与容器比对、绝不解引用
+  - **Tilemap 损坏数据崩溃（中）**：`parseGridData` 不防御负数网格尺寸，`size_t(-1)*N` 回绕成天文数字使 `resize` 抛 `bad_alloc` 直接崩掉场景加载；尺寸现钳为非负
+  - **`.anim` 资产加载绕过资产根（中）**：Animator 是唯一不走 `ResourceManager::ResolveAssetPath` 的资源读取路径，项目相对路径的状态资产在播放态加载失败；已统一
+  - **碰撞体材质字段检查器直写不同步（中低）**：Density/Friction/Restitution 是可编辑反射字段，但 `onFieldChanged` 只处理 Size/Radius，改动到组件重建前不生效；已补同步分支（Box/Circle 两处）
+  - **cmake 缺失时脚本构建器永久卡死（中，编辑器）**：Qt 的 `FailedToStart` 之后 `finished()` 不会再发出，`ScriptBuilder` 原 errorOccurred 处理只报错不清理 `m_process`，此后每次构建都报「已有构建进行中」直到重启编辑器；已在配置/编译两处处理器中自行清理进程状态
+
 ### 移除
 
 - **清理 Examples 残留引用**：`Examples/` 示例工程已随 ffa1a5a 删除，本次清掉全部残留——CMakePresets.json 与 CI 工作流中失效的 `BUILD_EXAMPLES` 变量（4+4 处）、`.gitignore` 的 `Examples/bin|lib/`、Runtime 默认启动场景改回现存 `Scenes/Preview.scene`（原指向已随示例删除的 PhysicsTest.scene）、Runtime/CMakeLists.txt 注释与 ReflectionScanner 文档注释中的 ExamplePlugin/Examples 提及、AGENTS.md/CLAUDE.md 架构图与插件架构节的示例路径、`.devin/wiki.json` 页面元数据改写为 SDK 集成；历史版本条目与 ROADMAP 按「记录当时状态」惯例保持原样

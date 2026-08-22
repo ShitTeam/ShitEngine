@@ -115,10 +115,16 @@ void ScriptBuilder::startConfigure()
     });
     connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
             this, &ScriptBuilder::onProcessFinished);
-    // cmake 无法启动（未安装/不在 PATH）→ 明确原因，否则只有含糊的退出码 -2
+    // cmake 无法启动（未安装/不在 PATH）→ 明确原因，否则只有含糊的退出码 -2。
+    // 注意：FailedToStart 之后 finished() 不会再发出，必须在此自行清理 m_process，
+    // 否则成员残留导致后续构建永远报“已有构建进行中”（直到重启编辑器）。
     connect(m_process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError err) {
-        if (err == QProcess::FailedToStart)
-            finishFailure(tr("无法启动 cmake：未安装或不在 PATH 中"));
+        if (err != QProcess::FailedToStart) return;
+        QProcess *p = m_process;
+        m_process = nullptr;
+        if (p) p->deleteLater();
+        if (!m_configured) m_lastConfigureFailed = true;
+        finishFailure(tr("无法启动 cmake：未安装或不在 PATH 中"));
     });
 
     emit buildOutput(tr("── 配置脚本工程（%1）──").arg(QFileInfo(m_scriptsDir).fileName()));
@@ -139,10 +145,13 @@ void ScriptBuilder::startBuild()
     });
     connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
             this, &ScriptBuilder::onProcessFinished);
-    // 同 startConfigure——cmake 无法启动时给出明确原因
+    // 同 startConfigure——FailedToStart 后 finished() 不再发出，须自行清理
     connect(m_process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError err) {
-        if (err == QProcess::FailedToStart)
-            finishFailure(tr("无法启动 cmake：未安装或不在 PATH 中"));
+        if (err != QProcess::FailedToStart) return;
+        QProcess *p = m_process;
+        m_process = nullptr;
+        if (p) p->deleteLater();
+        finishFailure(tr("无法启动 cmake：未安装或不在 PATH 中"));
     });
 
     emit buildOutput(tr("-- 编译脚本工程 --"));

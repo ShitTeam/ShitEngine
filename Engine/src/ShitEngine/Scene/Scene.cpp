@@ -1,4 +1,4 @@
-﻿#include "ShitEngine/Core/pch.h"
+#include "ShitEngine/Core/pch.h"
 #include "ShitEngine/Scene/Scene.h"
 #include "ShitEngine/Core/Log.h"
 #include "ShitEngine/Core/Game.h"
@@ -243,7 +243,6 @@ void Scene::indexComponentUuid(Component* component) {
 			ST_CORE_WARN("试图从场景 {} 中移除一个空的游戏对象指针！", m_name);
 			return;
 		}
-
 		if (Game::IsRunning()) { // 如果正在运行，则使用更安全的移除
 			// 同时检查待添加列表（可能该对象尚未被正式加入场景）
 			auto it = std::find_if(m_pendingAdditions.begin(), m_pendingAdditions.end(),
@@ -257,23 +256,37 @@ void Scene::indexComponentUuid(Component* component) {
 				go->clean();
 				return;
 			}
+			// 已随父级级联标记：等 update 统一清理即可。此分支对象仍在容器中存活，可安全解引用
+			if (gameObject->isNeedDestroy()) return;
 			gameObject->destroy(); // destroy() 会级联标记所有子物体
 		}
 		else {
+			// 编辑态与运行态语义一致：级联销毁整个子树（此前只删对象本身，
+			// 子物体被遗留提升为根，与运行态 destroy() 的级联标记相矛盾）。
+			// 注意：批量删除/清场循环里，前面的级联删除可能已把本指针所指的
+			// 子物体一并销毁——悬垂指针只能与容器做指针比对，绝不能先解引用。
 			auto it = std::find_if(m_gameObjects.begin(), m_gameObjects.end(), [&gameObject](const std::unique_ptr<GameObject>& go) {
 				return go.get() == gameObject;
 				});
-
-			if (it != m_gameObjects.end()) {
-				// 先摘除再 clean：onDetach/onDestroy 回调内若重入 removeGameObject
-				//（含移除自身），容器已不含本对象，不会迭代器失效/双重清理
-				auto go = std::move(*it);
-				m_gameObjects.erase(it);
-				bumpGeneration();
-				go->clean();
-			}
-			else {
+			if (it == m_gameObjects.end()) {
 				ST_CORE_WARN("场景 {} 中没有找到对应的游戏对象 ！", m_name);
+				return;
+			}
+			// 先整体搬出再逐个 clean：clean 触发 onDetach/onDestroy 回调，
+			// 回调内重入 removeGameObject 不会迭代器失效/双重清理。
+			(*it)->destroy();        // 级联标记本对象 + 全部子物体
+			std::vector<std::unique_ptr<GameObject>> dying;
+			for (auto cur = m_gameObjects.begin(); cur != m_gameObjects.end(); ) {
+				if (*cur && (*cur)->isNeedDestroy()) {
+					dying.push_back(std::move(*cur));
+					cur = m_gameObjects.erase(cur);
+				} else {
+					++cur;
+				}
+			}
+			bumpGeneration();
+			for (auto& go : dying) {
+				if (go) go->clean();
 			}
 		}
 	}
@@ -299,15 +312,21 @@ void Scene::indexComponentUuid(Component* component) {
 		}
 		else {
 			bool found = false;
-			// 先整体搬出再逐个 clean：clean 触发 onDetach/onDestroy 回调，回调内重入
-			// removeGameObject/removeGameObjectByName 会再次 erase 容器——若在遍历中
-			// clean，迭代器即失效（AGENTS.md 约定：迭代容器时不要直接删除元素）。
+			// 与 removeGameObject 一致的级联语义：先对全部同名对象 destroy()
+			// 级联标记子树（只标记不删），再统一摘除 needDestroy 的对象逐个
+			// clean——clean 触发 onDetach/onDestroy 回调，回调内重入增删不会
+			// 使本轮遍历失效（AGENTS.md 约定：迭代容器时不要直接删除元素）。
+			for (auto& go : m_gameObjects) {
+				if (go && !go->isNeedDestroy() && go->getName() == name) {
+					go->destroy();
+					found = true;
+				}
+			}
 			std::vector<std::unique_ptr<GameObject>> dying;
 			for (auto it = m_gameObjects.begin(); it != m_gameObjects.end(); ) {
-				if ((*it)->getName() == name) {
+				if (*it && (*it)->isNeedDestroy()) {
 					dying.push_back(std::move(*it));
 					it = m_gameObjects.erase(it);
-					found = true;
 				} else {
 					++it;
 				}

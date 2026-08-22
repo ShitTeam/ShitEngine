@@ -91,6 +91,9 @@ namespace Shit {
 
 	void BoxCollider2D::onFieldChanged(const std::string& fieldName) {
 		if (fieldName == "m_size") setSize(m_size);   // 直写后同步到已创建的形状
+		else if (fieldName == "m_density") setDensity(m_density);
+		else if (fieldName == "m_friction") setFriction(m_friction);
+		else if (fieldName == "m_restitution") setRestitution(m_restitution);
 	}
 
 	void BoxCollider2D::setDensity(float density) {

@@ -238,8 +238,10 @@ namespace Shit {
 		}
 
 		if (values.size() >= 2) {
-			m_gridWidth = values[0];
-			m_gridHeight = values[1];
+			// 容错：负数/异常尺寸钳为 0——负值经 size_t 回绕会让 ensureTileBuffer
+			// 的 resize 得到天文数字，抛 bad_alloc 直接崩掉场景加载
+			m_gridWidth = std::max(0, values[0]);
+			m_gridHeight = std::max(0, values[1]);
 			ensureTileBuffer();
 			std::fill(m_tiles.begin(), m_tiles.end(), -1);
 			const size_t max = std::min(m_tiles.size(), values.size() - 2);
