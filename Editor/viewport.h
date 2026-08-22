@@ -54,6 +54,10 @@ public:
     /// 控件坐标 → 逻辑像素坐标（播放态输入转发等外部使用）
     QPointF mapToLogical(const QPoint &pos) const { return widgetToLogical(pos); }
 
+    /// F 键聚焦：编辑相机移到选中对象位置，按包围盒调整 zoom（Unity 帧化；
+    /// 供窗口级快捷键调用，无选中/无相机时为 no-op）
+    void frameSelected();
+
     /// 设置瓦片画笔（供瓦片面板设置；-1 = 橡皮，-2 = 未选择不刷）
     void setPaintTileId(int tileId) { m_paintTileId = tileId; update(); }
     int paintTileId() const { return m_paintTileId; }
@@ -150,8 +154,6 @@ private:
     /// 构建左上角工具条（构造时调用）；setGizmoMode 同步按钮选中态
     void setupGizmoBar();
     void syncGizmoBar();
-    /// F 键聚焦：编辑相机移到选中对象位置，按包围盒调整 zoom（Unity 帧化）
-    void frameSelected();
 };
 
 #endif // VIEWPORT_H

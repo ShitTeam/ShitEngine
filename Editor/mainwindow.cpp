@@ -1408,6 +1408,16 @@ void MainWindow::createToolbar()
     addGizmoShortcut(Qt::Key_W, Viewport::GizmoMode::Rotate);
     addGizmoShortcut(Qt::Key_E, Viewport::GizmoMode::Scale);
 
+    // F 键聚焦选中对象（窗口级：场景树/检查器中选中也生效，无需先点击视口取焦）；
+    // 文本输入中不劫持；挂入 m_gizmoShortcutActions 复用播放态禁用（F 让位给游戏按键）
+    auto *focusAction = new QAction(this);
+    focusAction->setShortcut(QKeySequence(Qt::Key_F));
+    connect(focusAction, &QAction::triggered, this, [this] {
+        if (!isTextEditFocused() && m_sceneViewport) m_sceneViewport->frameSelected();
+    });
+    addAction(focusAction);
+    m_gizmoShortcutActions.push_back(focusAction);
+
     // 播放控制快捷键（窗口级不可见动作，仅运行态生效）
     auto *pauseShortcut = new QAction(this);
     pauseShortcut->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_P));
