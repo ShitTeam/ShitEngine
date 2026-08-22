@@ -9,6 +9,20 @@
 
 ### 新增
 
+- **Resource 基类 + 统一资源缓存（引擎重构）**：`Shit::Resource` 基类（路径/加载状态/错误信息/会话级 uuid）+ `Texture`/`Font`/`Audio` 子类封装 `SDL_Texture`/`TTF_Font`/`MIX_Audio`；`ResourceCache<Key,Res>` 模板统一「查缓存→加载→插入→回收」——原 TextureManager/FontManager/AudioManager 三份 ~150 行复制粘贴折叠为 ResourceManager 内三个缓存（门面 `GetTexture/GetFont/GetAudio` 签名不变，调用方零改动）；顺手修正 Font/Audio 把缓存未命中误打 ERROR 的日志级别；新增 `GetTextureAsset/GetFontAsset/GetAudioAsset`（访问状态/错误/uuid）与 `GetResourceByUuid`（会话内查询，为将来热重载留口；持久化资产 uuid 注册表按决策暂不做）。所有权：缓存 unique_ptr 独占、调用方借用裸句柄，集中销毁顺序保持（将来热重载走原地 reload 换内部句柄）
+- **资产根解析（引擎）**：`ResourceManager::SetAssetRoot` + `ResolveAssetPath`——相对路径先按资产根解析、未命中回退进程 cwd（Runtime `resource/...` 场景零影响）；编辑器打开项目时资产根=项目根，项目内相对路径资产从此可直接加载
+- **资源路径字段统一体验（编辑器）**：新 `PathFieldWidget` 复合控件（`[路径框][✕][…浏览]`）——**字段级拖放**（按扩展名过滤，拖到哪个字段填哪个）、**浏览选择**（QFileDialog 按字段语义过滤：图片/音频/字体/.anim/.scene/.prefab）、手输相对/绝对统一解析；字段语义按字段名关键字推导（texture/sprite/sheet/tileset/icon/audio/sound/music/font/anim/clip/scene/prefab），覆盖 SpriteRenderer/Tilemap/UIText(Input)/AudioSource 等全部路径字段，一次一提交接撤销栈+dirty；**面板级拖拽兜底**（P31 恢复——曾实现后被反射重写提交误删，从 git 历史找回并适配 Tab 结构：拖到面板空白按扩展名匹配，未知扩展+唯一 string 字段兜底）
+- **统一路径服务 `Editor/assetpaths.h`**：`toRelative/toAbsolute` 一对函数（项目根注入），替换 Animator/Animation/SpriteSheet/Tileset 四份分歧实现（TilesetDock 补项目根感知）；**新写入路径统一相对项目根存储**（逃逸/无项目落绝对；旧场景绝对路径双向兼容，导出器本就兼容两种格式）
+- **P34 回归修复**：场景树 Ctrl+F 名称过滤框 + 检查器组件/字段搜索框（被 ffa1a5a 误删，恢复并适配 Inspector Tab 布局——搜索框挂组件页顶部、按组件行区间整块显隐）
+- **编辑器便捷操作 7 项**：**F 键聚焦**选中对象（视口帧化：编辑相机对准对象+包围盒调 zoom）；**Ctrl+D 原地复制**对象（复用内部剪贴板粘贴路径，重名去重+同父+选中副本）；**状态栏常驻信息**（选中对象名 + 鼠标世界坐标，每帧刷新）；**播放/停止自动切换视口 Tab**（▶ 自动切运行视口、■ 切回场景视口）；**滚轮缩放锚定鼠标光标**（原以相机中心缩放，光标处物体会漂）；**Ctrl+P 暂停/继续**、**Ctrl+Shift+P 单步**（暂停态推进一帧，`EnginePreview::singleStep`）
+
+- **属性面板 Tab 化 + 对象属性编辑 + 资源类型图标（编辑器 + 引擎，参考 Unity）**：
+  - **Inspector 双页 Tab**：「组件」（对象属性 + 组件字段 + Add Component）/「系统」（场景系统列表 + 系统属性）两页常驻，选中对象自动切组件页；播放态两页只读但仍可切换查看运行时值；系统页回读与组件页回读分开管理（重建系统页不再清掉组件页回读），系统列表签名检测不再依赖未选中态（选中对象时物理自愈注册等变化也能刷新）
+  - **GameObject 对象属性**：组件页顶部 Unity 式 `[启用 ✓][名称]` 行 + Tag 编辑行（均入撤销栈、每帧回读、随场景保存）；场景树失活对象灰显（含父链级联态）
+  - **引擎 active 语义**：`GameObject::isActive()`（自身）/ `isActiveInHierarchy()`（父链级联，Unity 语义：父失活子随失活）/ `setActive()`；失活对象不渲染（RenderSystem）、不更新行为（BehaviorSystem，重新激活后 onStart 补跑）、UI 不参与绘制/射线/按钮（UIRenderSystem 一处过滤三处生效）、物理刚体移出模拟（`b2Body_Enable/Disable`，仅状态变化时调用）；失活对象上的相机不计入场景相机兜底判定
+  - **tag 落盘**：对象级 `tag`/`active` 字段随 `.scene` 序列化（空标签/启用态不写入保持旧文件兼容，旧文件回退空 tag + 启用）
+  - **资源面板文件类型图标**：`.scene` 蓝 SC / `.anim` 橙 ▶ / `.prefab` 青 PB / `.sprite` 紫 SP / `.wav` 绿 ♪ / `.ttf` 深灰 A 手绘彩色圆角图标（16/32/56 三档，树与网格共享同一模型一处生效）；私有后缀此前全落 OS 默认白板文件图标
+
 - **精灵表功能（P38，编辑器）**：Unity 式图片精灵表定义与动画帧编辑——资源面板右键图片「定义为精灵表…」弹出网格配置对话框（行列/帧宽高/边距/间距，左侧纹理预览叠加网格线，自动推算），保存 `.sprite` 元数据文件；`.sprite` 双击打开精灵表视图 Dock（缩略图网格，点选帧后拖拽 → 自定义 MIME `application/x-sprite-frame`）；Animation 窗口接受精灵拖入，自动新建/追加帧到当前剪辑
 - **编辑器易用性批次（P32~P36，编辑器 + 引擎）**：
   - **部署与日志（P32）**：`cmake --install` 后 SDK/安装目录自带 Qt DLL（windeployqt），本地双击 `Editor.exe` 即可运行；引擎文件日志可切换到任意目录，编辑器打开项目后日志写入项目 `.shitengine/log`（不再落在启动目录）；日志面板新增「保存日志…/清除」按钮（编辑器侧日志此前仅内存、崩溃即丢）
@@ -21,6 +35,7 @@
 
 ### 修复
 
+- **选中唯一对象后属性面板卡在「系统属性」（高，编辑器）**：视口点空白取消选中时只清了检查器/瓦片/动画面板、不清场景树 current——再点树上仍是 current 的那行时 Qt `setCurrentIndex` 相等早退不发 `currentChanged`，`objectSelected` 永不发出，检查器卡死在未选中的系统面板，直到新建对象把 current 挪走才恢复。点空白现统一清空树选中 + Gizmo（新增 `SceneTree::clearSelection`，current 置无效经 `objectSelected(nullptr)` 走统一清空路径）；场景树补 `clicked` 兜底重发（点击已是 current 的行也必发 `objectSelected`，任何选中态失同步可点击自愈）；`newScene`/`openScenePath` 清场前先清检查器/视口选中态（对齐 `rollbackScene`，消除对象销毁到下一帧同步之间的悬垂指针窗口）
 - **全库 BUG 批量修复（反射 / 序列化 / 引擎核心 / 编辑器，14 项）**：
   - **反射·属性注解挂错声明（严重）**：`SHIT_PROPERTY(isFlipped, setFlipped)` 与 getter 之间隔了注释，GNU 属性前向附着到 `onAfterDeserialize` 上，属性类型被扫成 `void`——此前靠生成器按属性名白名单硬猜才碰巧正确。注解已紧贴 getter；Scanner 改为按 getter 名查类内方法表解析真实返回类型（注解放错位置时兜底），类型为 void/引用时 WARN 并跳过（不再生成不可编译代码）；`SHIT_METHOD` 补齐 `paramTypes` 收集（此前恒空，带参方法一生成就编译失败），`TypeInfoBuilder::Method` 增加参数类型列表；字段/方法/属性三路 SHIT_META 提取统一为"仅 `({...})` 结构化语法"过滤（简单标记误入会拼出未声明标识符）
   - **属性不序列化（高）**：检查器可编辑的反射属性（SpriteRenderer 的 sourceRect X/Y/W/H、flipped）保存场景后丢失——`Prefab::Capture` 只遍历 fields。现已随 `properties` 段落盘并经 setter 恢复（撤销快照/复制粘贴同享）；`setSourceRectX/Y/W/H` 物化 nullopt 时按纹理尺寸兜底（此前 `{0,0,0,0}` 会让精灵 0×0 消失且无法回到整图），W/H getter 整图态返回实际纹理尺寸
