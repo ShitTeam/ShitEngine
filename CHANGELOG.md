@@ -7,6 +7,8 @@
 
 ## [Unreleased]
 
+## [1.4.2] - 2026-08-22
+
 ### 新增
 
 - **Resource 基类 + 统一资源缓存（引擎重构）**：`Shit::Resource` 基类（路径/加载状态/错误信息/会话级 uuid）+ `Texture`/`Font`/`Audio` 子类封装 `SDL_Texture`/`TTF_Font`/`MIX_Audio`；`ResourceCache<Key,Res>` 模板统一「查缓存→加载→插入→回收」——原 TextureManager/FontManager/AudioManager 三份 ~150 行复制粘贴折叠为 ResourceManager 内三个缓存（门面 `GetTexture/GetFont/GetAudio` 签名不变，调用方零改动）；顺手修正 Font/Audio 把缓存未命中误打 ERROR 的日志级别；新增 `GetTextureAsset/GetFontAsset/GetAudioAsset`（访问状态/错误/uuid）与 `GetResourceByUuid`（会话内查询，为将来热重载留口；持久化资产 uuid 注册表按决策暂不做）。所有权：缓存 unique_ptr 独占、调用方借用裸句柄，集中销毁顺序保持（将来热重载走原地 reload 换内部句柄）
