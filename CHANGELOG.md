@@ -7,6 +7,10 @@
 
 ## [Unreleased]
 
+### 新增
+
+- **固定步长脚本驱动 `Behavior::onFixedUpdate(float)`（引擎）**：把固定步循环从 `PhysicsSystem2D` 内部提升到 `Scene` 层——`Scene` 以固定节拍（60Hz、单帧最多 3 步防死亡螺旋）按系统优先级调用新的 `System::fixedUpdate(fixedDt)` 虚钩子（默认空实现）：`BehaviorSystem` 在其中补跑 onStart 并驱动 `Behavior::onFixedUpdate`，随后 `PhysicsSystem2D` 步进一次并派发该步接触事件——脚本施力/设速与物理模拟严格同拍（Unity FixedUpdate 模型），不再受渲染帧率影响；高帧率下部分渲染帧不执行固定步属预期行为。全局暂停时固定步整体冻结，编辑器单步调试照常可用；未覆写 onFixedUpdate 的行为零成本。**行为变更**：碰撞回调改为每固定步派发一次（原先整帧聚合派发）——Enter/Exit 触发时机不变，Stay 从每渲染帧变为每固定步一次
+
 ### 修复
 
 - **全源码审查修复 6 处 BUG（引擎 + 编辑器）**：

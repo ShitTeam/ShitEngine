@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "Component.h"
 
 namespace Shit {
@@ -7,11 +7,12 @@ namespace Shit {
 	/**
 	 * @brief 行为基类 —— 用于编写自定义游戏逻辑
 	 *
-	 * 继承自 Component，扩展出 onStart / onUpdate 两个阶段：
-	 *   onCreate → onAttach → onStart → (每帧)onUpdate → onDetach → onDestroy
+	 * 继承自 Component，扩展出 onStart / onFixedUpdate / onUpdate 三个阶段：
+	 *   onCreate → onAttach → onStart → (固定步)onFixedUpdate / (每帧)onUpdate → onDetach → onDestroy
 	 *
-	 * onStart  在首次 update 前执行一次，适用于缓存指针。
-	 * onUpdate 每帧执行，适用于输入、移动、碰撞检测等。
+	 * onStart        在首次 update 前执行一次，适用于缓存指针。
+	 * onFixedUpdate  固定步长执行（默认 60Hz、与物理步进同拍、先于本步物理模拟），适用于施力/设速等需稳定帧率的逻辑。
+	 * onUpdate       每渲染帧执行，适用于输入、移动、碰撞检测等。
 	 *
 	 * 碰撞回调（onCollisionEnter/Stay/Exit）由 PhysicsSystem2D 在物理步进后驱动，
 	 * 仅已启动（onStart 已执行）的行为收到，参数为碰撞对方的 GameObject。
@@ -29,6 +30,7 @@ namespace Shit {
 		void onCreate() override;
 		void onAttach() override;
 		virtual void onStart();         ///< 首次 update 前执行一次
+		virtual void onFixedUpdate(float fixedDt); ///< 固定步长执行（与物理同拍；Scene 固定步循环驱动）
 		virtual void onUpdate();        ///< 每帧执行
 
 		// --- 碰撞回调（由 PhysicsSystem2D 驱动；仅 onStart 已执行的行为可收到） ---

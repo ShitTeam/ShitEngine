@@ -21,10 +21,11 @@ namespace Shit {
 	 * 使用方式：
 	 *   scene->registerSystem<Shit::PhysicsSystem2D>();
 	 *
-	 * 物理步进后按接触事件驱动冲突对象的 Behavior 碰撞回调：
-	 *   onCollisionEnter / onCollisionStay / onCollisionExit(对方 GameObject)。
+	 * 由 Scene 固定步循环驱动（默认 60Hz）：每步 补建自愈 → b2World_Step(fixedDt)
+	 * → 同步刚体位姿到 Transform → 收集并派发本步接触事件（碰撞回调每固定步一次）。
 	 *
-	 * priority=50，晚于 BehaviorSystem(0) 早于 RenderSystem(100)。
+	 * priority=50，晚于 BehaviorSystem(0) 早于 RenderSystem(100)——同一固定步内
+	 * 脚本的 onFixedUpdate 先施力/设速，物理随后模拟。
 	 */
 class SHIT_API SHIT_REFLECT(BlackList) PhysicsSystem2D final : public System {
 			SHIT_REFLECT_BODY(PhysicsSystem2D)
@@ -34,6 +35,8 @@ class SHIT_API SHIT_REFLECT(BlackList) PhysicsSystem2D final : public System {
 
 			void init() override;
 			void update() override;
+			/// @brief 固定步阶段（Scene 固定步循环节拍调用）：补建自愈 → 步进一次 → 同步 Transform → 收集派发本步接触事件
+			void fixedUpdate(float fixedDt) override;
 			void destroy() override;
 
 			// 反射字段被检查器直写后回调（把重力等变更实时同步到 Box2D 世界）
@@ -104,6 +107,13 @@ private:
 			/// Box2D 的事件缓冲随步进清空，多子步帧必须逐步收集，否则前面子步的事件丢失）
 			void collectContactEvents(std::vector<ContactPair>& entered, std::vector<ContactPair>& exited);
 
+			/// @brief 自愈补建：缺体刚体/关节补建 + 对象失活状态同步到物理体（每个固定步开头执行）
+			void ensureSimulationState();
+			/// @brief 把 Dynamic/Kinematic 刚体位姿同步回 TransformComponent（Static 不受物理驱动不同步）
+			void syncTransformsFromBodies();
+			/// @brief 处理单个固定步的接触事件并派发 Enter/Stay/Exit（每固定步一次，语义对齐 Unity）
+			void processContactEventsForStep();
+
 			/// @brief 把一对接触对象的碰撞回调派发给两个 GameObject 上已启动的 Behavior
 			void dispatchContact(const ContactPair& pair, CollisionPhase phase);
 
@@ -120,9 +130,6 @@ private:
 			// 当前接触中的刚体对集合（进入/持续/结束 基于它判定；元素仅作键，不触碰指针所指对象）
 			SHIT_META(Disable)
 			std::unordered_set<ContactPair, ContactPairHash> m_activeContacts;
-			SHIT_META(Disable)
-			float m_accumulator = 0.0f; // 物理固定步长累积器
-
 			// b2WorldId = {uint16_t index1; uint16_t generation;}
 			SHIT_META(Disable)
 			uint16_t m_worldIndex = 0;
