@@ -29,7 +29,7 @@ namespace Shit {
 		float frameWidth = textureWidth;
 		float frameHeight = textureHeight;
 		if (m_sprite.getSourceRect().has_value()) {
-			srcRect = m_sprite.getSourceRect().value();
+			srcRect = m_sprite.getSourceRect()->toSDL();
 			srcPtr = &srcRect;
 			frameWidth = srcRect.w;
 			frameHeight = srcRect.h;
@@ -97,4 +97,66 @@ namespace Shit {
 		const float gbh = height * scale.y;
 		return SDL_FRect{ position.x - gbw * 0.5f, position.y - gbh * 0.5f, gbw, gbh };
 	}
+
+// ═══════════════════════════════════════════════════════════════
+// 属性 getter/setter 实现
+// ═══════════════════════════════════════════════════════════════
+
+Rect SpriteRenderer::fullTextureRect() const {
+	SDL_Texture* texture = ResourceManager::GetTexture(m_texturePath);
+	if (!texture) return Rect{0.0f, 0.0f, 0.0f, 0.0f};
+	float w = 0.0f, h = 0.0f;
+	SDL_GetTextureSize(texture, &w, &h);
+	return Rect{0.0f, 0.0f, w, h};
+}
+
+float SpriteRenderer::getSourceRectX() const {
+	auto sr = m_sprite.getSourceRect();
+	return sr ? sr->x : 0.0f;
+}
+
+void SpriteRenderer::setSourceRectX(float v) {
+	auto sr = m_sprite.getSourceRect();
+	if (!sr) sr = fullTextureRect();   // 整图 → 物化为全纹理矩形，防 0×0 裁没了
+	sr->x = v;
+	m_sprite.setSourceRect(sr);
+}
+
+float SpriteRenderer::getSourceRectY() const {
+	auto sr = m_sprite.getSourceRect();
+	return sr ? sr->y : 0.0f;
+}
+
+void SpriteRenderer::setSourceRectY(float v) {
+	auto sr = m_sprite.getSourceRect();
+	if (!sr) sr = fullTextureRect();
+	sr->y = v;
+	m_sprite.setSourceRect(sr);
+}
+
+// W/H getter：整图渲染时返回纹理实际尺寸（检查器显示真实值，
+// 且序列化物化后语义不变——仍是"画整张图"）
+float SpriteRenderer::getSourceRectW() const {
+	auto sr = m_sprite.getSourceRect();
+	return sr ? sr->w : fullTextureRect().w;
+}
+
+void SpriteRenderer::setSourceRectW(float v) {
+	auto sr = m_sprite.getSourceRect();
+	if (!sr) sr = fullTextureRect();
+	sr->w = v;
+	m_sprite.setSourceRect(sr);
+}
+
+float SpriteRenderer::getSourceRectH() const {
+	auto sr = m_sprite.getSourceRect();
+	return sr ? sr->h : fullTextureRect().h;
+}
+
+void SpriteRenderer::setSourceRectH(float v) {
+	auto sr = m_sprite.getSourceRect();
+	if (!sr) sr = fullTextureRect();
+	sr->h = v;
+	m_sprite.setSourceRect(sr);
+}
 }

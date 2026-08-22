@@ -1,6 +1,7 @@
 #pragma once
 #include "UIRendererComponent.h"
 #include "../Render/Sprite.h"
+#include "../Math.h"
 #include <string>
 #include <optional>
 
@@ -19,18 +20,18 @@ namespace Shit {
 		explicit UIImage(const std::string& texturePath);
 		~UIImage() override;
 
-		void onRender(const SDL_FRect& screenRect) override;
-		void onDestroy() override;
+void onRender(const SDL_FRect& screenRect) override;
+    void onDestroy() override;
 
-		// --- getter & setter ---
-		void setTexturePath(const std::string& texturePath) { m_sprite.setTexturePath(texturePath); }
-		const std::string& getTexturePath() const { return m_sprite.getTexturePath(); }
+    // --- getter & setter ---
+    void setTexturePath(const std::string& texturePath) { m_sprite.setTexturePath(texturePath); }
+    const std::string& getTexturePath() const { return m_sprite.getTexturePath(); }
 
-		void setSourceRect(const std::optional<SDL_FRect>& sourceRect) { m_sprite.setSourceRect(sourceRect); }
-		const std::optional<SDL_FRect>& getSourceRect() const { return m_sprite.getSourceRect(); }
+    void setSourceRect(const std::optional<Rect>& sourceRect) { m_sprite.setSourceRect(sourceRect); }
+    const std::optional<Rect>& getSourceRect() const { return m_sprite.getSourceRect(); }
 
-		void setFlipped(bool flipped) { m_sprite.setFlipped(flipped); }
-		bool isFlipped() const { return m_sprite.isFlipped(); }
+    void setFlipped(bool flipped) { m_sprite.setFlipped(flipped); }
+    bool isFlipped() const { return m_sprite.isFlipped(); }
 
 		const Color& getColor() const { return m_color; }
 		void setColor(const Color& color) { m_color = color; }

@@ -110,9 +110,11 @@ int main() {
     // 4. 主循环
     Shit::Game::Run();
 
-    // 5. 清理（先卸载插件再销毁引擎，避免 SDL_Quit 后 DLL 析构访问 SDL 状态）
-    pluginManager.UnloadAll();
+    // 5. 清理：先销毁引擎，再卸载插件 DLL。
+    // 顺序不可颠倒：场景内插件定义的 Behavior 组件在 Scene::destroy 里做虚调用
+    //（vtable/RTTI 位于 DLL 内），先 FreeLibrary 会让析构访问已解除映射的代码（UAF 崩溃）
     Shit::Game::Destroy();
+    pluginManager.UnloadAll();
 
     return 0;
 }

@@ -20,6 +20,28 @@ namespace Shit {
 
 	Scene::~Scene() = default;
 
+	bool Scene::hasEnabledCamera() {
+		auto check = [](GameObject* go) -> bool {
+			if (!go || go->getName() == "scene_camera") return false;  // 编辑器相机（约定名）不参与判定
+			const auto* cam = go->getComponent<CameraComponent>();
+			return cam && cam->isEnabled();
+		};
+		for (const auto& go : m_gameObjects)       if (check(go.get())) return true;
+		for (const auto& go : m_pendingAdditions)  if (check(go.get())) return true;
+		return false;
+	}
+
+	GameObject* Scene::findGameObjectByName(const std::string& name) {
+		for (const auto& go : m_gameObjects) {
+			if (go && go->getName() == name) return go.get();
+		}
+		// 运行态新建对象先进 pending 队列（帧末入列），须一并查找
+		for (const auto& go : m_pendingAdditions) {
+			if (go && go->getName() == name) return go.get();
+		}
+		return nullptr;
+	}
+
 	void Scene::init() { // 场景初始化
 		if (m_isInited) return;  // 幂等：防止 SceneManager 自动 init 与手动 init 重复注册
 		m_isInited = true;

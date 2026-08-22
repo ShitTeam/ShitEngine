@@ -14,7 +14,7 @@ SpriteSheet::SpriteSheet(int rows, int cols, float frameWidth, float frameHeight
 {
 }
 
-SDL_FRect SpriteSheet::getFrameRect(int row, int col) const {
+Rect SpriteSheet::getFrameRect(int row, int col) const {
     // 越界 clamp 到合法范围
     if (m_cols > 0) {
         if (col < 0) col = 0;
@@ -29,7 +29,7 @@ SDL_FRect SpriteSheet::getFrameRect(int row, int col) const {
         row = 0;
     }
 
-    return SDL_FRect{
+    return Rect{
         m_margin + col * (m_frameWidth + m_spacing),
         m_margin + row * (m_frameHeight + m_spacing),
         m_frameWidth,
@@ -37,8 +37,8 @@ SDL_FRect SpriteSheet::getFrameRect(int row, int col) const {
     };
 }
 
-SDL_FRect SpriteSheet::getFrameRect(int frameIndex) const {
-    if (m_cols <= 0) return SDL_FRect{};
+Rect SpriteSheet::getFrameRect(int frameIndex) const {
+    if (m_cols <= 0) return Rect{};
     // 全局索引 → 行列
     if (frameIndex < 0) frameIndex = 0;
     const int total = m_rows * m_cols;

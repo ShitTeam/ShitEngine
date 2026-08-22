@@ -299,8 +299,9 @@ void DopeSheetWidget::mouseDoubleClickEvent(QMouseEvent *event)
     if (!m_clip) return;
     const int hit = blockAt(event->position());
     if (hit >= 0) {
-        const int frameId = m_blocks[static_cast<size_t>(hit)].frameId;
-        emit frameActivated(frameId);
+        // 双击 → 请求外部移除该帧块（hit = m_blocks 序号 = frames 序列位置；
+        // 剪辑数据归外部所有，本控件不直接改 frames）
+        emit frameRemoved(hit);
         return;
     }
 }

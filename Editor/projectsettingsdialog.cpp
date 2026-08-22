@@ -252,7 +252,7 @@ void ProjectSettingsDialog::buildGeneralTab(QWidget *page)
     m_sceneCombo->setCurrentIndex(currentIndex);
     form->addRow(tr("启动场景"), m_sceneCombo);
 
-    // 代码编辑器：下拉 = 本机探测到的 IDE + 浏览自定义（P16）
+    // 代码编辑器：下拉 = 本机探测到的 IDE + 浏览自定义
     m_ideCombo = new QComboBox(page);
     m_ideCombo->addItem(tr("（未配置 — 菜单「打开代码」将引导先选择）"), QString());
     const QList<IdeInfo> ides = detectInstalledIdes();

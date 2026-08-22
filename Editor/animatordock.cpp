@@ -281,7 +281,7 @@ void AnimatorDock::setSelectedStateAsset(const QString &absPath, bool withClip)
         if (absPath.isEmpty()) {
             s.clip = Shit::AnimationClip{};
         } else if (!loadClipFromFile(absPath, clip)) {
-            // P33：读取/解析失败不再静默（此前保持旧状态无任何提示，用户以为已绑定）
+            // 读取/解析失败不再静默（此前保持旧状态无任何提示，用户以为已绑定）
             QMessageBox::warning(this, tr("动画资产"),
                 tr("无法读取 .anim 资产：\n%1\n\n文件可能已损坏、缺失或格式不受支持。").arg(absPath));
             return;

@@ -73,7 +73,7 @@ namespace {
 constexpr int kMaxRecentScenes = 5;   ///< 最近场景列表长度上限
 constexpr int kMaxRecentProjects = 5; ///< 最近项目列表长度上限
 
-/// Dock 布局版本号（saveState/restoreState 第二参）。P21 起中央改为标签页叠放、
+/// Dock 布局版本号（saveState/restoreState 第二参）。中央改为标签页叠放、
 /// 底部资源+日志 Tab 合并——旧版（v0）保存的布局作废，版本不匹配时自动落回默认排列。
 constexpr int kLayoutVersion = 2;
 
@@ -127,11 +127,11 @@ MainWindow::MainWindow(QWidget *parent)
     createMenus();
     createToolbar();
 
-    // P13：Dock 布局持久化 —— 项目级 .shitengine/state.ini（无项目时回退全局注册表）。
-    // 有上次布局恢复之；否则恢复「默认布局」（P17：可经「视图 → 将当前布局设为默认」
+    // Dock 布局持久化 —— 项目级 .shitengine/state.ini（无项目时回退全局注册表）。
+    // 有上次布局恢复之；否则恢复「默认布局」（可经「视图 → 将当前布局设为默认」
     // 覆盖，即自定义启动时的初始排列）；首次启动无默认时保存出厂布局为默认。
-    // P21：布局带版本号——旧版布局作废时自动落回 createDocks 默认排列。
-    // P37b：窗口大小/位置不保存不恢复——启动一律最大化。
+    // 布局带版本号——旧版布局作废时自动落回 createDocks 默认排列。
+    // 窗口大小/位置不保存不恢复——启动一律最大化。
     {
         QSettings *s = stateSettings();
         const QByteArray userLayout = s->value("dockState").toByteArray();
@@ -143,9 +143,9 @@ MainWindow::MainWindow(QWidget *parent)
         } else {
             s->setValue("dockStateDefault", saveState(kLayoutVersion));
         }
-        // P37b：不保存窗口大小——每次启动一律最大化。
+        // 不保存窗口大小——每次启动一律最大化。
         showMaximized();
-        // P25e：跨分辨率/DPI 恢复的窗口几何可能超出可用屏幕（保存时屏大、恢复时屏小，
+        // 跨分辨率/DPI 恢复的窗口几何可能超出可用屏幕（保存时屏大、恢复时屏小，
         // 右侧「属性」/底部「资源 日志」Dock 会被推到屏幕外）。restoreGeometry 异步生效，
         // 此刻 frameGeometry 尚未更新（Windows SetWindowPos 异步），延迟到几何应用后钳制。
         QTimer::singleShot(120, this, [this] {
@@ -166,11 +166,11 @@ MainWindow::MainWindow(QWidget *parent)
     // 场景视图点击 → 拾取（须在双视口创建后连接）
     connect(m_sceneViewport, &Viewport::logicalClicked, this, &MainWindow::pickSceneAt);
 
-    // P8 编辑会话安全：任何编辑动作 → dirty。Gizmo 拖拽结束 / 树操作置脏在 P9 连接中同步置位，
+    // 编辑会话安全：任何编辑动作 → dirty。Gizmo 拖拽结束 / 树操作置脏在撤销/重做连接中同步置位，
     // 此处保留"编辑进行中"即置脏的检查器路径（字段一旦改动标题立刻带 *）。
     connect(m_inspector, &Inspector::fieldEdited, this, [this] { setDirty(true); });
 
-    // P9 撤销/重做：编辑手势 begin → commit（before/after 全场景快照对比）
+    // 撤销/重做：编辑手势 begin → commit（before/after 全场景快照对比）
     m_undo.setSnapshotter([this] { return snapshot(); });
     connect(m_sceneViewport, &Viewport::gizmoDragStarted, this, [this] { undoBegin(); });
     connect(m_sceneViewport, &Viewport::gizmoDragFinished, this, [this] {
@@ -181,16 +181,14 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_inspector, &Inspector::fieldCommitted, this, [this] { undoCommit(tr("编辑属性")); });
     // 方案 A：检查器 Animator 入口按钮 → 显示并聚焦状态机 Dock
     connect(m_inspector, &Inspector::openAnimatorEditorRequested, this, &MainWindow::openAnimatorEditor);
-    // P29：检查器 AnimationComponent 入口按钮 → 显示并聚焦帧动画 Dock
+    // 检查器 AnimationComponent 入口按钮 → 显示并聚焦帧动画 Dock
     connect(m_inspector, &Inspector::openAnimationEditorRequested, this, &MainWindow::openAnimationEditor);
-    // P27 增强：瓦片面板选瓦片 → 视口画笔（-2 无选择不刷；-1 橡皮）
-    connect(m_tileset, &TilesetDock::tileSelected, m_sceneViewport, &Viewport::setPaintTileId);
-    // P28：Animator 状态机窗口编辑 → 撤销 + dirty
+    // Animator 状态机窗口编辑 → 撤销 + dirty
     connect(m_animatorDock, &AnimatorDock::changed, this, [this] {
         undoBegin();
         undoCommit(tr("编辑状态机"));
     });
-    // P29：Animation 帧动画窗口编辑 .anim → 标脏（标题栏 *）
+    // Animation 帧动画窗口编辑 .anim → 标脏（标题栏 *）
     connect(m_animationDock, &AnimationDock::changed, this, [this] { setDirty(true); });
     // 方案 A：Animator 状态 → 在 Animation 窗口打开其 .anim 资产
     connect(m_animatorDock, &AnimatorDock::openAssetRequested, this, [this](const QString &path) {
@@ -230,23 +228,21 @@ MainWindow::MainWindow(QWidget *parent)
         setDirty(true);
     });
 
-    // P10 资源面板：双击 .scene 打开 / 拖图片到视口创建精灵
+    // 资源面板：双击 .scene 打开 / 拖图片到视口创建精灵
     connect(m_assets, &AssetsDock::sceneOpenRequested, this, [this](const QString &path) {
         if (confirmDiscardChanges(tr("打开场景")))
             openScenePath(path);
     });
     connect(m_sceneViewport, &Viewport::assetDropped, this, &MainWindow::onViewportAssetDropped);
-    // P25c：.prefab 预置资产（拖入视口实例化 / 双击实例化 / 场景树存为预置）
+    // .prefab 预置资产（拖入视口实例化 / 双击实例化 / 场景树存为预置）
     connect(m_sceneViewport, &Viewport::prefabDropped, this, &MainWindow::onPrefabDropped);
-    // P38：精灵帧拖入场景视口 → 创建带源矩形的精灵 GameObject
+    // 精灵帧拖入场景视口 → 创建带源矩形的精灵 GameObject
     connect(m_sceneViewport, &Viewport::spriteFrameDropped, this,
             &MainWindow::onViewportSpriteFrameDropped);
     connect(m_assets, &AssetsDock::prefabOpenRequested, this, &MainWindow::onPrefabOpenRequested);
-    connect(m_sceneTree, &SceneTree::prefabSaveRequested, this, &MainWindow::onSaveObjectAsPrefab);
-    // P28：.anim 剪辑资产 → 应用到选中对象的 Animator 状态
-    // P29：改为在 Animation 窗口打开（制作/编辑 .anim 资产）；如需应用到 Animator 状态仍可用 onAnimOpenRequested
+    // .anim 剪辑资产 → 在 Animation 窗口打开（制作/编辑 .anim 资产）；如需应用到 Animator 状态仍可用 onAnimOpenRequested
     connect(m_assets, &AssetsDock::animOpenRequested, this, &MainWindow::onAnimationOpenRequested);
-    // P38：双击 .sprite → 切到精灵表 Dock 并打开
+    // 双击 .sprite → 切到精灵表 Dock 并打开
     connect(m_assets, &AssetsDock::spriteFileRequested, this, [this](const QString &path) {
         // 找到精灵表 Dock 并显示
         for (auto *dock : m_docks) {
@@ -266,7 +262,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_sceneTree, &SceneTree::sceneDeleteBlocked, this,
             [this](const QString &reason) { m_log->appendMessage(reason, Qt::red); });
 
-    // P3：场景树选中 → 属性检查器 + 场景视图 Gizmo + 瓦片面板 + Animator 状态机窗口
+    // 场景树选中 → 属性检查器 + 场景视图 Gizmo + 瓦片面板 + Animator 状态机窗口
     connect(m_sceneTree, &SceneTree::objectSelected, this, [this](Shit::GameObject *obj) {
         // 直接用 currentChanged 传入的 obj（确定性最高）。
         // 此前调用 syncInspectorToSelection() → selectedObjects()，
@@ -277,18 +273,7 @@ MainWindow::MainWindow(QWidget *parent)
         m_tileset->setGameObject(obj);
         m_animatorDock->setGameObject(obj);
     });
-    // P36：多选增减（Ctrl/Shift）→ 批量编辑模式（单选由 objectSelected 兜底实时刷新）
-    connect(m_sceneTree, &SceneTree::selectionChanged, this, [this] {
-        // 多选时有 currentChanged 也会触发 objectSelected → 这里只在多选时接管，
-        // 单选交给 objectSelected（避免 Gizmo 绑定的对象与 currentIndex 脱节）
-        if (m_sceneTree->selectedObjects().size() > 1)
-            syncInspectorToSelection();
-    });
-    connect(m_inspector, &Inspector::buildInfo, this, [this](int components, int fields) {
-        m_log->appendMessage(QString("检查器: 渲染 %1 个组件 / %2 个字段").arg(components).arg(fields));
-    });
-
-    // P12：引擎日志 → 日志面板（队列连接，兼容引擎任意线程抵达；spdlog 等级 0=trace..5=critical）
+    // 引擎日志 → 日志面板（队列连接，兼容引擎任意线程抵达；spdlog 等级 0=trace..5=critical）
     connect(m_preview, &EnginePreview::engineLogMessage, this,
             [this](bool isCore, int level, const QString &message) {
                 QColor color(180, 190, 200);
@@ -297,7 +282,7 @@ MainWindow::MainWindow(QWidget *parent)
                 m_log->appendMessage(QString("[%1] %2").arg(isCore ? tr("引擎") : tr("游戏"), message), color);
             }, Qt::QueuedConnection);
 
-    // P33：插件加载失败 → 延迟弹窗（排队到事件循环空闲，避开构造/加载中途）：
+    // 插件加载失败 → 延迟弹窗（排队到事件循环空闲，避开构造/加载中途）：
     // 此前 DLL 缺失/ABI 不匹配只进日志面板，用户打开项目后"Add Component 缺类型"难排查
     connect(m_preview, &EnginePreview::pluginLoadFailed, this,
             [this](const QString &detail) {
@@ -308,7 +293,7 @@ MainWindow::MainWindow(QWidget *parent)
                 });
             });
 
-    // P12：播放态运行视口捕获键鼠 → 合成 SDL 事件转发给引擎（见 eventFilter）
+    // 播放态运行视口捕获键鼠 → 合成 SDL 事件转发给引擎（见 eventFilter）
     m_gameViewport->setFocusPolicy(Qt::StrongFocus);
     m_gameViewport->setMouseTracking(true);
     m_gameViewport->installEventFilter(this);
@@ -327,10 +312,10 @@ if (Shit::Scene *sc = m_preview->getScene(); sc) {
 	        }
         setPlaying(m_playAction->isChecked());   // 默认停止态：暂停预览逻辑
 
-        // P14：启动时自动恢复上次打开的项目（静默；项目损坏/被删则忽略，不影响启动）
+        // 启动时自动恢复上次打开的项目（静默；项目损坏/被删则忽略，不影响启动）
         const QString lastProject = m_settings.value("lastProjectDir").toString();
         if (!lastProject.isEmpty() && !openProjectPath(lastProject, /*silent=*/true)) {
-            // P33：恢复失败不再静默——延迟弹窗说明（否则用户看到"就绪"误以为项目已打开）
+            // 恢复失败不再静默——延迟弹窗说明（否则用户看到"就绪"误以为项目已打开）
             QTimer::singleShot(0, this, [this] {
                 QMessageBox::information(this, tr("打开上次项目"),
                     tr("上次打开的项目未能加载（可能已被移动或删除）。\n"
@@ -344,16 +329,16 @@ if (Shit::Scene *sc = m_preview->getScene(); sc) {
     m_savedSnapshot = snapshot();   // 启动初始场景作为存档基准（撤销/重做的 * 对比）
     updateUndoActions();
     updateWindowTitle();   // 初始标题（未命名场景）
-    updateProjectMenus();  // P14：按是否有项目初始化菜单可用性
+    updateProjectMenus();  // 按是否有项目初始化菜单可用性
     statusBar()->showMessage(tr("就绪"));
 
-    // P14：脚本工程编译管线（buildFinished → 热重载）
+    // 脚本工程编译管线（buildFinished → 热重载）
     m_scriptBuilder = new ScriptBuilder(this);
     connect(m_scriptBuilder, &ScriptBuilder::buildOutput, this,
             [this](const QString &line) { m_log->appendMessage(line); });
     connect(m_scriptBuilder, &ScriptBuilder::buildFailed, this,
             [this](const QString &reason) {
-                // P33：构建失败给用户明确原因（此前只 3 秒状态栏，原因被丢弃）
+                // 构建失败给用户明确原因（此前只 3 秒状态栏，原因被丢弃）
                 statusBar()->showMessage(tr("构建失败：%1").arg(reason), 8000);
                 QMessageBox::warning(this, tr("构建失败"),
                     tr("脚本构建失败：\n%1\n\n详细输出见底部日志面板。").arg(reason));
@@ -373,7 +358,7 @@ void MainWindow::createDocks()
     // AllowTabbedDocks 显式开启标签化；AllowNestedDocks 支持嵌套停靠；AnimatedDocks 平滑过渡。
     setDockOptions(QMainWindow::AnimatedDocks | QMainWindow::AllowNestedDocks | QMainWindow::AllowTabbedDocks);
 
-    // P21：场景视口 + 运行视口改为中央标签页叠放（Unity Scene/Game 同款）——
+    // 场景视口 + 运行视口改为中央标签页叠放（Unity Scene/Game 同款）——
     // 不再做独立 Dock，始终占据窗口中央；四周 Dock 承载场景树 / 检查器 / 资源 / 日志。
     m_sceneViewport = new Viewport(this);
     m_gameViewport = new Viewport(this);
@@ -402,7 +387,7 @@ void MainWindow::createDocks()
     addDockWidget(Qt::RightDockWidgetArea, inspectorDock);
     m_docks.push_back(inspectorDock);
 
-    // P28：Animator 状态机窗口（Unity 风格可视化图；与检查器在右侧标签叠放）
+    // Animator 状态机窗口（Unity 风格可视化图；与检查器在右侧标签叠放）
     auto *animatorDockW = new QDockWidget(tr("Animator"), this);
     animatorDockW->setObjectName("animatorDock");
     m_animatorDock = new AnimatorDock(animatorDockW);
@@ -412,7 +397,7 @@ void MainWindow::createDocks()
     tabifyDockWidget(inspectorDock, animatorDockW);
     inspectorDock->raise();   // 默认显示检查器，选中 Animator 对象后用户切到 Animator 页
 
-    // P29：Animation 帧动画窗口（Unity 风格 .anim 资产编辑器；与检查器在右侧标签叠放）
+    // Animation 帧动画窗口（Unity 风格 .anim 资产编辑器；与检查器在右侧标签叠放）
     auto *animationDockW = new QDockWidget(tr("Animation"), this);
     animationDockW->setObjectName("animationDock");
     m_animationDock = new AnimationDock(animationDockW);
@@ -436,11 +421,13 @@ void MainWindow::createDocks()
     addDockWidget(Qt::BottomDockWidgetArea, logDock);
     m_docks.push_back(logDock);
 
-    // P27 增强：瓦片选择面板（底部标签组第三个页，选中 Tilemap 时显示瓦片网格）
+    // 瓦片选择面板（底部标签组第三个页，选中 Tilemap 时显示瓦片网格）
     auto *tilesetDock = new QDockWidget(tr("瓦片"), this);
     tilesetDock->setObjectName("tilesetDock");
     m_tileset = new TilesetDock(tilesetDock);
     tilesetDock->setWidget(m_tileset);
+    // 面板点选瓦片/橡皮 → 设置场景视口画笔（-1 橡皮 / -2 未选择不刷）
+    connect(m_tileset, &TilesetDock::tileSelected, m_sceneViewport, &Viewport::setPaintTileId);
     addDockWidget(Qt::BottomDockWidgetArea, tilesetDock);
     m_docks.push_back(tilesetDock);
 
@@ -449,7 +436,7 @@ void MainWindow::createDocks()
     tabifyDockWidget(assetsDock, tilesetDock);
     assetsDock->raise();
 
-    // P38：精灵表视图 Dock（默认隐藏；资源面板双击 .sprite 时显示）
+    // 精灵表视图 Dock（默认隐藏；资源面板双击 .sprite 时显示）
     auto *spriteSheetDockW = new QDockWidget(tr("精灵表"), this);
     spriteSheetDockW->setObjectName("spriteSheetDock");
     m_spriteSheetDock = new SpriteSheetDock(spriteSheetDockW);
@@ -461,7 +448,7 @@ void MainWindow::createDocks()
     setDockNestingEnabled(true);
     resize(1280, 800);
 
-    // P37：捕获出厂默认布局——「恢复默认布局」的兜底。
+    // 捕获出厂默认布局——「恢复默认布局」的兜底。
     // 此前默认布局从未入库：布局一旦被改动并在退出时自动保存（dockState），
     // 就永远回不到初始排列（resetDockLayout 只认手动保存的 dockStateDefault）。
     m_factoryLayout = saveState(kLayoutVersion);
@@ -471,7 +458,7 @@ void MainWindow::createMenus()
 {
     auto *fileMenu = menuBar()->addMenu(tr("文件"));
 
-    // P14：项目 —— 新建 / 打开 / 最近项目 / 关闭
+    // 项目 —— 新建 / 打开 / 最近项目 / 关闭
     fileMenu->addAction(tr("新建项目…"), this, &MainWindow::newProject);
     fileMenu->addAction(tr("打开项目…"), this, &MainWindow::openProject);
     m_recentProjectsMenu = fileMenu->addMenu(tr("最近项目"));
@@ -484,7 +471,7 @@ void MainWindow::createMenus()
     m_openSceneAction = fileMenu->addAction(tr("打开场景…"), this, &MainWindow::openScene);
     m_openSceneAction->setShortcut(QKeySequence::Open);
 
-    // P8：最近场景（QSettings 持久化，最多 kMaxRecentScenes 条；项目态存项目 .shitengine）
+    // 最近场景（QSettings 持久化，最多 kMaxRecentScenes 条；项目态存项目 .shitengine）
     m_recentMenu = fileMenu->addMenu(tr("最近场景"));
     updateRecentMenu();
 
@@ -500,7 +487,7 @@ void MainWindow::createMenus()
     fileMenu->addSeparator();
     fileMenu->addAction(tr("退出"), this, &QWidget::close);
 
-    // P9：撤销/重做（快照型命令栈）
+    // 撤销/重做（快照型命令栈）
     auto *editMenu = menuBar()->addMenu(tr("编辑"));
     m_undoAction = editMenu->addAction(tr("撤销"), this, &MainWindow::undo);
     m_undoAction->setShortcut(QKeySequence::Undo);   // Ctrl+Z
@@ -515,13 +502,13 @@ void MainWindow::createMenus()
     auto *pasteAction = editMenu->addAction(tr("粘贴对象"), this, &MainWindow::pasteObject);
     pasteAction->setShortcut(QKeySequence::Paste); // Ctrl+V
 
-    // P16：打开代码编辑器（IDE 在项目设置 → 通用 → 代码编辑器 中选择）
+    // 打开代码编辑器（IDE 在项目设置 → 通用 → 代码编辑器 中选择）
     editMenu->addSeparator();
     m_openIdeAction = editMenu->addAction(tr("打开代码…"), this, &MainWindow::openIde);
     m_openIdeAction->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_O));
     m_openIdeAction->setToolTip(tr("用项目设置中配置的 IDE 打开项目根目录（Ctrl+Shift+O）"));
 
-    // P13：视图菜单（布局恢复）
+    // 视图菜单（布局恢复）
     auto *viewMenu = menuBar()->addMenu(tr("视图"));
     viewMenu->addAction(tr("恢复默认布局"), this, &MainWindow::resetDockLayout);
     viewMenu->addAction(tr("将当前布局设为默认"), this, &MainWindow::saveLayoutAsDefault);
@@ -572,7 +559,7 @@ void MainWindow::openScene()
     if (!confirmDiscardChanges(tr("打开场景")))
         return;
 
-    // P14：项目态默认从项目 Scenes/ 目录挑场景
+    // 项目态默认从项目 Scenes/ 目录挑场景
     const QString initialDir = hasProject() ? m_project.scenesDir() : QString();
     const QString path = QFileDialog::getOpenFileName(this, tr("打开场景"), initialDir, tr("ShitEngine 场景 (*.scene)"));
     if (path.isEmpty()) return;
@@ -676,7 +663,7 @@ void MainWindow::rollbackScene(const nlohmann::json &snapshot)
     refreshDirtyFromSaved();        // 恢复的是打开前状态，dirty 应与存档基准一致
 }
 
-// ═════════════════════════ P9 撤销/重做 ═════════════════════════
+// ═════════════════════════ 撤销/重做 ═════════════════════════
 
 nlohmann::json MainWindow::snapshot() const
 {
@@ -794,34 +781,7 @@ void MainWindow::pasteObject()
     m_sceneTree->selectObject(dup);
 }
 
-// ── P25c：Prefab 预置资产（存为预置 / 拖入或双击实例化）──
-
-void MainWindow::onSaveObjectAsPrefab(Shit::GameObject *object)
-{
-    if (!object || !m_preview) return;
-    if (isPlaying()) {
-        m_log->appendMessage(tr("播放中不能存为预置"), Qt::yellow);
-        return;
-    }
-    const nlohmann::json doc = Shit::SceneSerializer::toJson(object);
-    const QString base = QString::fromStdString(object->getName()).replace(' ', '_');
-    // 默认存到项目 Assets/ 目录（Unity 语义：预置属于资产）；无项目回退到资源窗口根或 exe 目录
-    const QString assetsDir = hasProject() ? m_project.assetsDir()
-        : (m_assets->projectDir().isEmpty() ? QCoreApplication::applicationDirPath() : m_assets->projectDir());
-    const QString path = QFileDialog::getSaveFileName(this, tr("存为预置"),
-        assetsDir + "/" + base + ".prefab", tr("ShitEngine 预置 (*.prefab)"));
-    if (path.isEmpty()) return;
-
-    QFile file(path);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        m_log->appendMessage(tr("无法写入预置文件: %1").arg(path), Qt::red);
-        return;
-    }
-    file.write(doc.dump(2).c_str());
-    m_log->appendMessage(tr("已保存预置: %1（%2 个对象，含子树）")
-        .arg(QFileInfo(path).fileName()).arg(doc["objects"].size()));
-    // 资源面板 QFileSystemModel 自动监听目录，无需手动刷新
-}
+// ── Prefab 预置资产（存为预置 / 拖入或双击实例化）──
 
 void MainWindow::onPrefabOpenRequested(const QString &path)
 {
@@ -903,7 +863,7 @@ void MainWindow::reloadAnimatorAsset(const QString &path)
         Shit::AnimationClip clip;
         QFile f(savedAbs);
         if (!f.open(QIODevice::ReadOnly)) {
-            // P33：资产文件读不到/解析失败不再静默跳过（此前用户以为已同步，动画实际没更新）
+            // 资产文件读不到/解析失败不再静默跳过（此前用户以为已同步，动画实际没更新）
             QMessageBox::warning(this, tr("动画资产同步"),
                 tr("无法读取动画资产：\n%1\n\n文件可能已被移动或删除。状态的剪辑将保持旧版本。").arg(savedAbs));
             break;
@@ -1086,10 +1046,11 @@ void MainWindow::onViewportAssetDropped(const QString &path, float logicalX, flo
         .arg(base).arg(world.x, 0, 'f', 1).arg(world.y, 0, 'f', 1));
 }
 
-// P38：精灵帧拖入场景视口 → 创建带源矩形的精灵 GameObject
+// 精灵帧拖入场景视口 → 创建带源矩形的精灵 GameObject
 void MainWindow::onViewportSpriteFrameDropped(const QString &texturePath, int frameIndex,
                                               float frameWidth, float frameHeight,
-                                              float margin, float spacing)
+                                              float margin, float spacing,
+                                              int cols, float logicalX, float logicalY)
 {
     Shit::Scene *scene = m_preview ? m_preview->getScene() : nullptr;
     if (!scene || texturePath.isEmpty()) return;
@@ -1100,12 +1061,11 @@ void MainWindow::onViewportSpriteFrameDropped(const QString &texturePath, int fr
         absTexPath = (hasProject() ? m_project.rootDir() : QString()) + "/" + texturePath;
     }
 
-    // 落点逻辑像素 → 世界坐标（用场景内第一个相机）
+    // 落点逻辑像素 → 世界坐标（用场景内第一个相机；与资源拖入同语义）
     Shit::Vector2 world{ 0.0f, 0.0f };
     for (auto &go : scene->getGameObjects()) {
         if (auto *cam = go->getComponent<Shit::CameraComponent>()) {
-            world = cam->screenToWorld({ m_sceneViewport->width() / 2.0f,
-                                         m_sceneViewport->height() / 2.0f });
+            world = cam->screenToWorld({ logicalX, logicalY });
             break;
         }
     }
@@ -1117,20 +1077,22 @@ void MainWindow::onViewportSpriteFrameDropped(const QString &texturePath, int fr
         t->setPosition(world);
     if (auto *sr = go->addComponent<Shit::SpriteRenderer>()) {
         sr->setTexturePath(absTexPath.toStdString());
-        // 计算帧源矩形：基于网格参数（margin + spacing）定位帧在纹理中的位置
-        // 加载纹理图片获取尺寸来计算 tilesPerRow
+        // 计算帧源矩形：基于网格参数（margin + spacing）定位帧在纹理中的位置。
+        // 列数以 .sprite 元数据为准（与精灵表缩略图、引擎 SpriteSheet::getFrameRect 同源），
+        // 元数据缺失时按纹理宽度反推兜底——纹理宽度不能被网格整除时反推值会错位
         QImage tex(absTexPath);
         const int texW = tex.isNull() ? 0 : tex.width();
         const int tileW = static_cast<int>(frameWidth);
         const int tileH = static_cast<int>(frameHeight);
         const int mg = static_cast<int>(margin);
         const int sp = static_cast<int>(spacing);
-        const int tilesPerRow = (tileW > 0 && texW > 0) ? qMax(1, (texW - mg + sp) / (tileW + sp)) : 1;
+        const int tilesPerRow = (cols > 0) ? cols
+                              : (tileW > 0 && texW > 0) ? qMax(1, (texW - mg + sp) / (tileW + sp)) : 1;
         const int col = frameIndex % tilesPerRow;
         const int row = frameIndex / tilesPerRow;
         const float sx = mg + col * (tileW + sp);
         const float sy = mg + row * (tileH + sp);
-        sr->setSourceRect(SDL_FRect{ sx, sy, frameWidth, frameHeight });
+        sr->setSourceRect(Shit::Rect{ sx, sy, frameWidth, frameHeight });
     }
     undoCommit(tr("拖入精灵帧 %1 [%2]").arg(base).arg(frameIndex));
     setDirty(true);
@@ -1274,7 +1236,7 @@ void MainWindow::updateWindowTitle()
         : QFileInfo(m_scenePath).fileName();
     QString title = sceneName;
     if (m_dirty) title += QStringLiteral(" *");
-    // P14：项目态显示项目名
+    // 项目态显示项目名
     if (hasProject())
         title += QStringLiteral(" - %1").arg(m_project.name());
     title += QStringLiteral(" - ") + tr("ShitEngine 编辑器");
@@ -1337,7 +1299,7 @@ void MainWindow::resetDockLayout()
     statusBar()->showMessage(tr("当前布局即为默认"), 2000);
 }
 
-/// P17：把当前 Dock 布局存为默认（写入项目 .shitengine/state.ini 或全局注册表的
+/// 把当前 Dock 布局存为默认（写入项目 .shitengine/state.ini 或全局注册表的
 /// dockStateDefault；之后「恢复默认布局」即回到当前排列）。
 void MainWindow::saveLayoutAsDefault()
 {
@@ -1386,7 +1348,7 @@ void MainWindow::createToolbar()
     m_pauseAction->setEnabled(false);
     connect(m_pauseAction, &QAction::toggled, this, &MainWindow::onPauseToggled);
 
-    // P11/P14：Gizmo 三模式工具条已移到场景视口内（左上角，Unity 风格）；
+    // Gizmo 三模式工具条已移到场景视口内（左上角，Unity 风格）；
     // 这里保留窗口级 Q/W/E 快捷键（不可见于任何菜单/工具栏）。
     auto addGizmoShortcut = [this](Qt::Key key, Viewport::GizmoMode mode) {
         auto *act = new QAction(this);
@@ -1401,12 +1363,12 @@ void MainWindow::createToolbar()
     addGizmoShortcut(Qt::Key_W, Viewport::GizmoMode::Rotate);
     addGizmoShortcut(Qt::Key_E, Viewport::GizmoMode::Scale);
 
-    // P13：工具栏增补 —— 撤销 / 重做（与菜单共享同一 QAction）
+    // 工具栏增补 —— 撤销 / 重做（与菜单共享同一 QAction）
     toolbar->addSeparator();
     toolbar->addAction(m_undoAction);
     toolbar->addAction(m_redoAction);
 
-    // P14：构建脚本（Ctrl+B）→ 编译 C++ 脚本工程并热重载
+    // 构建脚本（Ctrl+B）→ 编译 C++ 脚本工程并热重载
     toolbar->addSeparator();
     m_buildAction = toolbar->addAction(tr("构建脚本"));
     m_buildAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_B));
@@ -1448,7 +1410,7 @@ void MainWindow::enterPlayMode()
         m_pauseAction->setEnabled(true);
         m_pauseAction->setChecked(false);   // 默认运行（未暂停）
     }
-    // P14：运行态自动抓取键盘（无需先点击运行视口），并释放 Gizmo 快捷键
+    // 运行态自动抓取键盘（无需先点击运行视口），并释放 Gizmo 快捷键
     // （Q/W/E 是窗口级 QShortcut，会抢在游戏输入前消费按键——W 既是前进键
     // 又是旋转 Gizmo 快捷键，运行中必须交给游戏）。工具栏按钮随之禁用，
     // 运行中切工具请用鼠标点击（停止后自动恢复）。
@@ -1458,7 +1420,7 @@ void MainWindow::enterPlayMode()
         // Unity 式「每次运行从头开始」：时钟归零 + Behavior 重新 onStart + 清键鼠残留
         if (m_preview->context()) {
             Shit::EngineContext::setCurrent(m_preview->context());
-            applyInputMappingsToEngine();   // P15：播放前刷新输入映射（改键无需重开）
+            applyInputMappingsToEngine();   // 播放前刷新输入映射（改键无需重开）
             Shit::Time::ResetTotalTime();
             Shit::Input::ResetState();
             if (auto *scene = Shit::SceneManager::GetCurrentScene())
@@ -1467,7 +1429,7 @@ void MainWindow::enterPlayMode()
         }
         m_preview->setPlaying(true);
     }
-    // P25d：播放态编辑锁——检查器只读（运行时值仍实时刷新）、视口 Gizmo/碰撞体手柄禁用
+    // 播放态编辑锁——检查器只读（运行时值仍实时刷新）、视口 Gizmo/碰撞体手柄禁用
     m_inspector->setPlayMode(true);
     m_sceneViewport->setEditEnabled(false);
     updateUndoActions();
@@ -1496,7 +1458,7 @@ void MainWindow::exitPlayMode()
     }
     m_hasRunSnapshot = false;
     m_playPendingBuild = false;
-    // P25d：解锁编辑（applySnapshot 重建检查器后调用，控件默认启用态）
+    // 解锁编辑（applySnapshot 重建检查器后调用，控件默认启用态）
     m_inspector->setPlayMode(false);
     m_sceneViewport->setEditEnabled(true);
     updateUndoActions();
@@ -1515,7 +1477,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
 {
     if (isPlaying()) setPlaying(false);   // 退出前先结束运行（恢复运行前快照）
     if (confirmDiscardChanges(tr("退出编辑器"))) {
-        // P13/P14：退出前记忆 Dock 布局与窗口几何（存当前项目 .shitengine/state.ini 或全局）
+        // 退出前记忆 Dock 布局与窗口几何（存当前项目 .shitengine/state.ini 或全局）
         saveProjectState();
         event->accept();
     } else {
@@ -1523,7 +1485,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
     }
 }
 
-// ═════════════════════════ P14 项目系统 ═════════════════════════
+// ═════════════════════════ 项目系统 ═════════════════════════
 
 void MainWindow::newProject()
 {
@@ -1603,22 +1565,23 @@ void MainWindow::enterProject(const Project &project)
     m_projectSettings = new QSettings(project.stateFilePath(), QSettings::IniFormat);
     m_projectSettings->setFallbacksEnabled(false);   // 项目态独立于注册表
 
-    // P32：打开项目后引擎文件日志写入项目 .shitengine/log（不 chdir，
+    // 打开项目后引擎文件日志写入项目 .shitengine/log（不 chdir，
     // 避免影响相对路径资源加载；关闭项目时恢复默认目录）
     Shit::Log::SetLogDirectory((project.rootDir() + "/.shitengine/log").toStdString());
     m_log->setDefaultDir(project.rootDir() + "/.shitengine/log");   // 日志面板保存默认目录
 
-    // 3) 恢复项目布局（窗口大小不恢复——P37b：一律最大化启动）
+    // 3) 恢复项目布局（窗口大小不恢复——一律最大化启动）
     {
         const QByteArray layout = m_projectSettings->value("dockState").toByteArray();
         if (!layout.isEmpty()) restoreState(layout, kLayoutVersion);
     }
 
     // 4) 资源窗口绑定整个项目根（Unity 式：树里可见 Assets/ Scenes/ Scripts/）；
-    //    最近场景切到项目级列表；Animator 相对路径基准设为项目根
+    //    最近场景切到项目级列表；Animator/Animation 相对路径基准设为项目根
     m_assets->applyProjectDir(project.rootDir());
     m_animatorDock->setProjectRoot(project.rootDir());
     m_spriteSheetDock->setProjectRoot(project.rootDir());
+    m_animationDock->setProjectRoot(project.rootDir());
     updateRecentMenu();
 
     // 5) 插件 + 场景：卸载旧插件（项目脚本库）→ 加载本项目插件 → 载入项目场景
@@ -1671,6 +1634,7 @@ void MainWindow::closeProjectInternal()
     m_assets->applyProjectDir(m_settings.value("projectDir").toString());
     m_animatorDock->setProjectRoot(QString());   // 无项目：资产路径存绝对
     m_spriteSheetDock->setProjectRoot(QString());
+    m_animationDock->setProjectRoot(QString());
     updateRecentMenu();          // 最近场景回退到全局列表
     updateProjectMenus();
     updateWindowTitle();
@@ -1685,7 +1649,7 @@ QSettings *MainWindow::stateSettings() const
 void MainWindow::saveProjectState()
 {
     stateSettings()->setValue("dockState", saveState(kLayoutVersion));
-    // P37b：不保存窗口大小/位置——启动一律最大化
+    // 不保存窗口大小/位置——启动一律最大化
     stateSettings()->sync();
 }
 
@@ -1777,7 +1741,7 @@ void MainWindow::openIde()
     }
 }
 
-/// 把项目 config.json 的 inputMappings 推入引擎（P15）：
+/// 把项目 config.json 的 inputMappings 推入引擎：
 /// Config::loadFromJson 只替换 inputMappings 段（整体清空重载），随后
 /// Input::InitMappings 重新编译绑定——未映射时传空对象等价于清空全部绑定。
 void MainWindow::applyInputMappingsToEngine()
@@ -1846,12 +1810,7 @@ void MainWindow::openFromCommandLine(const QString &projectDir, const QString &s
 void MainWindow::syncInspectorToSelection()
 {
     const auto objs = m_sceneTree->selectedObjects();
-    if (objs.size() > 1)
-        m_inspector->setGameObjects(objs);
-    else if (objs.size() == 1)
-        m_inspector->setGameObject(objs.first());
-    else
-        m_inspector->setGameObject(nullptr);
+    m_inspector->setGameObject(objs.isEmpty() ? nullptr : objs.first());
 }
 
 void MainWindow::onBuildFinished(bool success)
@@ -1870,7 +1829,7 @@ void MainWindow::onBuildFinished(bool success)
     // 构建成功：产物在 build/out/（MSBuild 写临时目录，避开编辑器对 bin/ DLL 的占用）
     const QString srcDll = m_project.buildOutDir() + "/" + m_project.pluginDllFileName();
     const QString dstDll = m_project.pluginDllPath();
-// P33：构建产物缺失 → 状态栏红字（此前只有日志面板）
+// 构建产物缺失 → 状态栏红字（此前只有日志面板）
     if (!QFile::exists(srcDll)) {
         m_log->appendMessage(tr("构建产物缺失（%1）——未重载 DLL").arg(srcDll), Qt::red);
         statusBar()->showMessage(tr("构建产物缺失，脚本未更新"), 8000);
@@ -1904,7 +1863,7 @@ void MainWindow::onBuildFinished(bool success)
         statusBar()->showMessage(tr("脚本已重载"), 3000);
     } else {
         m_log->appendMessage(tr("热重载失败：插件加载异常（详见日志）"), Qt::red);
-        // P33：热重载失败（最常见：DLL 被占用/复制失败）弹窗明示——此前仅日志红字，
+        // 热重载失败（最常见：DLL 被占用/复制失败）弹窗明示——此前仅日志红字，
         // 用户可能浑然不觉场景仍是旧脚本
         statusBar()->showMessage(tr("热重载失败，脚本未更新"), 8000);
         QMessageBox::warning(this, tr("热重载失败"),
@@ -1962,7 +1921,7 @@ void MainWindow::resetToEmptyScene()
 
 bool MainWindow::eventFilter(QObject *watched, QEvent *event)
 {
-    // P12：仅播放态、且事件来自运行视口时转发给引擎（合成 SDL_Event）
+    // 仅播放态、且事件来自运行视口时转发给引擎（合成 SDL_Event）
     if (watched != m_gameViewport)
         return QMainWindow::eventFilter(watched, event);
     if (!isPlaying() || !m_preview || !m_preview->context())
@@ -2060,12 +2019,12 @@ void MainWindow::pickSceneAt(float x, float y)
             const float syb = std::max(tl.y, br.y) + tol;
             if (click.x >= sxl && click.x <= sxr && click.y >= syt && click.y <= syb) {
                 const int z = sprite->getZIndex();
-                if (z >= bestZ) { bestZ = z; hit = go.get(); }   // P11：zIndex 越高越优先
+                if (z >= bestZ) { bestZ = z; hit = go.get(); }   // zIndex 越高越优先
             }
         }
     }
 
-    // P11：无精灵命中 → 变换点命中（支持相机/空对象等无几何对象，编辑器相机除外）
+    // 无精灵命中 → 变换点命中（支持相机/空对象等无几何对象，编辑器相机除外）
     if (!hit) {
         const float kPointTol = 14.0f;
         for (auto &go : scene->getGameObjects()) {

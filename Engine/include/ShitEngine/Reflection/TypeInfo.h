@@ -69,6 +69,30 @@ struct EnumValue {
     int64_t     value;  ///< 枚举项数值
 };
 
+/// 方法信息（由 SHIT_METHOD 生成）
+struct MethodInfo {
+    std::string name;           ///< 方法名
+    std::string returnType;     ///< 返回类型名
+    std::vector<std::string> paramTypes;  ///< 参数类型名列表
+    /// 调用器：(obj, args) -> returnValue
+    /// obj = 对象指针，args = 参数指针数组，返回值通过 void* 返回
+    std::function<void*(void*, const void**)> invoker;
+    std::vector<FieldMeta> meta;
+};
+
+/// 属性信息（由 SHIT_PROPERTY 生成，getter/setter 对）
+struct PropertyInfo {
+    std::string name;           ///< 属性名
+    std::string typeName;       ///< 属性类型名
+    std::string getterName;     ///< getter 方法名
+    std::string setterName;     ///< setter 方法名（空 = 只读）
+    /// getter 调用器：(obj) -> 指向值的指针（静态/线程局部存储）
+    std::function<void*(void*)> getter;
+    /// setter 调用器：(obj, value) 写入值
+    std::function<void(void*, const void*)> setter;
+    std::vector<FieldMeta> meta;
+};
+
 struct TypeInfo {
     std::string  name;
     size_t       size = 0;
@@ -76,6 +100,8 @@ struct TypeInfo {
     std::string  baseTypeName;      ///< 基类类型名（用于延迟解析，消除 SIOF）
     std::vector<FieldInfo> fields;
     std::vector<EnumValue> enumValues;  ///< 枚举常量列表（仅枚举类型使用）
+    std::vector<MethodInfo> methods;    ///< 方法列表
+    std::vector<PropertyInfo> properties;  ///< 属性列表
 
     // 用于 TypeRegistry::Get<T>() 的模板查询
     std::type_index typeIndex = typeid(nullptr);

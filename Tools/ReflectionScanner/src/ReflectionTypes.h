@@ -30,6 +30,23 @@ struct ReflectedEnumValue {
     int64_t     value;   ///< 枚举项数值
 };
 
+/// 方法信息（Scanner 从 SHIT_METHOD 标记的方法提取）
+struct ReflectedMethod {
+    std::string name;           ///< 方法名
+    std::string returnType;     ///< 返回类型名
+    std::vector<std::string> paramTypes;  ///< 参数类型名列表
+    std::vector<std::string> metaInits;   ///< SHIT_META 原文
+};
+
+/// 属性信息（Scanner 从 SHIT_PROPERTY 标记提取）
+struct ReflectedProperty {
+    std::string name;           ///< 属性名（自动从 getter 推导）
+    std::string typeName;       ///< 属性类型名
+    std::string getterName;     ///< getter 方法名
+    std::string setterName;     ///< setter 方法名（空 = 只读）
+    std::vector<std::string> metaInits;  ///< SHIT_META 原文
+};
+
 /// 扫描器提取的完整类型信息
 struct ReflectedType {
     std::string     name;
@@ -38,6 +55,8 @@ struct ReflectedType {
     std::vector<std::string> namespacePath;  ///< 命名空间路径，如 ["Shit"]
     std::vector<ReflectedField> fields;
     std::vector<ReflectedEnumValue> enumValues;  ///< 枚举常量列表（仅枚举类型使用）
+    std::vector<ReflectedMethod> methods;        ///< 方法列表
+    std::vector<ReflectedProperty> properties;   ///< 属性列表
     std::string     sourceFile;
     bool            hasReflect = false;       ///< 源文件是否包含 SHIT_REFLECT_BODY(Type) friend 声明
     bool            isEnum = false;           ///< 是否为枚举类型（由 SHIT_ENUM 标记）

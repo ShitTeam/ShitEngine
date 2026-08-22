@@ -1,10 +1,4 @@
 {
     "scene": "Scenes/PhysicsTest.scene",
-    "plugins": [
-        {
-            "name": "ExamplePlugin",
-            "path": "ExamplePlugin.dll",
-            "autoStart": true
-        }
-    ]
+    "plugins": []
 }

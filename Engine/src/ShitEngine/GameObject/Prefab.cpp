@@ -115,6 +115,33 @@ bool fieldFromJson(const FieldInfo& field, void* obj, const json& j) {
     return false;
 }
 
+/// @brief 属性值转 JSON（SHIT_PROPERTY getter/setter 对；只读属性不捕获）
+/// getter 返回指向线程局部槽位的指针，须立即取值
+json propertyToJson(const PropertyInfo& prop, void* obj) {
+    if (!prop.getter || !prop.setter) return json();  // 只读/无 setter：无法恢复，不入档
+    const void* v = prop.getter(obj);
+    if (!v) return json();
+    const std::string_view t = normalizedTypeName(prop.typeName);
+    if (t == "float")       return json(*static_cast<const float*>(v));
+    if (t == "bool")        return json(*static_cast<const bool*>(v));
+    if (t == "int")         return json(*static_cast<const int*>(v));
+    if (t == "double")      return json(*static_cast<const double*>(v));
+    if (t == "std::string") return json(*static_cast<const std::string*>(v));
+    return json();
+}
+
+/// @brief 从 JSON 经 setter 写回属性值
+bool propertyFromJson(const PropertyInfo& prop, void* obj, const json& j) {
+    if (!prop.setter) return false;
+    const std::string_view t = normalizedTypeName(prop.typeName);
+    if (t == "float")       { float  v = j.get<float>();  prop.setter(obj, &v); return true; }
+    if (t == "bool")        { bool   v = j.get<bool>();   prop.setter(obj, &v); return true; }
+    if (t == "int")         { int    v = j.get<int>();    prop.setter(obj, &v); return true; }
+    if (t == "double")      { double v = j.get<double>(); prop.setter(obj, &v); return true; }
+    if (t == "std::string") { std::string v = j.get<std::string>(); prop.setter(obj, &v); return true; }
+    return false;
+}
+
 } // namespace
 
 // ═══════════════════════════════════════════
@@ -141,6 +168,14 @@ Prefab Prefab::Capture(GameObject* source) {
                 data.fields[field.name] = v;
             }
         }
+
+        // 反射属性（SHIT_PROPERTY getter/setter 对，如 SpriteRenderer 的 sourceRect/flipped）
+        for (const auto& prop : ti->properties) {
+            json v = propertyToJson(prop, comp);
+            if (!v.is_null()) {
+                data.properties[prop.name] = v;
+            }
+        }
         p.m_components.push_back(std::move(data));
     });
     return p;
@@ -164,6 +199,8 @@ Prefab Prefab::FromJson(const json& j) {
         }
         data.fields = (entry.contains("fields") && entry["fields"].is_object())
             ? entry["fields"] : json::object();
+        data.properties = (entry.contains("properties") && entry["properties"].is_object())
+            ? entry["properties"] : json::object();
         if (!data.typeName.empty()) {
             p.m_components.push_back(std::move(data));
         }
@@ -174,7 +211,8 @@ Prefab Prefab::FromJson(const json& j) {
 json Prefab::toJson() const {
     json j = json::array();
     for (const auto& c : m_components) {
-        j.push_back({ { "type", c.typeName }, { "uuid", c.uuid }, { "fields", c.fields } });
+        j.push_back({ { "type", c.typeName }, { "uuid", c.uuid },
+                      { "fields", c.fields }, { "properties", c.properties } });
     }
     return j;
 }
@@ -207,21 +245,22 @@ void Prefab::applyInternal(GameObject* go, bool restoreUuid) const {
 	            }
 	        }
 
-	        if (existing) {
-	            // 字段写入已有组件
-	            for (const auto& [fieldName, value] : data.fields.items()) {
-	                for (const auto& field : ti->fields) {
-	                    if (field.name == fieldName) {
-	                        if (!fieldFromJson(field, existing, value)) {
-	                            ST_CORE_WARN("[Prefab] 字段 {}.{} 无法从 JSON 恢复", data.typeName, fieldName);
-	                        }
-	                        break;
-	                    }
-	                }
-	            }
-	            existing->onAfterDeserialize();
-	            continue;
-	        }
+                if (existing) {
+                    // 字段写入已有组件
+                    for (const auto& [fieldName, value] : data.fields.items()) {
+                        for (const auto& field : ti->fields) {
+                            if (field.name == fieldName) {
+                                if (!fieldFromJson(field, existing, value)) {
+                                    ST_CORE_WARN("[Prefab] 字段 {}.{} 无法从 JSON 恢复", data.typeName, fieldName);
+                                }
+                                break;
+                            }
+                        }
+                    }
+                    existing->onAfterDeserialize();
+                    applyProperties(ti, data, existing);
+                    continue;
+                }
 
 	        Component* comp = static_cast<Component*>(ti->Create());
 	        if (!comp) {
@@ -244,11 +283,28 @@ void Prefab::applyInternal(GameObject* go, bool restoreUuid) const {
 	        if (restoreUuid && data.uuid != 0) {
 	            comp->setUuid(data.uuid);
 	        }
-	        // 反序列化钩子：字段已直写，通知组件重建依赖引擎状态的内部数据（如纹理加载）。
-	        if (Component* attached = go->addComponentInstance(comp))
-	            attached->onAfterDeserialize();
-	    }
-	}
+                // 反序列化钩子：字段已直写，通知组件重建依赖引擎状态的内部数据（如纹理加载）。
+                if (Component* attached = go->addComponentInstance(comp)) {
+                    attached->onAfterDeserialize();
+                    // 属性经 setter 恢复：须在 onAfterDeserialize 之后（如 sourceRect
+                    // 物化依赖已加载的纹理尺寸）
+                    applyProperties(ti, data, attached);
+                }
+            }
+    }
+
+void Prefab::applyProperties(const TypeInfo* ti, const ComponentData& data, Component* comp) const {
+    for (const auto& [propName, value] : data.properties.items()) {
+        for (const auto& prop : ti->properties) {
+            if (prop.name == propName) {
+                if (!propertyFromJson(prop, comp, value)) {
+                    ST_CORE_WARN("[Prefab] 属性 {}.{} 无法从 JSON 恢复", data.typeName, propName);
+                }
+                break;
+            }
+        }
+    }
+}
 
 GameObject* Prefab::instantiate(Scene* scene, const std::string& name) const {
     if (!scene) return nullptr;

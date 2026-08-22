@@ -497,7 +497,7 @@ namespace Shit {
 
     void Animator::applyCurrentFrame() {
         if (!m_currentAnimation || m_currentAnimation->getFrameCount() == 0) return;
-        SDL_FRect frame = m_currentAnimation->getFrame(m_animTime);
+        Rect frame = m_currentAnimation->getFrame(m_animTime);
         auto* owner = getOwner();
         if (!owner) return;
         if (auto* sprite = owner->getComponent<SpriteRenderer>())

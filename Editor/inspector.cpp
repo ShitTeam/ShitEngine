@@ -18,11 +18,6 @@
 #include <QCursor>
 #include <QDoubleSpinBox>
 #include <QDrag>
-#include <QDragEnterEvent>
-#include <QDragLeaveEvent>
-#include <QDragMoveEvent>
-#include <QDropEvent>
-#include <QFileInfo>
 #include <QFormLayout>
 #include <QFrame>
 #include <QHBoxLayout>
@@ -34,7 +29,6 @@
 #include <QScrollArea>
 #include <QSpinBox>
 #include <QToolButton>
-#include <QUrl>
 #include <QVBoxLayout>
 
 #include <cstring>
@@ -80,36 +74,8 @@ QDoubleSpinBox *makeSpin(float value)
     return box;
 }
 
-/// 文件扩展名（小写，无点）→ 可自动填充的路径字段关键字（小写）。
-/// 字段名（去 m_ 前缀）包含任一关键字即视为该文件的匹配目标。
-QStringList fileExtKeywords(const QString &ext)
-{
-    if (ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "bmp"
-        || ext == "webp" || ext == "gif") {
-        return {"texture", "sprite", "sheet", "tileset", "icon"};
-    }
-    if (ext == "wav" || ext == "ogg" || ext == "mp3" || ext == "flac") {
-        return {"audio", "sound", "music"};
-    }
-    if (ext == "ttf" || ext == "otf" || ext == "ttc") {
-        return {"font"};
-    }
-    if (ext == "anim") return {"anim", "clip", "state"};
-    if (ext == "scene") return {"scene"};
-    if (ext == "prefab") return {"prefab"};
-    return {};
-}
-
-/// 该字段是否为"路径类 string 字段"（可接受文件拖入填充）
-bool fieldAcceptsFiles(const Shit::FieldInfo &field)
-{
-    if (typeNameOf(field) != "std::string") return false;
-    if (const FieldMeta *m = metaOf(field); m && m->readOnly) return false;
-    return true;
-}
-
 // ═══════════════════════════════════════════════════════════════
-// P20: 组件引用字段（ComponentRef<T>）——拖拽赋引用
+// 组件引用字段（ComponentRef<T>）——拖拽赋引用
 // ═══════════════════════════════════════════════════════════════
 
 /// 类型名归一化（去 "Shit::" 前缀；扫描器 refType 与 TypeRegistry 注册名均无前缀，防御处理）
@@ -278,8 +244,8 @@ private:
         if (!mime || !m_scene || !mime->hasFormat(QString::fromLatin1(kDndComponentRef)))
             return nullptr;
         const auto items = decodeComponentRefs(mime->data(QString::fromLatin1(kDndComponentRef)));
-        for (const auto &[uuid, typeName] : items) {
-            Q_UNUSED(typeName);   // 以场景实况为准（类型校验走反射基类链）
+        for (const auto &item : items) {
+            const quint64 uuid = item.first;
             Shit::Component *comp = m_scene->componentByUuid(uuid);
             if (comp && isAssignable(comp, m_field.refType))
                 return comp;
@@ -300,23 +266,12 @@ private:
 Inspector::Inspector(QWidget *parent)
     : QWidget(parent)
     , m_scroll(new QScrollArea(this))
-    , m_searchEdit(new QLineEdit(this))
     , m_content(new QWidget)
     , m_form(new QFormLayout(m_content))
 {
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(2);
-
-    // P34：组件/字段搜索框（固定于面板顶部，不随 clear/重建移除）
-    m_searchEdit->setPlaceholderText(tr("搜索组件或字段…"));
-    m_searchEdit->setClearButtonEnabled(true);
-    m_searchEdit->setStyleSheet(
-        "QLineEdit { border: 1px solid #3a4a5a; border-radius: 3px;"
-        "             background: #1c2430; color: #e0e8f0; padding: 3px 6px; }"
-        "QLineEdit:focus { border-color: #7ac0ff; }");
-    layout->addWidget(m_searchEdit);
-    connect(m_searchEdit, &QLineEdit::textChanged, this, [this] { applyFilter(); });
 
     layout->addWidget(m_scroll);
     m_scroll->setWidget(m_content);
@@ -325,20 +280,13 @@ Inspector::Inspector(QWidget *parent)
     m_form->setContentsMargins(8, 8, 8, 8);
     m_form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
 
-    // P31：文件拖到属性面板 → 自动填充匹配的路径字段（拖拽悬停时虚线高亮）
-    setAcceptDrops(true);
-    setStyleSheet("Inspector[dropActive=\"true\"] { border: 2px dashed #7ac0ff; }");
-
     clear();
 }
 
 void Inspector::clear()
 {
     m_readbacks.clear();
-    m_sections.clear();             // P34：组件行区间随表单重建失效
     m_object = nullptr;
-    m_multiObjects.clear();         // P36：批量模式状态随重建失效
-    m_multiTypes.clear();
     m_selectedSystemName.clear();
     m_scenePanel = nullptr;         // 重置指针（旧 widget 由 m_form->removeRow 摘除后 Qt 父子关系回收）
     m_systemFieldsForm = nullptr;
@@ -374,152 +322,6 @@ void Inspector::refresh()
     }
     for (auto &readback : m_readbacks)
         readback();
-}
-
-void Inspector::applyFilter()
-{
-    const QString text = m_searchEdit->text().trimmed();
-
-    // 按组件区间显隐：行上的 label/field/spanning 控件统一 setVisible。
-    // 清空搜索框 = 全显（区间外行：对象名行/Add Component 按钮始终显示）。
-    for (const auto &sec : m_sections) {
-        const bool show = text.isEmpty() || sec.searchKey.contains(text, Qt::CaseInsensitive);
-        for (int r = sec.startRow; r <= sec.endRow; ++r) {
-            for (QFormLayout::ItemRole role : { QFormLayout::LabelRole,
-                                                QFormLayout::FieldRole,
-                                                QFormLayout::SpanningRole }) {
-                if (auto *item = m_form->itemAt(r, role))
-                    if (auto *w = item->widget())
-                        w->setVisible(show);
-            }
-        }
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════
-// P31: 面板级文件拖拽 —— 文件拖到属性面板自动填充匹配的路径字段
-// ═══════════════════════════════════════════════════════════════
-
-bool Inspector::findFileDropTarget(const QString &filePath, Shit::Component **outComp,
-                                   Shit::FieldInfo *outField) const
-{
-    if (!m_object) return false;
-    if (!m_multiObjects.empty()) return false;   // P36：批量模式不接受文件拖拽（目标不唯一）
-    if (m_playMode) return false;   // 播放态只读锁：不接受拖拽填充
-
-    const QString ext = QFileInfo(filePath).suffix().toLower();
-    const QStringList kws = fileExtKeywords(ext);
-
-    std::vector<std::pair<Shit::Component *, const Shit::FieldInfo *>> fallback;
-    bool match = false;
-    Shit::Component *hitComp = nullptr;
-    const Shit::FieldInfo *hitField = nullptr;
-
-    m_object->forEachComponent([&](Shit::Component *comp) {
-        const Shit::TypeInfo *ti = Shit::TypeRegistry::Get(std::type_index(typeid(*comp)));
-        if (!ti) return;
-        for (const auto &field : ti->fields) {
-            if (!fieldAcceptsFiles(field)) continue;
-            fallback.emplace_back(comp, &field);
-            if (kws.isEmpty()) continue;  // 扩展名不在已知表：只走"唯一候选"兜底
-            QString name = QString::fromStdString(field.name).toLower();
-            if (name.startsWith("m_")) name = name.mid(2);
-            for (const auto &kw : kws) {
-                if (name.contains(kw)) {
-                    hitComp = comp;
-                    hitField = &field;
-                    match = true;
-                    return;  // 首个匹配即停止（组件/字段遍历顺序稳定）
-                }
-            }
-        }
-    });
-    if (match) {
-        if (outComp) *outComp = hitComp;
-        if (outField) *outField = *hitField;
-        return true;
-    }
-
-    // 兜底：扩展名不在已知表，且对象只有一个路径字段 → 视为匹配目标
-    //（如自定义 AssetPath 类字段），避免拖入被静默拒绝
-    if (fallback.size() == 1) {
-        if (outComp) *outComp = fallback[0].first;
-        if (outField) *outField = *fallback[0].second;
-        return true;
-    }
-    return false;
-}
-
-void Inspector::setDropActive(bool on)
-{
-    if (m_dropActive == on) return;
-    m_dropActive = on;
-    setProperty("dropActive", on);
-    style()->unpolish(this);
-    style()->polish(this);
-}
-
-void Inspector::dragEnterEvent(QDragEnterEvent *event)
-{
-    if (event->mimeData()->hasUrls()) {
-        for (const QUrl &url : event->mimeData()->urls()) {
-            if (url.isLocalFile() && findFileDropTarget(url.toLocalFile(), nullptr, nullptr)) {
-                event->acceptProposedAction();
-                setDropActive(true);
-                return;
-            }
-        }
-    }
-    QWidget::dragEnterEvent(event);
-}
-
-void Inspector::dragMoveEvent(QDragMoveEvent *event)
-{
-    if (event->mimeData()->hasUrls()) {
-        for (const QUrl &url : event->mimeData()->urls()) {
-            if (url.isLocalFile() && findFileDropTarget(url.toLocalFile(), nullptr, nullptr)) {
-                event->acceptProposedAction();
-                return;
-            }
-        }
-    }
-    QWidget::dragMoveEvent(event);
-}
-
-void Inspector::dragLeaveEvent(QDragLeaveEvent *event)
-{
-    setDropActive(false);
-    QWidget::dragLeaveEvent(event);
-}
-
-void Inspector::dropEvent(QDropEvent *event)
-{
-    setDropActive(false);
-    if (!event->mimeData()->hasUrls()) {
-        QWidget::dropEvent(event);
-        return;
-    }
-
-    for (const QUrl &url : event->mimeData()->urls()) {
-        if (!url.isLocalFile()) continue;
-        const QString path = QFileInfo(url.toLocalFile()).absoluteFilePath();
-        Shit::Component *comp = nullptr;
-        Shit::FieldInfo field;
-        if (!findFileDropTarget(path, &comp, &field)) continue;
-
-        // 与检查器其他编辑一致：先标记 dirty + 撤销起点，写回，再提交撤销
-        emit fieldEdited();
-        *reinterpret_cast<std::string *>(field.GetFieldPtr(comp)) = path.toStdString();
-        comp->onFieldChanged(field.name);
-        emit fieldCommitted();
-
-        refresh();  // 块信号回读更新对应控件显示
-        ST_INFO("[Inspector] 文件拖入 {} -> {}.{}", path.toStdString(),
-                comp->getOwner() ? comp->getOwner()->getName() : "?", field.name);
-        event->acceptProposedAction();
-        return;
-    }
-    QWidget::dropEvent(event);
 }
 
 void Inspector::setGameObject(Shit::GameObject *object)
@@ -572,12 +374,8 @@ void Inspector::setGameObject(Shit::GameObject *object)
         if (!typeInfo || typeInfo->fields.empty())
             return; // 无反射元数据（如编辑器自定义 Behavior），跳过
 
-        // P34：记录组件渲染的 QFormLayout 行区间（搜索过滤用）
-        const int startRow = m_form->rowCount();
-        QString searchKey = normalizeTypeName(typeInfo->name);
-
         ++m_componentCount;
-        // P20: 组件头可拖拽（携带自身 uuid + 类型名，供引用字段拖入）
+        // 组件头可拖拽（携带自身 uuid + 类型名，供引用字段拖入）
         QList<std::pair<quint64, QString>> refs;
         refs.append({ component->getUuid(), QString::fromStdString(typeInfo->name) });
         auto *title = new ComponentHeaderLabel(QString::fromStdString(typeInfo->name),
@@ -603,7 +401,7 @@ void Inspector::setGameObject(Shit::GameObject *object)
         }
         m_form->addRow(row);
 
-        // P29（方案 A）：AnimationComponent 渲染入口控件——「打开 Animation 窗口」按钮，
+        // AnimationComponent 渲染入口控件——「打开 Animation 窗口」按钮，
         // 帧动画编辑统一收敛到 AnimationDock（跳过反射字段：m_clipsData 只读载体）
         if (normalizeTypeName(typeInfo->name) == "AnimationComponent") {
             auto *animator = new AnimatorEditorWidget(static_cast<Shit::AnimationComponent *>(component), m_content);
@@ -618,7 +416,7 @@ void Inspector::setGameObject(Shit::GameObject *object)
             connect(animator, &AnimatorEditorWidget::openEditorRequested, this,
                     &Inspector::openAnimationEditorRequested);
         }
-        // P28（方案 A）：Animator 渲染入口控件——「打开 Animator 窗口」按钮，编辑统一收敛到 AnimatorDock
+        // Animator 渲染入口控件——「打开 Animator 窗口」按钮，编辑统一收敛到 AnimatorDock
         // （跳过反射字段：m_animatorData 序列化载体，避免与状态机编辑逻辑冲突）
         else if (normalizeTypeName(typeInfo->name) == "Animator") {
             auto *animator = new AnimatorWidget(static_cast<Shit::Animator *>(component), m_content);
@@ -639,17 +437,12 @@ void Inspector::setGameObject(Shit::GameObject *object)
             }
         }
 
-        // P34：搜索关键字 = 组件类型名 + 全部字段名/显示名；行区间 = 组件头行..最后字段行
-        for (const auto &f : typeInfo->fields) {
-            searchKey += " ";
-            searchKey += displayNameOf(f);
-            searchKey += " ";
-            searchKey += QString::fromStdString(f.name);
+        // 渲染属性（getter/setter 对）
+        for (const auto &prop : typeInfo->properties) {
+            addPropertyRow(prop, component);
+            ++m_fieldCount;
         }
-        m_sections.push_back({ startRow, m_form->rowCount() - 1, searchKey });
     });
-
-    emit buildInfo(m_componentCount, m_fieldCount);
 
     // Unity 风格 "Add Component"：组件列表底部的虚线按钮，点击弹出组件类型菜单
     auto *addBtn = new QPushButton(tr("Add Component"), m_content);
@@ -668,220 +461,6 @@ void Inspector::setGameObject(Shit::GameObject *object)
     connect(addBtn, &QPushButton::clicked, this, &Inspector::showAddComponentMenu);
 
     applyEditLock();   // 播放态编辑锁：重建后按当前播放状态重新禁用
-}
-
-// ═══════════════════════════════════════════════════════════════
-// P36: 批量编辑 —— 多选对象时渲染公共组件/字段，编辑写入全部选中对象
-// ═══════════════════════════════════════════════════════════════
-
-void Inspector::setGameObjects(const QList<Shit::GameObject *> &objects)
-{
-    clear();
-    if (objects.size() < 2) {
-        if (objects.size() == 1) setGameObject(objects.first());
-        return;
-    }
-    for (Shit::GameObject *go : objects)
-        if (go) m_multiObjects.push_back(go);
-    if (m_multiObjects.size() < 2) {   // 过滤后不足 → 回退单选
-        m_multiObjects.clear();
-        setGameObject(objects.first());
-        return;
-    }
-    m_object = nullptr;   // 批量模式：引用/文件拖拽禁用（目标不唯一）
-
-    auto *head = new QLabel(tr("已选 %1 个对象（公共字段批量编辑）").arg(m_multiObjects.size()), m_content);
-    head->setStyleSheet("color:#7ac0ff; font-weight:bold; padding:4px 0;");
-    m_form->addRow(head);
-
-    // 公共组件类型 = 首个对象组件集合 ∩ 其余对象
-    const auto &firstComps = m_multiObjects[0]->getComponents();
-    for (const auto &[typeIdx, comp] : firstComps) {
-        Q_UNUSED(comp)
-        const Shit::TypeInfo *ti = Shit::TypeRegistry::Get(typeIdx);
-        if (!ti || ti->fields.empty()) continue;
-        bool all = true;
-        for (size_t i = 1; i < m_multiObjects.size(); ++i) {
-            if (!m_multiObjects[i]->getComponents().count(typeIdx)) { all = false; break; }
-        }
-        if (all) m_multiTypes.emplace_back(typeIdx, ti);
-    }
-
-    if (m_multiTypes.empty()) {
-        m_form->addRow(new QLabel(tr("对象间没有公共组件，无法批量编辑"), m_content));
-        return;
-    }
-
-    for (const auto &[typeIdx, ti] : m_multiTypes) {
-        const int startRow = m_form->rowCount();
-        QString searchKey = normalizeTypeName(ti->name);
-        auto *title = new QLabel(normalizeTypeName(ti->name), m_content);
-        title->setStyleSheet("font-weight:bold; color:#2a7ab1; margin-top:6px;");
-        m_form->addRow(title);
-
-        for (const auto &field : ti->fields) {
-            if (field.isReference() && field.size == sizeof(uint64_t))
-                continue;   // P36：引用字段多对象共享 UUID 会串线，不提供批量编辑
-            if (metaOf(field) && metaOf(field)->readOnly) {
-                m_form->addRow(displayNameOf(field),
-                    new QLabel(fieldToString(field, static_cast<Shit::Component *>(multiComponentOf(m_multiObjects[0], typeIdx))), m_content));
-                searchKey += " " + displayNameOf(field) + " " + QString::fromStdString(field.name);
-                continue;
-            }
-            addMultiFieldRow(field, typeIdx);
-            searchKey += " " + displayNameOf(field) + " " + QString::fromStdString(field.name);
-        }
-        m_sections.push_back({ startRow, m_form->rowCount() - 1, searchKey });
-    }
-
-    emit buildInfo(static_cast<int>(m_multiTypes.size()), 0);
-    applyEditLock();
-}
-
-void *Inspector::multiComponentOf(Shit::GameObject *go, const std::type_index &typeIdx) const
-{
-    if (!go) return nullptr;
-    auto it = go->getComponents().find(typeIdx);
-    return it != go->getComponents().end() ? it->second.get() : nullptr;
-}
-
-void Inspector::addMultiFieldRow(const Shit::FieldInfo &field, const std::type_index &typeIdx)
-{
-    const QString name = displayNameOf(field);
-    // 基准值取自第一个对象（每帧回读也回显第一个对象的值）
-    auto *first = static_cast<Shit::Component *>(multiComponentOf(m_multiObjects[0], typeIdx));
-    void *p = first ? field.GetFieldPtr(first) : nullptr;
-
-    // 写回全部对象同类型组件
-    auto applyToAll = [this, field, typeIdx](const std::function<void(void *)> &write) {
-        emit fieldEdited();
-        for (Shit::GameObject *go : m_multiObjects) {
-            if (void *c = multiComponentOf(go, typeIdx)) {
-                write(field.GetFieldPtr(static_cast<Shit::Component *>(c)));
-                static_cast<Shit::Component *>(c)->onFieldChanged(field.name);
-            }
-        }
-        emit fieldCommitted();
-    };
-
-    const QString t = typeNameOf(field);
-    if (t == "float") {
-        auto *box = new QDoubleSpinBox(m_content);
-        const FieldMeta *m = metaOf(field);
-        if (m && m->range.min != m->range.max) box->setRange(m->range.min, m->range.max);
-        else box->setRange(-1e6, 1e6);
-        box->setSingleStep(m && m->step > 0.0f ? m->step : 0.1f);
-        box->setDecimals(3);
-        if (p) box->setValue(*reinterpret_cast<float *>(p));
-        connect(box, &QDoubleSpinBox::valueChanged, this, [applyToAll](double v) {
-            applyToAll([v](void *pp) { *reinterpret_cast<float *>(pp) = static_cast<float>(v); });
-        });
-        m_form->addRow(name, box);
-        m_readbacks.push_back([box, p] {
-            box->blockSignals(true);
-            if (p) box->setValue(*reinterpret_cast<float *>(p));
-            box->blockSignals(false);
-        });
-    }
-    else if (t == "int" && field.size == sizeof(int)) {
-        auto *box = new QSpinBox(m_content);
-        if (p) box->setValue(*reinterpret_cast<int *>(p));
-        connect(box, &QSpinBox::valueChanged, this, [applyToAll](int v) {
-            applyToAll([v](void *pp) { *reinterpret_cast<int *>(pp) = v; });
-        });
-        m_form->addRow(name, box);
-        m_readbacks.push_back([box, p] {
-            box->blockSignals(true);
-            if (p) box->setValue(*reinterpret_cast<int *>(p));
-            box->blockSignals(false);
-        });
-    }
-    else if (t == "bool") {
-        auto *check = new QCheckBox(m_content);
-        if (p) check->setChecked(*reinterpret_cast<bool *>(p));
-        connect(check, &QCheckBox::toggled, this, [applyToAll](bool on) {
-            applyToAll([on](void *pp) { *reinterpret_cast<bool *>(pp) = on; });
-        });
-        m_form->addRow(name, check);
-        m_readbacks.push_back([check, p] {
-            check->blockSignals(true);
-            if (p) check->setChecked(*reinterpret_cast<bool *>(p));
-            check->blockSignals(false);
-        });
-    }
-    else if (t == "Vector2") {
-        auto *row = new QWidget(m_content);
-        auto *layout = new QHBoxLayout(row);
-        layout->setContentsMargins(0, 0, 0, 0);
-        auto *xBox = new QDoubleSpinBox;
-        auto *yBox = new QDoubleSpinBox;
-        for (auto *box : { xBox, yBox })
-            box->setRange(-1e6, 1e6);
-        xBox->setDecimals(3); yBox->setDecimals(3);
-        if (p) {
-            auto *v = reinterpret_cast<Shit::Vector2 *>(p);
-            xBox->setValue(v->x); yBox->setValue(v->y);
-        }
-        layout->addWidget(xBox); layout->addWidget(yBox);
-        connect(xBox, &QDoubleSpinBox::valueChanged, this, [applyToAll](double v) {
-            applyToAll([v](void *pp) { reinterpret_cast<Shit::Vector2 *>(pp)->x = static_cast<float>(v); });
-        });
-        connect(yBox, &QDoubleSpinBox::valueChanged, this, [applyToAll](double v) {
-            applyToAll([v](void *pp) { reinterpret_cast<Shit::Vector2 *>(pp)->y = static_cast<float>(v); });
-        });
-        m_form->addRow(name, row);
-        m_readbacks.push_back([xBox, yBox, p] {
-            xBox->blockSignals(true); yBox->blockSignals(true);
-            if (p) {
-                auto *v = reinterpret_cast<Shit::Vector2 *>(p);
-                xBox->setValue(v->x); yBox->setValue(v->y);
-            }
-            xBox->blockSignals(false); yBox->blockSignals(false);
-        });
-    }
-    else if (t == "std::string") {
-        auto *edit = new QLineEdit(p ? QString::fromStdString(*reinterpret_cast<std::string *>(p)) : QString(), m_content);
-        connect(edit, &QLineEdit::textChanged, this, [applyToAll](const QString &text) {
-            applyToAll([text](void *pp) { *reinterpret_cast<std::string *>(pp) = text.toStdString(); });
-        });
-        m_form->addRow(name, edit);
-        m_readbacks.push_back([edit, p] {
-            edit->blockSignals(true);
-            if (p) edit->setText(QString::fromStdString(*reinterpret_cast<std::string *>(p)));
-            edit->blockSignals(false);
-        });
-    }
-    else {
-        // 枚举：下拉（值写 int32）
-        const Shit::TypeInfo *enumType = Shit::TypeRegistry::Get(field.typeName);
-        if (enumType && !enumType->enumValues.empty()) {
-            auto *combo = new QComboBox(m_content);
-            int cur = 0;
-            if (p) cur = *reinterpret_cast<int *>(p);
-            int sel = 0;
-            for (size_t i = 0; i < enumType->enumValues.size(); ++i) {
-                combo->addItem(QString::fromStdString(enumType->enumValues[i].name),
-                               static_cast<int>(enumType->enumValues[i].value));
-                if (enumType->enumValues[i].value == cur) sel = static_cast<int>(i);
-            }
-            combo->setCurrentIndex(sel);
-            connect(combo, &QComboBox::currentIndexChanged, this, [applyToAll, combo]() {
-                const int v = combo->currentData().toInt();
-                applyToAll([v](void *pp) { *reinterpret_cast<int *>(pp) = v; });
-            });
-            m_form->addRow(name, combo);
-            m_readbacks.push_back([combo, p] {
-                combo->blockSignals(true);
-                if (p) {
-                    const int v = *reinterpret_cast<int *>(p);
-                    const int idx = combo->findData(v);
-                    combo->setCurrentIndex(idx >= 0 ? idx : 0);
-                }
-                combo->blockSignals(false);
-            });
-        }
-        // 未知类型：不提供批量编辑（保持隐藏）
-    }
 }
 
 void Inspector::setPlayMode(bool playing)
@@ -1126,9 +705,9 @@ void Inspector::addSystemFieldRow(const Shit::FieldInfo &field, Shit::System *sy
         box->setDecimals(3);
         box->setValue(*reinterpret_cast<float*>(field.GetFieldPtr(sys)));
         connect(box, &QDoubleSpinBox::valueChanged, this, [this, sys, field](double v) {
+            emit fieldEdited();   // 先 begin（undo before 快照取改前状态）再写值
             *reinterpret_cast<float*>(field.GetFieldPtr(sys)) = static_cast<float>(v);
             sys->onFieldChanged(field.name);
-            emit fieldEdited();
         });
         connect(box, &QDoubleSpinBox::editingFinished, this, [this] { emit fieldCommitted(); });
         m_systemFieldsForm->addRow(name, box);
@@ -1143,9 +722,9 @@ void Inspector::addSystemFieldRow(const Shit::FieldInfo &field, Shit::System *sy
         box->setRange(std::numeric_limits<int>::min(), std::numeric_limits<int>::max());
         box->setValue(*reinterpret_cast<int*>(field.GetFieldPtr(sys)));
         connect(box, &QSpinBox::valueChanged, this, [this, sys, field](int v) {
+            emit fieldEdited();
             *reinterpret_cast<int*>(field.GetFieldPtr(sys)) = v;
             sys->onFieldChanged(field.name);
-            emit fieldEdited();
         });
         connect(box, &QSpinBox::editingFinished, this, [this] { emit fieldCommitted(); });
         m_systemFieldsForm->addRow(name, box);
@@ -1159,9 +738,9 @@ void Inspector::addSystemFieldRow(const Shit::FieldInfo &field, Shit::System *sy
         auto *check = new QCheckBox(m_content);
         check->setChecked(*reinterpret_cast<bool*>(field.GetFieldPtr(sys)));
         connect(check, &QCheckBox::toggled, this, [this, sys, field](bool on) {
+            emit fieldEdited();
             *reinterpret_cast<bool*>(field.GetFieldPtr(sys)) = on;
             sys->onFieldChanged(field.name);
-            emit fieldEdited();
             emit fieldCommitted();
         });
         m_systemFieldsForm->addRow(name, check);
@@ -1176,14 +755,14 @@ void Inspector::addSystemFieldRow(const Shit::FieldInfo &field, Shit::System *sy
         auto *xBox = makeSpin(p->x);
         auto *yBox = makeSpin(p->y);
         connect(xBox, &QDoubleSpinBox::valueChanged, this, [this, sys, field](double v) {
+            emit fieldEdited();
             reinterpret_cast<Shit::Vector2*>(field.GetFieldPtr(sys))->x = static_cast<float>(v);
             sys->onFieldChanged(field.name);
-            emit fieldEdited();
         });
         connect(yBox, &QDoubleSpinBox::valueChanged, this, [this, sys, field](double v) {
+            emit fieldEdited();
             reinterpret_cast<Shit::Vector2*>(field.GetFieldPtr(sys))->y = static_cast<float>(v);
             sys->onFieldChanged(field.name);
-            emit fieldEdited();
         });
         connect(xBox, &QDoubleSpinBox::editingFinished, this, [this] { emit fieldCommitted(); });
         connect(yBox, &QDoubleSpinBox::editingFinished, this, [this] { emit fieldCommitted(); });
@@ -1207,9 +786,9 @@ void Inspector::addSystemFieldRow(const Shit::FieldInfo &field, Shit::System *sy
         auto *p = reinterpret_cast<std::string*>(field.GetFieldPtr(sys));
         auto *edit = new QLineEdit(QString::fromStdString(*p), m_content);
         connect(edit, &QLineEdit::textChanged, this, [this, sys, field](const QString &text) {
+            emit fieldEdited();
             *reinterpret_cast<std::string*>(field.GetFieldPtr(sys)) = text.toStdString();
             sys->onFieldChanged(field.name);
-            emit fieldEdited();
         });
         connect(edit, &QLineEdit::editingFinished, this, [this] { emit fieldCommitted(); });
         m_systemFieldsForm->addRow(name, edit);
@@ -1233,9 +812,9 @@ void Inspector::addSystemFieldRow(const Shit::FieldInfo &field, Shit::System *sy
             }
             combo->setCurrentIndex(sel);
             connect(combo, &QComboBox::currentIndexChanged, this, [this, sys, field, combo]() {
+                emit fieldEdited();
                 *reinterpret_cast<int*>(field.GetFieldPtr(sys)) = combo->currentData().toInt();
                 sys->onFieldChanged(field.name);
-                emit fieldEdited();
                 emit fieldCommitted();
             });
             m_systemFieldsForm->addRow(name, combo);
@@ -1257,7 +836,7 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
     const bool readOnly = metaOf(field) && metaOf(field)->readOnly;
     const QString name = displayNameOf(field);
 
-    // P20: 组件引用字段（ComponentRef<T>）→ 拖拽引用控件
+    // 组件引用字段（ComponentRef<T>）→ 拖拽引用控件
     // 防御：ComponentRef<T> 恒为 8 字节；size 不符（扫描器误解析等）时回退普通只读展示
     if (field.isReference() && field.size == sizeof(uint64_t)) {
         if (readOnly) {
@@ -1292,9 +871,9 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
         box->setDecimals(3);
         box->setValue(*reinterpret_cast<float *>(field.GetFieldPtr(obj)));
         connect(box, &QDoubleSpinBox::valueChanged, this, [this, obj, field](double v) {
+            emit fieldEdited();   // 先 begin（undo before 快照取改前状态）再写值
             *reinterpret_cast<float *>(field.GetFieldPtr(obj)) = static_cast<float>(v);
             obj->onFieldChanged(field.name);
-            emit fieldEdited();
         });
         connect(box, &QDoubleSpinBox::editingFinished, this, [this] { emit fieldCommitted(); });
         m_form->addRow(name, box);
@@ -1311,9 +890,9 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
         box->setRange(std::numeric_limits<int>::min(), std::numeric_limits<int>::max());
         box->setValue(*reinterpret_cast<int *>(field.GetFieldPtr(obj)));
         connect(box, &QSpinBox::valueChanged, this, [this, obj, field](int v) {
+            emit fieldEdited();
             *reinterpret_cast<int *>(field.GetFieldPtr(obj)) = v;
             obj->onFieldChanged(field.name);
-            emit fieldEdited();
         });
         connect(box, &QSpinBox::editingFinished, this, [this] { emit fieldCommitted(); });
         m_form->addRow(name, box);
@@ -1327,9 +906,9 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
         auto *check = new QCheckBox(m_content);
         check->setChecked(*reinterpret_cast<bool *>(field.GetFieldPtr(obj)));
         connect(check, &QCheckBox::toggled, this, [this, obj, field](bool on) {
+            emit fieldEdited();
             *reinterpret_cast<bool *>(field.GetFieldPtr(obj)) = on;
             obj->onFieldChanged(field.name);
-            emit fieldEdited();
             emit fieldCommitted();
         });
         m_form->addRow(name, check);
@@ -1344,14 +923,14 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
         auto *xBox = makeSpin(p->x);
         auto *yBox = makeSpin(p->y);
         connect(xBox, &QDoubleSpinBox::valueChanged, this, [this, obj, field](double v) {
+            emit fieldEdited();
             reinterpret_cast<Shit::Vector2 *>(field.GetFieldPtr(obj))->x = static_cast<float>(v);
             obj->onFieldChanged(field.name);
-            emit fieldEdited();
         });
         connect(yBox, &QDoubleSpinBox::valueChanged, this, [this, obj, field](double v) {
+            emit fieldEdited();
             reinterpret_cast<Shit::Vector2 *>(field.GetFieldPtr(obj))->y = static_cast<float>(v);
             obj->onFieldChanged(field.name);
-            emit fieldEdited();
         });
         connect(xBox, &QDoubleSpinBox::editingFinished, this, [this] { emit fieldCommitted(); });
         connect(yBox, &QDoubleSpinBox::editingFinished, this, [this] { emit fieldCommitted(); });
@@ -1374,13 +953,10 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
     else if (typeNameOf(field) == "std::string") {
         auto *p = reinterpret_cast<std::string *>(field.GetFieldPtr(obj));
         auto *edit = new QLineEdit(QString::fromStdString(*p), m_content);
-        // P31：路径类字段关闭 QLineEdit 自身的文本拖拽——文件拖入由面板级
-        // 拖拽统一接管（自动填充路径），否则 QLineEdit 会把 "file:///…" 当文本吃掉
-        if (fieldAcceptsFiles(field)) edit->setAcceptDrops(false);
         connect(edit, &QLineEdit::textChanged, this, [this, obj, field](const QString &text) {
+            emit fieldEdited();
             *reinterpret_cast<std::string *>(field.GetFieldPtr(obj)) = text.toStdString();
             obj->onFieldChanged(field.name);
-            emit fieldEdited();
         });
         connect(edit, &QLineEdit::editingFinished, this, [this] { emit fieldCommitted(); });
         m_form->addRow(name, edit);
@@ -1404,9 +980,9 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
             }
             combo->setCurrentIndex(sel);
             connect(combo, &QComboBox::currentIndexChanged, this, [this, obj, field, combo]() {
+                emit fieldEdited();
                 *reinterpret_cast<int *>(field.GetFieldPtr(obj)) = combo->currentData().toInt();
                 obj->onFieldChanged(field.name);
-                emit fieldEdited();
                 emit fieldCommitted();
             });
             m_form->addRow(name, combo);
@@ -1439,6 +1015,130 @@ QString Inspector::fieldToString(const Shit::FieldInfo &field, Shit::Component *
     if (typeNameOf(field) == "std::string")
         return QString::fromStdString(*reinterpret_cast<std::string *>(ptr));
     return QString("<%1>").arg(typeNameOf(field));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 属性渲染（getter/setter 对）
+// ═══════════════════════════════════════════════════════════════
+
+void Inspector::addPropertyRow(const Shit::PropertyInfo &prop, Shit::Component *obj)
+{
+    // 获取属性元数据（取第一个非空 displayName）
+    const FieldMeta *m = nullptr;
+    if (!prop.meta.empty()) m = &prop.meta[0];
+
+    const QString name = m && !m->displayName.empty()
+        ? QString::fromStdString(m->displayName)
+        : QString::fromStdString(prop.name);
+
+    const bool readOnly = m && m->readOnly;
+    const QString typeName = QString::fromStdString(prop.typeName);
+
+    // 通过 getter 读取当前值
+    void *value = prop.getter(obj);
+
+    if (readOnly || prop.setter == nullptr) {
+        // 只读：显示为标签（每帧回读刷新，运行态实时值可见）
+        auto *label = new QLabel(m_content);
+        auto formatValue = [typeName](void *v) -> QString {
+            if (!v) return QString();
+            if (typeName == "float")
+                return QString::number(*static_cast<float *>(v), 'g', 4);
+            if (typeName == "int")
+                return QString::number(*static_cast<int *>(v));
+            if (typeName == "bool")
+                return *static_cast<bool *>(v) ? QObject::tr("是") : QObject::tr("否");
+            return QStringLiteral("<%1>").arg(typeName);
+        };
+        label->setText(formatValue(value));
+        m_form->addRow(name, label);
+        m_readbacks.push_back([label, prop, obj, formatValue] {
+            label->setText(formatValue(prop.getter(obj)));
+        });
+        return;
+    }
+
+    if (typeName == "float") {
+        auto *box = new QDoubleSpinBox(m_content);
+        if (m && m->range.min != m->range.max)
+            box->setRange(m->range.min, m->range.max);
+        else
+            box->setRange(-1e6, 1e6);
+        box->setSingleStep(m && m->step > 0.0f ? m->step : 0.1f);
+        box->setDecimals(3);
+        box->setValue(*static_cast<float *>(value));
+        connect(box, &QDoubleSpinBox::valueChanged, this, [this, obj, prop](double v) {
+            // 先 begin（undo before 快照取改前状态）再写值——顺序颠倒会使单步编辑不入撤销栈
+            emit fieldEdited();
+            float fv = static_cast<float>(v);
+            prop.setter(obj, &fv);
+        });
+        connect(box, &QDoubleSpinBox::editingFinished, this, [this] { emit fieldCommitted(); });
+        m_form->addRow(name, box);
+        m_readbacks.push_back([box, prop, obj] {
+            box->blockSignals(true);
+            void *v = prop.getter(obj);
+            box->setValue(*static_cast<float *>(v));
+            box->blockSignals(false);
+        });
+    }
+    else if (typeName == "int") {
+        auto *box = new QSpinBox(m_content);
+        if (m && m->range.min != m->range.max)
+            box->setRange(static_cast<int>(m->range.min), static_cast<int>(m->range.max));
+        else
+            box->setRange(std::numeric_limits<int>::min(), std::numeric_limits<int>::max());
+        box->setValue(*static_cast<int *>(value));
+        connect(box, &QSpinBox::valueChanged, this, [this, obj, prop](int v) {
+            emit fieldEdited();
+            prop.setter(obj, &v);
+        });
+        connect(box, &QSpinBox::editingFinished, this, [this] { emit fieldCommitted(); });
+        m_form->addRow(name, box);
+        m_readbacks.push_back([box, prop, obj] {
+            box->blockSignals(true);
+            void *v = prop.getter(obj);
+            box->setValue(*static_cast<int *>(v));
+            box->blockSignals(false);
+        });
+    }
+    else if (typeName == "bool") {
+        auto *check = new QCheckBox(m_content);
+        check->setChecked(*static_cast<bool *>(value));
+        connect(check, &QCheckBox::toggled, this, [this, obj, prop](bool on) {
+            emit fieldEdited();
+            prop.setter(obj, &on);
+            emit fieldCommitted();
+        });
+        m_form->addRow(name, check);
+        m_readbacks.push_back([check, prop, obj] {
+            check->blockSignals(true);
+            void *v = prop.getter(obj);
+            check->setChecked(*static_cast<bool *>(v));
+            check->blockSignals(false);
+        });
+    }
+    else if (typeName == "std::string") {
+        auto *str = static_cast<std::string *>(value);
+        auto *edit = new QLineEdit(QString::fromStdString(*str), m_content);
+        connect(edit, &QLineEdit::textChanged, this, [this, obj, prop](const QString &text) {
+            emit fieldEdited();
+            std::string s = text.toStdString();
+            prop.setter(obj, &s);
+        });
+        connect(edit, &QLineEdit::editingFinished, this, [this] { emit fieldCommitted(); });
+        m_form->addRow(name, edit);
+        m_readbacks.push_back([edit, prop, obj] {
+            edit->blockSignals(true);
+            void *v = prop.getter(obj);
+            edit->setText(QString::fromStdString(*static_cast<std::string *>(v)));
+            edit->blockSignals(false);
+        });
+    }
+    else {
+        // 未知类型：只读展示
+        m_form->addRow(name, new QLabel(QString("<%1>").arg(typeName), m_content));
+    }
 }
 
 void Inspector::showAddComponentMenu()

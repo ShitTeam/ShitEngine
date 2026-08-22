@@ -21,6 +21,21 @@
 
 ### 修复
 
+- **全库 BUG 批量修复（反射 / 序列化 / 引擎核心 / 编辑器，14 项）**：
+  - **反射·属性注解挂错声明（严重）**：`SHIT_PROPERTY(isFlipped, setFlipped)` 与 getter 之间隔了注释，GNU 属性前向附着到 `onAfterDeserialize` 上，属性类型被扫成 `void`——此前靠生成器按属性名白名单硬猜才碰巧正确。注解已紧贴 getter；Scanner 改为按 getter 名查类内方法表解析真实返回类型（注解放错位置时兜底），类型为 void/引用时 WARN 并跳过（不再生成不可编译代码）；`SHIT_METHOD` 补齐 `paramTypes` 收集（此前恒空，带参方法一生成就编译失败），`TypeInfoBuilder::Method` 增加参数类型列表；字段/方法/属性三路 SHIT_META 提取统一为"仅 `({...})` 结构化语法"过滤（简单标记误入会拼出未声明标识符）
+  - **属性不序列化（高）**：检查器可编辑的反射属性（SpriteRenderer 的 sourceRect X/Y/W/H、flipped）保存场景后丢失——`Prefab::Capture` 只遍历 fields。现已随 `properties` 段落盘并经 setter 恢复（撤销快照/复制粘贴同享）；`setSourceRectX/Y/W/H` 物化 nullopt 时按纹理尺寸兜底（此前 `{0,0,0,0}` 会让精灵 0×0 消失且无法回到整图），W/H getter 整图态返回实际纹理尺寸
+  - **退出时插件卸载顺序颠倒（严重·UAF）**：Runtime 与编辑器预览 `stop()` 均先 `UnloadAll()` 再 `Game::Destroy()`——场景内插件 Behavior 组件析构的虚调用打到已解除映射的 DLL vtable（退出必崩）。已统一为"先销毁引擎再卸载插件"（与热重载路径同序）
+  - **运行态切场景重复注入相机（高）**：`ensureDefaultCamera` 只扫 `m_gameObjects`，运行中加载场景时对象全在 pending 队列 → 文件里有相机也再补一个（双相机渲染两遍）。新增 `Scene::hasEnabledCamera()/findGameObjectByName()` 覆盖正式 + pending 容器
+  - **SceneSerializer 系统 Color 字段越界读写（中高）**：`Color`（4×uint8_t）被按 `glm::vec4`（16 字节）读写——反序列化越界写 12 字节破坏相邻内存；int 兜底分支补 `size == 4` 校验（防 libclang 模板退化 "int" 按真实对象宽度误写）
+  - **场景文件损坏时父子关系错位（中）**：`fromJson` 遇非法对象条目跳过不占位，后续所有对象的 `parent` 下标整体错位一格；非法条目现以 nullptr 占位并在层级重建时跳过
+  - **`setScene` 级联迭代器失效隐患（中）**：子物体级联的 `onAttach` 可重入改 `m_children`；改为快照遍历 + 归属校验（AGENTS.md 约定）
+  - **`Game::destroy()` 不复位暂停态（低）**：Destroy → 重新 Init 后引擎静默保持冻结
+  - **Animation 窗口无法加帧（严重·编辑器精简过度删除）**：接收精灵帧拖入的 `dropEvent/addSpriteFrames` 与左侧面板一起被删，且无替代入口——新建剪辑后帧既加不进也删不掉。已恢复拖入接收端（缩略图按 .sprite 元数据 cols 切帧）+ 实现"双击时间轴块移除帧"（提示文案早已承诺）；窗口新增 `setProjectRoot` 解析项目相对纹理路径
+  - **瓦片面板信号孤儿化（严重）**：视口瓦片画笔（`setPaintTileId/paintTileAt/网格线/PaintTiles 拖拽`）被删而 TilesetDock 原样保留——点选瓦片/橡皮完全无效。已恢复视口画笔与 `tileSelected → setPaintTileId` 接线
+  - **拖精灵帧行列错位（高）**：落点精灵的列数按纹理宽度反推，与 .sprite 元数据 cols 不一致时拖 A 帧显示 B 帧；信号补传 `cols`（与精灵表缩略图、引擎 `getFrameRect` 同源），落点同时由"视口中心"改为真实鼠标位置
+  - **只读属性行不刷新（中）**：回读 lambda 调 getter 后丢弃结果，标签冻结在构建时刻；现每帧刷新
+  - **属性/字段编辑不入撤销栈（中）**：`valueChanged` 先写值后 `emit fieldEdited`——undo 的 before 快照已含首次改动，单步编辑 `before == after` 被丢弃；全部（属性 4 分支 + 字段 7 分支 + 系统面板 8 分支）改为先 begin 再写
+- **项目插件 DLL 加载失败 126（引擎命名，高）**：插件按模块名静态导入引擎 DLL，而 Debug 构建的引擎带 `-d` 后缀（`ShitEngine-d.dll`）、MinGW 构建带 `lib` 前缀——用 Debug 编辑器加载 SDK 构建的插件时名字对不上，Windows 找不到 `ShitEngine.dll` 模块报 126（往项目 bin/ 拷引擎 DLL 无效：默认搜索路径不含插件所在目录，且重复加载会分裂引擎静态状态）。引擎 DLL 现已全配置统一命名 `ShitEngine.dll`，插件导入名恒与宿主进程内引擎模块一致，加载器直接复用内存实例；`PluginManager` 同时改用 `LoadLibraryExW`（`LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS`，支持解析插件自带依赖、宽字符路径）并在 126 错误信息中给出原因提示
 - **`forEachComponent` 迭代器失效（高）**：`onAttach`/`onStart` 等回调内 `removeComponent` 修改组件 map 会使实时遍历的迭代器失效（`System::init` 补扫等路径）；改为快照遍历 + 回调前归属重验
 - **`createGameObject` 挂在场景时序不一致（中）**：与已修复的 `addGameObject` 不同，`createGameObject` 先 `setScene` 后入容器，`onAttach` 触发时对象尚不在 `m_gameObjects`，运行态下组件挂载时 `m_scene` 为 null 不注册不索引；已统一为「先入容器再 setScene」
 - **`processPendingRemoveSystems` 悬垂引用（低）**：`destroy()` 回调内 `unregisterSystem` 追加条目使 vector 重分配后，循环持有的 `const auto&` 引用悬垂；改为按值拷贝

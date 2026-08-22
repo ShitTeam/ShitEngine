@@ -109,7 +109,7 @@ bool Project::create(const QString &rootDir, const QString &name,
     doc["name"] = projectName.toStdString();
     doc["version"] = kProjectConfigVersion;
     doc["engine"]["sdkDir"] = sdkDir.trimmed().toStdString();
-    // 默认输入映射（P15：项目设置页可改；让新项目开箱即用动作/轴 API）
+    // 默认输入映射（项目设置页可改；让新项目开箱即用动作/轴 API）
     doc["inputMappings"]["actions"]["Jump"] = { "Space" };
     doc["inputMappings"]["actions"]["Sprint"] = { "Left Shift" };
     doc["inputMappings"]["axes"]["Horizontal"] = { { "negative", { "A" } }, { "positive", { "D" } } };
@@ -137,7 +137,7 @@ bool Project::create(const QString &rootDir, const QString &name,
         const QString dllName = scriptTargetName(projectName);
         const QString sdk = sdkDir.trimmed();
 
-        // 根 CMakeLists.txt（P16）：仅 IDE 便利——CLion / Visual Studio 打开项目根目录
+        // 根 CMakeLists.txt：仅 IDE 便利——CLion / Visual Studio 打开项目根目录
         // 即得到完整 CMake 工程（编译入口仍是 Scripts/，现有构建流程不受影响）
         const QString rootCmake = renderTemplate(
             QStringLiteral("cmake_minimum_required(VERSION 3.16)\n"

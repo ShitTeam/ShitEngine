@@ -224,7 +224,7 @@ bool exportGame(const Project &project, const GameExportOptions &options,
             info(QStringLiteral("✓ %1").arg(QFileInfo(dll).fileName()));
         }
         if (sdk.sdlDlls.size() < 4) {
-            // P33：SDK 运行库不全 → 直接失败（此前仅 ⚠ 提示却返回成功，
+            // SDK 运行库不全 → 直接失败（此前仅 ⚠ 提示却返回成功，
             // 产出的包运行时会缺子系统崩溃，用户拿到"导出完成"的假象）
             if (err)
                 *err = QStringLiteral("SDK 缺少部分 SDL 动态库（%1/4）——请重新安装完整 SDK（cmake --install）").arg(sdk.sdlDlls.size());
@@ -238,7 +238,7 @@ bool exportGame(const Project &project, const GameExportOptions &options,
         if (!copyFile(pluginDll, outDir + "/" + QFileInfo(pluginDll).fileName(), err)) return false;
         info(QStringLiteral("✓ %1（游戏脚本）").arg(QFileInfo(pluginDll).fileName()));
     } else if (!pluginDll.isEmpty()) {
-        // P33：项目配了脚本插件但未构建 → 直接失败（导出可运行的游戏包必须带脚本 DLL）
+        // 项目配了脚本插件但未构建 → 直接失败（导出可运行的游戏包必须带脚本 DLL）
         if (err)
             *err = QStringLiteral("插件 DLL 未构建（%1）——请在编辑器按 Ctrl+B 构建脚本后再导出").arg(pluginDll);
         return false;

@@ -9,7 +9,7 @@ struct IdeInfo {
     QString executable;  ///< 可执行文件绝对路径（devenv / clion64 / qtcreator / Code.exe）
 };
 
-/// 探测本机已安装的 IDE（P16）：
+/// 探测本机已安装的 IDE：
 /// 依次尝试 PATH 与常见安装路径；Visual Studio 走 vswhere 查询，失败回退枚举
 /// VS2022 / VS18（Community/Professional/Enterprise/BuildTools）常见位置。
 /// 未找到任何 IDE 时返回空列表（设置页下拉仅剩「浏览…」）。

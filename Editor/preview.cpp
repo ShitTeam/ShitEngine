@@ -33,7 +33,7 @@ bool EnginePreview::start()
     Shit::Window::SetHidden(true); // 离屏渲染：隐藏窗口，渲染照常进行
     if (!Shit::Game::Init()) return false;
 
-    // P12：引擎 spdlog → 编辑器日志面板（队列连接，兼容任意线程抵达）
+    // 引擎 spdlog → 编辑器日志面板（队列连接，兼容任意线程抵达）
     Shit::Log::SetMessageCallback([this](bool isCore, int level, const std::string &message) {
         emit engineLogMessage(isCore, level, QString::fromStdString(message));
     });
@@ -102,9 +102,11 @@ void EnginePreview::stop()
     if (m_context) {
         Shit::EngineContext::setCurrent(m_context.get());
         Shit::Game::SetIsRunning(false);   // 复位运行态标记，避免残留影响后续初始化
-        // 先卸载插件（其反射类型 factory 在 DLL 内），再销毁引擎
-        if (m_plugins) m_plugins->UnloadAll();
+        // 先销毁引擎（场景内插件组件析构时的虚调用/RTTI 需要 DLL 仍驻留），
+        // 再卸载插件——顺序颠倒会在组件析构时访问已解除映射的 vtable（UAF 崩溃）；
+        // 与热重载路径（clearSceneObjects → 卸载）同一顺序原则
         Shit::Game::Destroy();
+        if (m_plugins) m_plugins->UnloadAll();
         Shit::EngineContext::resetCurrent();
         m_context.reset();
     }
@@ -137,7 +139,7 @@ bool EnginePreview::loadProjectConfig(const QString &configPath)
     m_plugins->LoadFromConfig(configPath.toStdString());
     m_plugins->RegisterAllTypes();
 
-    // P33：加载失败（DLL 缺失/ABI 不匹配）→ 信号给 mainwindow 弹窗
+    // 加载失败（DLL 缺失/ABI 不匹配）→ 信号给 mainwindow 弹窗
     const auto &err = Shit::PluginManager::GetLastLoadError();
     if (!err.empty())
         emit pluginLoadFailed(QString::fromStdString(err));
@@ -225,7 +227,7 @@ bool EnginePreview::reloadProjectPlugins(const QString &configPath,
     m_plugins->LoadFromConfig(configPath.toStdString());
     m_plugins->RegisterAllTypes();
 
-    // P33：热重载路径同样报告加载失败（弹窗给用户，不再只进日志面板）
+    // 热重载路径同样报告加载失败（弹窗给用户，不再只进日志面板）
     const auto &err = Shit::PluginManager::GetLastLoadError();
     if (!err.empty())
         emit pluginLoadFailed(QString::fromStdString(err));

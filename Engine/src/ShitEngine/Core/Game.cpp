@@ -145,6 +145,7 @@ namespace Shit {
 		// 重置初始化标志：Destroy 后允许在同一上下文上重新 Init()（引擎状态回到未初始化）
 		m_isInited = false;
 		m_isRunning = false;
+		m_isPaused = false;   // init() 不复位暂停态，Destroy 时一并复位防"重开后静默冻结"
 	}
 
 	Game& Game::GetInstance() {

@@ -7,11 +7,11 @@ namespace Shit {
     Animation::Animation(float duration, bool loop) : m_duration(duration), m_loop(loop) { }
     Animation::~Animation() = default;
 
-    void Animation::addFrame(const SDL_FRect& frame) {
+    void Animation::addFrame(const Rect& frame) {
         m_frames.push_back(frame);
     }
 
-    void Animation::addFrames(const std::vector<SDL_FRect>& frames)
+    void Animation::addFrames(const std::vector<Rect>& frames)
     {
         for (const auto& frame : frames) {
             m_frames.push_back(frame);
@@ -34,9 +34,9 @@ namespace Shit {
         return static_cast<float>(m_frames.size()) * m_duration;
     }
 
-    SDL_FRect Animation::getFrame(float elapsedTime) const
+    Rect Animation::getFrame(float elapsedTime) const
     {
-        if (m_frames.empty()) return SDL_FRect{};
+        if (m_frames.empty()) return Rect{};
 
         const int frameCount = static_cast<int>(m_frames.size());
         const bool perFrame = (m_frameDurations.size() == static_cast<size_t>(frameCount));

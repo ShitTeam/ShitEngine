@@ -27,7 +27,7 @@ namespace Shit {
 		SDL_FRect srcRect{};
 		const SDL_FRect* srcPtr = nullptr;
 		if (m_sprite.getSourceRect().has_value()) {
-			srcRect = m_sprite.getSourceRect().value();
+			srcRect = m_sprite.getSourceRect()->toSDL();
 			srcPtr = &srcRect;
 		}
 

@@ -12,7 +12,7 @@ class QWheelEvent;
 
 namespace Shit { class AnimationClip; }
 
-/// 帧动画 Dope Sheet 时间轴（P29）：Unity 风格的水平帧轨道。
+/// 帧动画 Dope Sheet 时间轴：Unity 风格的水平帧轨道。
 ///
 /// 直接编辑一份 AnimationClip：
 /// - 每个帧 = 一个块，块宽 ∝ 该帧时长（秒），块内显示精灵表缩略图 + 序号
@@ -47,8 +47,9 @@ signals:
     void clipChanged();
     /// 选中帧块改变
     void selectedFrameChanged(int index);
-    /// 双击某个帧块（参数=该帧全局帧 id；供外部从网格联动选中）
-    void frameActivated(int frameId);
+    /// 双击某个帧块 → 请求移除该块（参数 = 时间轴块序号，与 frames 序列一一对应；
+    /// 剪辑数据归外部所有，本控件不直接改 frames）
+    void frameRemoved(int blockIndex);
 
 protected:
     void paintEvent(QPaintEvent *event) override;

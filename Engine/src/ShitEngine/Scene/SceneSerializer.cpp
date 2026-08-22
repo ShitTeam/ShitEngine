@@ -41,12 +41,13 @@ json serializeFieldValue(const FieldInfo& field, void* obj) {
 	}
 	if (tn == "std::string")        return json(*reinterpret_cast<std::string*>(ptr));
 	if (tn == "Color") {
-		// Color 实际是 glm::vec4，序列化为 [r,g,b,a]
-		auto* c = reinterpret_cast<glm::vec4*>(ptr);
-		return json::array({c->r, c->g, c->b, c->a});
+		// Color 是 4×uint8_t（Core.h），不是 glm::vec4——按 16 字节读写会越界
+		auto* c = reinterpret_cast<Color*>(ptr);
+		return json::array({c->red, c->green, c->blue, c->alpha});
 	}
-	// 枚举：按 int 值序列化
-	return json(*reinterpret_cast<int*>(ptr));
+	// 枚举：按 int 值序列化（校验字段确实 4 字节，防 libclang 模板退化 "int" 误写）
+	if (field.size == sizeof(int))  return json(*reinterpret_cast<int*>(ptr));
+	return json();
 }
 
 /// 从 JSON 反序列化到系统字段
@@ -63,10 +64,15 @@ void deserializeFieldValue(const FieldInfo& field, void* obj, const json& val) {
 		}
 		else if (tn == "std::string")   *reinterpret_cast<std::string*>(ptr) = val.get<std::string>();
 		else if (tn == "Color" && val.is_array() && val.size() >= 4) {
-			*reinterpret_cast<glm::vec4*>(ptr) = {val[0].get<float>(), val[1].get<float>(), val[2].get<float>(), val[3].get<float>()};
+			// 4×uint8_t 布局，与 serializeFieldValue 对称（见上方注释）
+			auto* c = reinterpret_cast<Color*>(ptr);
+			c->red   = val[0].get<std::uint8_t>();
+			c->green = val[1].get<std::uint8_t>();
+			c->blue  = val[2].get<std::uint8_t>();
+			c->alpha = val[3].get<std::uint8_t>();
 		}
-		else {
-			// 枚举：按 int 读
+		else if (field.size == sizeof(int)) {
+			// 枚举：按 int 读（校验 4 字节，防退化 "int" 的模板字段按 4 字节误写真实对象）
 			*reinterpret_cast<int*>(ptr) = val.get<int>();
 		}
 	} catch (...) {
@@ -102,19 +108,16 @@ void deserializeSystemFields(System* system, const json& fields) {
 void ensureDefaultCamera(Scene* scene) {
 	if (!scene) return;
 
-	for (auto& go : scene->getGameObjects()) {
-		if (go->getName() == "scene_camera") continue;   // 编辑器相机（约定名）不算场景相机，不参与兜底判定
-		if (auto* cam = go->getComponent<CameraComponent>(); cam && cam->isEnabled()) {
-			return;  // 已有可用相机
-		}
-	}
+	// hasEnabledCamera 覆盖正式容器 + 运行态延迟添加的 pending 对象：
+	// 运行中切场景时 .scene 里的相机全部在 pending 队列，只扫 m_gameObjects
+	// 会误判"没有相机"而再注入一个，导致双相机把画面渲染两遍
+	if (scene->hasEnabledCamera()) return;
 
 	// 兼容：编辑器双 pass 渲染轮流改相机 enabled，旧版本可能把 game_camera
 	// 序列化成禁用态——此时复用同名相机对象并启用，而不是再建一个，
 	// 否则场景出现两个 game_camera 后「同一画面渲染两遍」（对象显示双份）。
-	for (auto& go : scene->getGameObjects()) {
-		if (go->getName() != "game_camera") continue;
-		if (auto* cam = go->getComponent<CameraComponent>()) {
+	if (GameObject* existing = scene->findGameObjectByName("game_camera")) {
+		if (auto* cam = existing->getComponent<CameraComponent>()) {
 			cam->setEnabled(true);
 			ST_CORE_WARN("[SceneSerializer] 已启用被保存为禁用态的 game_camera（复用，不新建重复相机）");
 			return;
@@ -277,9 +280,12 @@ void SceneSerializer::fromJson(const json& doc, Scene* scene) {
 	created.reserve(objects.size());
 
 	// 1) 逐对象创建 + 反射组件恢复
+	// 非法条目以 nullptr 占位：第 2 步按 objects 数组下标索引 created，
+	// 不占位会使后续对象整体前移、parent 引用全部错位一格
 	for (const auto& obj : objects) {
 		if (!obj.is_object()) {
 			ST_CORE_WARN("[SceneSerializer] 跳过非法对象条目");
+			created.push_back(nullptr);
 			continue;
 		}
 		const std::string name = obj.value("name", "Object");
@@ -295,10 +301,12 @@ void SceneSerializer::fromJson(const json& doc, Scene* scene) {
 	// 2) 层级重建：parent = objects 数组下标（v1 文件无 parent 字段 → 根对象）
 	for (size_t i = 0; i < objects.size() && i < created.size(); ++i) {
 			const auto& obj = objects[i];
+			if (!created[i]) continue;   // 非法条目占位
 			int parentIdx = (obj.contains("parent") && obj["parent"].is_number())
 				? obj["parent"].get<int>() : -1;
 			if (parentIdx >= 0 && parentIdx < static_cast<int>(created.size()) && parentIdx != static_cast<int>(i)) {
-				created[i]->setParent(created[static_cast<size_t>(parentIdx)]);
+				if (created[static_cast<size_t>(parentIdx)])   // 父对象为非法占位时保持根级
+					created[i]->setParent(created[static_cast<size_t>(parentIdx)]);
 			}
 		}
 

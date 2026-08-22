@@ -1,5 +1,7 @@
 #include "assetsdock.h"
 
+#include "spriteeditordialog.h"
+
 #include <nlohmann/json.hpp>
 
 #include <QAction>
@@ -24,8 +26,6 @@
 #include <QTreeView>
 #include <QVBoxLayout>
 
-#include "spriteeditordialog.h"
-
 #include <fstream>
 
 namespace {
@@ -46,12 +46,6 @@ bool isImageAsset(const QString &path)
 {
     static const QStringList kImages = { "png", "jpg", "jpeg", "bmp" };
     return kImages.contains(QFileInfo(path).suffix().toLower());
-}
-
-/// 是否是精灵表元数据文件
-bool isSpriteFile(const QString &path)
-{
-    return QFileInfo(path).suffix().toLower() == "sprite";
 }
 
 /// 生成目录（Unity 里不可见的基础设施目录）——不在资源窗口中显示
@@ -199,7 +193,7 @@ AssetsDock::AssetsDock(QWidget *parent)
     // 网格双击：目录 → 进入并联动树；.scene/.prefab/.anim → 请求打开
     connect(m_gridView, &QListView::doubleClicked, this, &AssetsDock::onGridDoubleClicked);
 
-    // P35：右键菜单（树 / 网格）——刷新 / 新建文件夹 / 重命名 / 删除 / 导入
+    // 右键菜单（树 / 网格）——刷新 / 新建文件夹 / 重命名 / 删除 / 导入
     m_treeView->setContextMenuPolicy(Qt::CustomContextMenu);
     m_gridView->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_treeView, &QTreeView::customContextMenuRequested,
@@ -269,7 +263,7 @@ void AssetsDock::onGridDoubleClicked(const QModelIndex &index)
 }
 
 // ═══════════════════════════════════════════════════════════════
-// P35: 资产文件操作（右键菜单）
+// 资产文件操作（右键菜单）
 // ═══════════════════════════════════════════════════════════════
 
 QString AssetsDock::currentDir() const
@@ -348,7 +342,7 @@ void AssetsDock::showGridContextMenu(const QPoint &pos)
         menu->addAction(tr("重命名…"), this, [this, src] { renameItem(src); });
         menu->addAction(tr("删除"), this, [this, src] { deleteItem(src); });
 
-        // P38：图片文件 → "定义为精灵表…"（生成 .sprite 元数据）
+        // 图片文件 → "定义为精灵表…"（生成 .sprite 元数据）
         const QString path = m_model->filePath(src);
         if (isImageAsset(path)) {
             menu->addSeparator();

@@ -99,7 +99,7 @@ namespace Shit {
         SDL_FRect srcRect{};
         bool useSrcRect = false;
         if (sprite.getSourceRect().has_value()) {
-            srcRect = sprite.getSourceRect().value();
+            srcRect = sprite.getSourceRect()->toSDL();
             useSrcRect = true;
         }
 

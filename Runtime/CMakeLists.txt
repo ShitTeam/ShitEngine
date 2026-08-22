@@ -19,18 +19,9 @@ add_custom_command(TARGET ShitRuntime POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_CURRENT_SOURCE_DIR}/config.json"
         "$<TARGET_FILE_DIR:ShitRuntime>/config.json"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_SOURCE_DIR}/Examples/settings.json"
-        "$<TARGET_FILE_DIR:ShitRuntime>/settings.json"
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_CURRENT_SOURCE_DIR}/Scenes"
         "$<TARGET_FILE_DIR:ShitRuntime>/Scenes"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_SOURCE_DIR}/Examples/scenes"
-        "$<TARGET_FILE_DIR:ShitRuntime>/Scenes"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_SOURCE_DIR}/Examples/resource"
-        "$<TARGET_FILE_DIR:ShitRuntime>/resource"
     COMMENT "Copying config and resources to output directory"
 )
 

@@ -7,7 +7,7 @@ int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
 
-    // P36：命令行入口——`Editor.exe <xxx.scene>` 直接打开场景（向上查找所属项目则连带
+    // 命令行入口——`Editor.exe <xxx.scene>` 直接打开场景（向上查找所属项目则连带
     // 打开项目）；`Editor.exe --project <dir>` 打开项目。方便 .scene 文件关联与脚本调用。
     QString projectArg;
     QString sceneArg;

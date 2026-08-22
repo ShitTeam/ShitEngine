@@ -24,6 +24,8 @@ add_library(ShitEngine SHARED
     "src/ShitEngine/Core/TextInputGate.cpp"
     "src/ShitEngine/Core/EngineContext.cpp"
     "src/ShitEngine/Event/EventBus.cpp"
+    # Math
+    "src/ShitEngine/Math.cpp"
     # Audio
     "src/ShitEngine/Audio/AudioTrack.cpp"
     "src/ShitEngine/Audio/AudioPlayer.cpp"
@@ -87,9 +89,13 @@ add_library(ShitEngine SHARED
     "src/ShitEngine/Physics/CircleCollider2D.cpp"
 )
 
+# 引擎 DLL 所有配置统一命名 ShitEngine.dll：Debug 不加 -d、MinGW 不加 lib 前缀。
+# 插件 DLL 按模块名静态导入引擎，加载器仅当进程内已加载模块与导入名完全一致时才复用；
+# 命名漂移（ShitEngine-d.dll / libShitEngine.dll）会让插件 LoadLibrary 报 126
+# （找不到模块），甚至重复加载第二份引擎导致静态状态分裂。
 set_target_properties(ShitEngine PROPERTIES
-    OUTPUT_NAME   "ShitEngine"
-    DEBUG_POSTFIX "-d"
+    OUTPUT_NAME "ShitEngine"
+    PREFIX      ""
 )
 
 target_include_directories(ShitEngine PUBLIC

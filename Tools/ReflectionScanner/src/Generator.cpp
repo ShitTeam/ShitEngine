@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <sstream>
 
 namespace fs = std::filesystem;
@@ -107,6 +108,90 @@ std::string Generator::generateTypeFile(const ReflectedType& type, const std::st
                 }
                 // 用全限定名：类型可能在全局作用域（插件类型），裸 FieldMeta 无法解析
                 out << "        .Meta(Shit::FieldMeta" << init << ")\n";
+            }
+        }
+
+        // 生成方法注册代码
+        for (const auto& method : type.methods) {
+            out << "        .Method(\"" << method.name << "\",\n";
+            out << "            \"" << method.returnType << "\",\n";
+            out << "            [](void* obj, const void** args) -> void* {\n";
+            out << "                auto* self = static_cast<" << qualifiedType << "*>(obj);\n";
+            if (method.returnType == "void") {
+                out << "                self->" << method.name << "(";
+                // 生成参数转换
+                for (size_t i = 0; i < method.paramTypes.size(); ++i) {
+                    if (i > 0) out << ", ";
+                    out << "*static_cast<const " << method.paramTypes[i] << "*>(args[" << i << "])";
+                }
+                out << ");\n";
+                out << "                return nullptr;\n";
+            } else {
+                out << "                static thread_local " << method.returnType << " result;\n";
+                out << "                result = self->" << method.name << "(";
+                for (size_t i = 0; i < method.paramTypes.size(); ++i) {
+                    if (i > 0) out << ", ";
+                    out << "*static_cast<const " << method.paramTypes[i] << "*>(args[" << i << "])";
+                }
+                out << ");\n";
+                out << "                return &result;\n";
+            }
+            out << "            }";
+            // 参数类型列表（供运行时 MethodInfo::paramTypes）
+            if (!method.paramTypes.empty()) {
+                out << ",\n            {";
+                for (size_t i = 0; i < method.paramTypes.size(); ++i) {
+                    if (i > 0) out << ", ";
+                    out << "\"" << method.paramTypes[i] << "\"";
+                }
+                out << "}";
+            }
+            out << ")\n";
+
+            for (const auto& metaInit : method.metaInits) {
+                std::string init = metaInit;
+                if (init.size() >= 2 && init.front() == '(' && init.back() == ')') {
+                    init = init.substr(1, init.size() - 2);
+                }
+                out << "        .MethodMeta(Shit::FieldMeta" << init << ")\n";
+            }
+        }
+
+        // 生成属性注册代码
+        for (const auto& prop : type.properties) {
+            const std::string& typeName = prop.typeName;
+            // 引用类型无法存入 thread_local 槽位（未初始化引用编译失败），跳过并告警
+            if (typeName.find('&') != std::string::npos) {
+                std::cerr << "[Generator] WARN: 属性 " << prop.name << " 的类型 \""
+                          << typeName << "\" 含引用，无法生成属性槽位，跳过\n";
+                continue;
+            }
+
+            out << "        .Property(\"" << prop.name << "\",\n";
+            out << "            \"" << typeName << "\",\n";
+            // getter
+            out << "            [](void* obj) -> void* {\n";
+            out << "                auto* self = static_cast<" << qualifiedType << "*>(obj);\n";
+            out << "                static thread_local " << typeName << " v;\n";
+            out << "                v = self->" << prop.getterName << "();\n";
+            out << "                return &v;\n";
+            out << "            },\n";
+            // setter
+            if (!prop.setterName.empty()) {
+                out << "            [](void* obj, const void* val) {\n";
+                out << "                auto* self = static_cast<" << qualifiedType << "*>(obj);\n";
+                out << "                self->" << prop.setterName << "(*static_cast<const " << typeName << "*>(val));\n";
+                out << "            })\n";
+            } else {
+                out << "            nullptr)  // 只读\n";
+            }
+
+            for (const auto& metaInit : prop.metaInits) {
+                std::string init = metaInit;
+                if (init.size() >= 2 && init.front() == '(' && init.back() == ')') {
+                    init = init.substr(1, init.size() - 2);
+                }
+                out << "        .PropertyMeta(Shit::FieldMeta" << init << ")\n";
             }
         }
     }

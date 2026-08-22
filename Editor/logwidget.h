@@ -8,7 +8,7 @@ class QLineEdit;
 class QPushButton;
 
 /// 底部日志：编辑器与引擎日志输出。
-/// P12 起对接引擎 spdlog 的回调，将 ST_* 日志实时转到这里。
+/// 对接引擎 spdlog 的回调，将 ST_* 日志实时转到这里。
 class LogWidget : public QWidget
 {
     Q_OBJECT

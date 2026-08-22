@@ -8,7 +8,7 @@
 
 #include <optional>
 
-/// P14 项目模型：一个项目 = 目录 + config.json（配置）+ .shitengine/（编辑器私有状态）。
+/// 项目模型：一个项目 = 目录 + config.json（配置）+ .shitengine/（编辑器私有状态）。
 ///
 /// 目录骨架：
 ///   <Root>/config.json          项目配置（name / engine.sdkDir / plugins / scene）

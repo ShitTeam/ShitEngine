@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../Core/Core.h"
-#include <SDL3/SDL_rect.h>
+#include "../Math.h"
 #include <vector>
 #include <cstddef>
 #include <algorithm>
@@ -9,28 +9,19 @@
 namespace Shit {
 
 /**
- * @brief 精灵图集（sprite-sheet）网格切割器
+ * @brief Sprite sheet grid cutter
  *
- * 把一张按“rows 行 × cols 列”规则排列的大图，按帧索引切出每一帧的源矩形 (SDL_FRect)。
- * 可选 margin（图集四周留白）与 spacing（帧间间隔），单位为像素。
+ * Cuts a texture arranged in "rows x cols" grid into per-frame source rectangles (Rect).
+ * Optional margin (padding around the edges) and spacing (gap between frames), in pixels.
  *
- * 典型用法：
- *   Shit::SpriteSheet sheet(4, 8, 32, 32);        // 4行8列，每帧32×32
- *   SDL_FRect f = sheet.getFrameRect(5);          // 全局第5帧
+ * Usage:
+ *   Shit::SpriteSheet sheet(4, 8, 32, 32);        // 4 rows, 8 cols, 32x32 per frame
+ *   Rect f = sheet.getFrameRect(5);               // global frame 5
  *   std::vector<int> walk{0,1,2,3,4,5};
  *   animComp->play("walk", &sheet, walk, 0.1f, true);
  */
 class SHIT_API SpriteSheet final {
 public:
-    /**
-     * @brief 构造网格切割参数
-     * @param rows 行数
-     * @param cols 列数
-     * @param frameWidth 单帧宽（像素）
-     * @param frameHeight 单帧高（像素）
-     * @param margin 图集左上角留白（像素，默认 0）
-     * @param spacing 帧与帧之间的间隔（像素，默认 0）
-     */
     SpriteSheet(int rows, int cols, float frameWidth, float frameHeight,
                 float margin = 0.0f, float spacing = 0.0f);
 
@@ -41,11 +32,8 @@ public:
     SpriteSheet(SpriteSheet&&) noexcept = default;
     SpriteSheet& operator=(SpriteSheet&&) noexcept = default;
 
-    /// 全局帧索引（0..rows*cols-1）对应的源矩形
-    SDL_FRect getFrameRect(int frameIndex) const;
-
-    /// 指定行列（0 基）对应的源矩形
-    SDL_FRect getFrameRect(int row, int col) const;
+    Rect getFrameRect(int frameIndex) const;
+    Rect getFrameRect(int row, int col) const;
 
     int getRows() const { return m_rows; }
     int getCols() const { return m_cols; }

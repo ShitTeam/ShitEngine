@@ -47,13 +47,13 @@ public:
     /// 是否显示视图内 Gizmo 工具条（运行视口为 false——运行态无编辑，按钮徒增干扰）
     void setGizmoBarVisible(bool visible) { if (m_gizmoBar) m_gizmoBar->setVisible(visible); }
 
-    /// 播放态编辑锁（P25d）：关闭后 Gizmo 与碰撞体手柄不可拖拽（拾取仍可用）
+    /// 播放态编辑锁：关闭后 Gizmo 与碰撞体手柄不可拖拽（拾取仍可用）
     void setEditEnabled(bool enabled) { m_editEnabled = enabled; update(); }
 
     /// 控件坐标 → 逻辑像素坐标（播放态输入转发等外部使用）
     QPointF mapToLogical(const QPoint &pos) const { return widgetToLogical(pos); }
 
-    /// P27：设置瓦片画笔（供外部瓦片面板设置；-1 = 橡皮，-2 = 未选择不刷）
+    /// 设置瓦片画笔（供瓦片面板设置；-1 = 橡皮，-2 = 未选择不刷）
     void setPaintTileId(int tileId) { m_paintTileId = tileId; update(); }
     int paintTileId() const { return m_paintTileId; }
 
@@ -66,11 +66,13 @@ signals:
     void gizmoDragFinished();
     /// 资源文件（图片）被拖入视口（逻辑像素坐标；供创建精灵用）
     void assetDropped(const QString &path, float logicalX, float logicalY);
-    /// .prefab 预置资产被拖入视口（逻辑像素坐标；供实例化用，P25c）
+    /// .prefab 预置资产被拖入视口（逻辑像素坐标；供实例化用）
     void prefabDropped(const QString &path, float logicalX, float logicalY);
-    /// P38：精灵帧被拖入视口（纹理路径 + 帧索引 + 帧宽高 + 边距 + 间距；供创建带源矩形的精灵用）
+    /// 精灵帧被拖入视口（纹理路径 + 帧索引 + 帧宽高 + 边距 + 间距 + 网格列数 + 逻辑像素落点；
+    /// cols 来自 .sprite 元数据，源矩形行列计算必须与精灵表缩略图/引擎 getFrameRect 同源）
     void spriteFrameDropped(const QString &texturePath, int frameIndex,
-                            float frameWidth, float frameHeight, float margin, float spacing);
+                            float frameWidth, float frameHeight, float margin, float spacing,
+                            int cols, float logicalX, float logicalY);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -94,13 +96,13 @@ private:
     void drawGizmo(QPainter &painter);
     /// 绘制碰撞体调试轮廓（刚体类型着色；视图内工具条「碰撞体」开关）
     void drawPhysicsDebug(QPainter &painter);
-    /// P27：选中含 Tilemap 的对象时绘制瓦片网格线（辅助刷图对齐）
+    /// 选中含 Tilemap 的对象时绘制瓦片网格线（辅助刷图对齐）
     void drawTilemapGrid(QPainter &painter);
-    /// P27：在控件坐标处刷一个瓦片（根据 m_paintErasing 决定放置/擦除），返回是否命中网格
+    /// 在控件坐标处刷一个瓦片（根据 m_paintErasing 决定放置/擦除），返回是否命中网格
     bool paintTileAt(const QPoint &widgetPos);
     /// 点到线段距离（Gizmo 手柄命中判定）
     static float distToSegment(const QPointF &p, const QPointF &a, const QPointF &b);
-    /// P25b：计算选中对象碰撞体手柄的绘制/命中几何（并校验存活）。
+    /// 计算选中对象碰撞体手柄的绘制/命中几何（并校验存活）。
     /// 成功返回 true 并输出中心屏幕点 / 旋转弧度 / 像素比例。
     bool colliderHandleGeom(QPointF &center, float &rotRad, float &pixelScale) const;
 
@@ -126,9 +128,9 @@ private:
     Shit::Scene *m_editScene = nullptr;
     Shit::GameObject *m_selected = nullptr;
     GizmoMode m_gizmoMode = GizmoMode::Move;
-    bool m_editEnabled = true;   ///< 播放态编辑锁（P25d）
+    bool m_editEnabled = true;   ///< 播放态编辑锁
 
-    // P14：视图内 Gizmo 工具条（左上角，Unity 风格）
+    // 视图内 Gizmo 工具条（左上角，Unity 风格）
     QWidget *m_gizmoBar = nullptr;
     QButtonGroup *m_gizmoBarGroup = nullptr;
     QToolButton *m_gizmoMoveBtn = nullptr;
@@ -137,7 +139,7 @@ private:
     QToolButton *m_colliderToggleBtn = nullptr;   ///< 碰撞体轮廓显示开关（不属互斥组）
     bool m_showColliders = true;
 
-    // P27：瓦片刷图画笔状态
+    // 瓦片刷图画笔状态
     int m_paintTileId = -2;  ///< 当前画笔瓦片索引（-1 = 擦除橡皮，-2 = 未选择不刷）
     bool m_paintErasing = false;   ///< 当前刷图拖拽是否擦除（区分左右键）
 

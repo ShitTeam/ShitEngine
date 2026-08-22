@@ -95,6 +95,16 @@ CXChildVisitResult Scanner::findReflectedTypes(CXCursor cursor, CXCursor,
                 clang_visitChildren(cursor, collectFields, &fieldCtx);
                 type.fields = std::move(fieldCtx.fields);
 
+                // 方法（SHIT_METHOD 标记）
+                MethodCtx methodCtx{};
+                clang_visitChildren(cursor, collectMethods, &methodCtx);
+                type.methods = std::move(methodCtx.methods);
+
+                // 属性（SHIT_PROPERTY 标记）
+                PropertyCtx propertyCtx{};
+                clang_visitChildren(cursor, collectProperties, &propertyCtx);
+                type.properties = std::move(propertyCtx.properties);
+
                 ctx->result->types.push_back(std::move(type));
                 break;  // 一个类型只处理一次
             }
@@ -146,6 +156,28 @@ CXChildVisitResult Scanner::findReflectedTypes(CXCursor cursor, CXCursor,
 }
 
 // ── 字段收集 ───────────────────────────────────────
+// ── SHIT_META 结构化原文提取（字段/方法/属性三路共用）──
+// 仅结构体语法 SHIT_META(({...})) → shit-meta:({...}) 计入 metaInits；
+// 简单标记（如 SHIT_META(Enable)）只影响 WhiteList 模式，不生成 FieldMeta
+// 初始化器（否则会拼出 Shit::FieldMetaEnable 这类未声明标识符）。
+static std::vector<std::string> collectStructuredMeta(
+        const std::vector<std::string>& annotations) {
+    std::vector<std::string> result;
+    const std::string kMetaPrefix = "shit-meta:";
+    for (const auto& ann : annotations) {
+        if (ann.rfind(kMetaPrefix, 0) != 0) continue;
+        std::string raw = ann.substr(kMetaPrefix.size());
+        size_t s = raw.find_first_not_of(" \t\r\n");
+        if (s == std::string::npos) continue;
+        size_t e = raw.find_last_not_of(" \t\r\n");
+        raw = raw.substr(s, e - s + 1);
+        if (raw.size() >= 2 && raw.front() == '(' && raw[1] == '{') {
+            result.push_back(std::move(raw));
+        }
+    }
+    return result;
+}
+
 CXChildVisitResult Scanner::collectFields(CXCursor cursor, CXCursor,
                                            CXClientData data) {
     if (clang_getCursorKind(cursor) != CXCursor_FieldDecl)
@@ -223,25 +255,8 @@ CXChildVisitResult Scanner::collectFields(CXCursor cursor, CXCursor,
     }
 
     // ── 捕获 SHIT_META 原文 ──
-    // 仅结构体语法 SHIT_META(({...})) → shit-meta:({...}) 存入 metaInits
-    // 简单标记（如 SHIT_META(Enable)）只影响 WhiteList 模式，不写入 metaInits。
-    // 一个字段可叠多条 SHIT_META（Macros.h 文档约定"可叠加"），全部收集。
-    const std::string kMetaPrefix = "shit-meta:";
-    for (const auto& ann : actx.annotations) {
-        if (ann.rfind(kMetaPrefix, 0) != 0) continue;
-        std::string raw = ann.substr(kMetaPrefix.size());
-        auto trim = [](std::string s) -> std::string {
-            size_t start = s.find_first_not_of(" \t\r\n");
-            if (start == std::string::npos) return "";
-            size_t end = s.find_last_not_of(" \t\r\n");
-            return s.substr(start, end - start + 1);
-        };
-        raw = trim(raw);
-        // 仅以 ({ 开头的视为结构化元数据
-        if (raw.size() >= 2 && raw.front() == '(' && raw[1] == '{') {
-            field.metaInits.push_back(std::move(raw));
-        }
-    }
+    // 仅结构体语法（如 displayName/tooltip）进 metaInits，简单标记不进（见辅助函数注释）
+    field.metaInits = collectStructuredMeta(actx.annotations);
 
     // ── 不可序列化模板字段跳过 ──
     // 除 ComponentRef<T> 外的模板字段（std::vector<...> 等容器）在反射体系中
@@ -260,6 +275,117 @@ CXChildVisitResult Scanner::collectFields(CXCursor cursor, CXCursor,
     }
 
     ctx->fields.push_back(std::move(field));
+    return CXChildVisit_Continue;
+}
+
+// ── 方法收集 ───────────────────────────────────────
+CXChildVisitResult Scanner::collectMethods(CXCursor cursor, CXCursor,
+                                           CXClientData data) {
+    if (clang_getCursorKind(cursor) != CXCursor_CXXMethod)
+        return CXChildVisit_Continue;
+
+    auto* ctx = static_cast<MethodCtx*>(data);
+
+    // 收集方法上的所有 annotate 属性
+    AnnotateCtx actx;
+    clang_visitChildren(cursor, collectAnnotations, &actx);
+
+    // 检查是否有 shit-method 注解
+    bool hasMethodAnnotation = false;
+    for (const auto& ann : actx.annotations) {
+        if (ann == "shit-method") {
+            hasMethodAnnotation = true;
+            break;
+        }
+    }
+    if (!hasMethodAnnotation) return CXChildVisit_Continue;
+
+    ReflectedMethod method;
+    method.name = getCursorSpelling(cursor);
+
+    // 返回类型
+    CXType returnType = clang_getCursorResultType(cursor);
+    method.returnType = getTypeSpelling(returnType);
+
+    // 参数类型：遍历方法声明的 ParmDecl 子节点（libclang 稳定 API）
+    clang_visitChildren(cursor, [](CXCursor c, CXCursor, CXClientData d) -> CXChildVisitResult {
+        if (clang_getCursorKind(c) == CXCursor_ParmDecl) {
+            auto* out = static_cast<std::vector<std::string>*>(d);
+            out->push_back(Scanner::getTypeSpelling(clang_getCursorType(c)));
+        }
+        return CXChildVisit_Continue;
+    }, &method.paramTypes);
+
+    // 收集 SHIT_META（仅结构化语法）
+    method.metaInits = collectStructuredMeta(actx.annotations);
+
+    ctx->methods.push_back(std::move(method));
+    return CXChildVisit_Continue;
+}
+
+// ── 属性收集 ───────────────────────────────────────
+CXChildVisitResult Scanner::collectProperties(CXCursor cursor, CXCursor,
+                                              CXClientData data) {
+    if (clang_getCursorKind(cursor) != CXCursor_CXXMethod)
+        return CXChildVisit_Continue;
+
+    auto* ctx = static_cast<PropertyCtx*>(data);
+
+    // 记录类内每个方法的返回类型拼写（供按 getter 名解析属性类型）
+    const std::string methodSpelling = getCursorSpelling(cursor);
+    ctx->methodReturnTypes[methodSpelling] =
+        getTypeSpelling(clang_getCursorResultType(cursor));
+
+    // 收集方法上的所有 annotate 属性
+    AnnotateCtx actx;
+    clang_visitChildren(cursor, collectAnnotations, &actx);
+
+    // 检查是否有 shit-property 注解
+    for (const auto& ann : actx.annotations) {
+        const std::string kPropPrefix = "shit-property:";
+        if (ann.rfind(kPropPrefix, 0) != 0) continue;
+
+        // 解析 "shit-property:Getter:Setter"
+        std::string payload = ann.substr(kPropPrefix.size());
+        size_t colon1 = payload.find(':');
+        if (colon1 == std::string::npos) continue;
+
+        ReflectedProperty prop;
+        prop.getterName = payload.substr(0, colon1);
+        prop.setterName = payload.substr(colon1 + 1);
+
+        // 属性名从 getter 名推导（去掉 get/is 前缀，首字母小写）
+        std::string getterName = prop.getterName;
+        if (getterName.rfind("get", 0) == 0 && getterName.size() > 3) {
+            prop.name = getterName.substr(3);
+            prop.name[0] = static_cast<char>(std::tolower(static_cast<unsigned char>(prop.name[0])));
+        } else if (getterName.rfind("is", 0) == 0 && getterName.size() > 2) {
+            prop.name = getterName.substr(2);
+            prop.name[0] = static_cast<char>(std::tolower(static_cast<unsigned char>(prop.name[0])));
+        } else {
+            prop.name = getterName;
+        }
+
+        // 属性类型：优先按 getter 名查类内方法的真实返回类型。
+        // 注解要求放在 getter 声明上方，但放错位置（附着到其他声明）时
+        // 被注解 cursor 的返回类型不可信，用名字查表兜底。
+        auto it = ctx->methodReturnTypes.find(prop.getterName);
+        prop.typeName = (it != ctx->methodReturnTypes.end())
+                            ? it->second
+                            : getTypeSpelling(clang_getCursorResultType(cursor));
+        if (prop.typeName == "void") {
+            std::cerr << "[Scanner] WARN: 属性 " << prop.name << " 的 getter "
+                      << prop.getterName << " 返回 void（注解位置错误或 getter 不存在？），跳过\n";
+            continue;  // 生成 void 属性会产生不可编译代码
+        }
+
+        // 收集 SHIT_META（仅结构化语法）
+        prop.metaInits = collectStructuredMeta(actx.annotations);
+
+        ctx->properties.push_back(std::move(prop));
+        break;  // 一个方法只有一个 SHIT_PROPERTY 注解
+    }
+
     return CXChildVisit_Continue;
 }
 

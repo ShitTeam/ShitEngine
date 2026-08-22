@@ -6,7 +6,7 @@
 class QLineEdit;
 class QCheckBox;
 
-/// P14 新建项目向导：项目名 / 位置 / 引擎 SDK 目录 / 是否生成 C++ 脚本工程。
+/// 新建项目向导：项目名 / 位置 / 引擎 SDK 目录 / 是否生成 C++ 脚本工程。
 /// 打开已有项目走静态 pickProjectRoot()（目录选择 + config.json 校验）。
 class ProjectWizard : public QDialog
 {

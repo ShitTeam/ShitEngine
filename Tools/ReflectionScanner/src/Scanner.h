@@ -3,6 +3,7 @@
 #include "ReflectionTypes.h"
 #include <clang-c/Index.h>
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -49,6 +50,10 @@ private:
                                                   CXClientData data);
     static CXChildVisitResult collectFields(CXCursor cursor, CXCursor parent,
                                              CXClientData data);
+    static CXChildVisitResult collectMethods(CXCursor cursor, CXCursor parent,
+                                              CXClientData data);
+    static CXChildVisitResult collectProperties(CXCursor cursor, CXCursor parent,
+                                                 CXClientData data);
     static CXChildVisitResult collectEnumValues(CXCursor cursor, CXCursor parent,
                                                 CXClientData data);
     static CXChildVisitResult findBase(CXCursor cursor, CXCursor parent,
@@ -60,6 +65,14 @@ private:
     struct FieldCtx  { ReflectionMode mode; std::vector<ReflectedField> fields; };
     struct BaseCtx   { std::string name; };
     struct FriendCtx { std::string expected; bool found = false; };
+    struct MethodCtx { std::vector<ReflectedMethod> methods; };
+    /// properties：收集到的 SHIT_PROPERTY 属性；
+    /// methodReturnTypes：类内全部方法名 → 返回类型拼写（按 getter 名解析属性真实类型用——
+    /// 注解可能被误放到非 getter 声明上，此时被注解 cursor 的返回类型不可信）
+    struct PropertyCtx {
+        std::vector<ReflectedProperty> properties;
+        std::map<std::string, std::string> methodReturnTypes;
+    };
 
     std::vector<std::string> m_includeArgs;
     CXIndex m_index;

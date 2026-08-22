@@ -11,7 +11,7 @@ class QPointF;
 
 namespace Shit { class Animator; }
 
-/// Unity 风格 Animator 状态机图（P28）：QGraphicsView 画布。
+/// Unity 风格 Animator 状态机图：QGraphicsView 画布。
 /// - 每个状态 = 一个可拖拽的方块节点（入口状态额外标记）
 /// - 每个转换 = 一条带箭头的曲线（from→to；from=-1 为"任意→目标"，从场景空白处引出）
 /// - 交互：拖拽节点移动；右键从一个状态拖到另一个状态 → 创建转换；点节点/箭头选中

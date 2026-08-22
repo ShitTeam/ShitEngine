@@ -2,6 +2,7 @@
 #define ANIMATIONDOCK_H
 
 #include <QWidget>
+#include <QImage>
 
 #include <ShitEngine/Animation/AnimationClip.h>
 
@@ -14,22 +15,24 @@ class QCheckBox;
 class QToolButton;
 class QLabel;
 class QWidget;
-class QImage;
 class DopeSheetWidget;
 
-/// Unity 风格 Animation 窗口（P29）：制作/编辑独立 `.anim` 帧动画资产。
+/// Unity 风格 Animation 窗口：制作/编辑独立 `.anim` 帧动画资产。
 ///
 /// - 顶部工具栏：新建 / 打开 / 保存 / 另存为 + 播放/暂停/停止 + 循环 + 当前文件名
-/// - 左侧精灵表面板：纹理路径 + 网格参数（rows/cols/帧宽高），网格点选帧 → 追加进时间轴
 /// - 中央 Dope Sheet 时间轴：拖块排序、拉右缘调逐帧时长、双击从时间轴移除、播放头预览
 /// - 底部剪辑参数：名称、统一每帧时长
 ///
 /// 编辑对象是内存中的 AnimationClip m_clip，保存时序列化为 .anim 文件。
+/// 加帧路径：从精灵表 Dock（SpriteSheetDock）拖帧到本窗口时间轴（自动新建/追加剪辑）。
 class AnimationDock : public QWidget
 {
     Q_OBJECT
 public:
     explicit AnimationDock(QWidget *parent = nullptr);
+
+    /// 项目根（解析剪辑纹理的相对路径；空 = 无项目，按绝对路径处理）
+    void setProjectRoot(const QString &root) { m_projectRoot = root; }
 
     /// 打开指定 .anim 文件（成功返回 true；失败保留当前剪辑）
     bool openFile(const QString &path);
@@ -46,7 +49,7 @@ public:
     /// 标记已保存（mainwindow 保存后调用）
     void markSaved() { m_dirty = false; updateTitle(); }
 
-    /// P38：从精灵表拖入帧——追加到当前剪辑的帧序列（若无剪辑则自动新建）
+    /// 从精灵表拖入帧——追加到当前剪辑的帧序列（若无剪辑则自动新建）
     /// 参数由外部解析自 application/x-sprite-frame MIME 数据
     void addSpriteFrames(const QString &texturePath, int rows, int cols,
                          float frameWidth, float frameHeight,
@@ -58,6 +61,11 @@ signals:
     /// 保存成功（mainwindow 接：同步依赖该 .anim 的 Animator 状态）
     void saved(const QString &path);
 
+protected:
+    // 接受精灵表 Dock 拖入帧（kSpriteFrameMime）
+    void dragEnterEvent(QDragEnterEvent *event) override;
+    void dropEvent(QDropEvent *event) override;
+
 private slots:
     void onNew();
     void onOpen();
@@ -67,20 +75,17 @@ private slots:
     void onLoopToggled(bool on);
     void onNameEdited();
     void onUniformDurationChanged(double v);
-    void onTextureEdited();
-    void onGridParamChanged();
-    void onFrameGridClicked(int tileId);
     void onTimelineChanged();
-    void onFrameActivated(int frameId);
+    void onFrameRemoved(int blockIndex);   ///< 双击时间轴块 → 移除该帧
 
 private:
     void updateTitle();
-    void rebuildFrameGrid();
-    void refreshFrameHighlights();
     void refreshClipParams();
     void loadClip(const Shit::AnimationClip &clip);
     void notifyClipChanged();
     void syncTimeline();
+    /// 按 m_clip.texturePath 重载精灵表纹理缓存（用于时间轴缩略图）
+    void reloadSheetImage();
     /// 从精灵表纹理切帧生成缩略图灌入时间轴
     void refreshTimelinePixmaps();
     /// 播放推进（QTimer 驱动）
@@ -88,30 +93,17 @@ private:
     /// 当前剪辑总时长（秒）
     float totalDuration() const;
 
-    // P38：接受精灵拖入
-    void dragEnterEvent(QDragEnterEvent *event) override;
-    void dropEvent(QDropEvent *event) override;
-
     Shit::AnimationClip m_clip;
     bool m_clipValid = false;
     bool m_dirty = false;
     QString m_filePath;
+    QString m_projectRoot;
     QImage m_sheetImage;              ///< 当前精灵表纹理缓存（用于切帧缩略图；isNull = 无）
-    bool m_sheetValid = false;
 
     // 顶部
     QLabel *m_fileLabel = nullptr;
     QToolButton *m_playBtn = nullptr;
     QCheckBox *m_loopCheck = nullptr;
-
-    // 精灵表面板
-    QLineEdit *m_texEdit = nullptr;
-    QSpinBox *m_rowsSpin = nullptr;
-    QSpinBox *m_colsSpin = nullptr;
-    QDoubleSpinBox *m_fwSpin = nullptr;
-    QDoubleSpinBox *m_fhSpin = nullptr;
-    QWidget *m_gridHost = nullptr;
-    std::vector<std::pair<int, QWidget *>> m_gridButtons;  ///< frameId → 按钮（用于高亮）
 
     // 剪辑参数
     QLineEdit *m_nameEdit = nullptr;

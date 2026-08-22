@@ -39,7 +39,21 @@ const std::string& PluginManager::GetLastLoadError() {
 
 void* PluginManager::loadLibrary(const std::string& path) {
 #ifdef _WIN32
-    return reinterpret_cast<void*>(LoadLibraryA(path.c_str()));
+    // 宽字符路径（非 ASCII 目录下 LoadLibraryA 解码失败）
+    const int wlen = MultiByteToWideChar(CP_UTF8, 0, path.c_str(), -1, nullptr, 0);
+    std::wstring wpath(size_t(wlen > 0 ? wlen : 1), L'\0');
+    if (wlen > 0)
+        MultiByteToWideChar(CP_UTF8, 0, path.c_str(), -1, wpath.data(), wlen);
+    // DLL_LOAD_DIR：插件自带依赖（与插件同目录的 DLL）可被解析。
+    // 引擎 DLL 不受影响——插件按名导入 ShitEngine.dll，进程内已加载同名引擎模块
+    // 时加载器直接复用内存实例，不会从磁盘再加载第二份。
+    HMODULE h = LoadLibraryExW(wpath.c_str(), nullptr,
+                               LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
+    if (!h && GetLastError() == ERROR_INVALID_PARAMETER) {
+        // 老系统不支持搜索标志（KB2533623 之前），回退普通加载
+        h = LoadLibraryW(wpath.c_str());
+    }
+    return reinterpret_cast<void*>(h);
 #else
     return dlopen(path.c_str(), RTLD_LAZY);
 #endif
@@ -67,7 +81,15 @@ bool PluginManager::loadPlugin(const std::string& path) {
     void* handle = loadLibrary(path);
     if (!handle) {
 #ifdef _WIN32
-        setLoadError(fmt::format("加载插件失败 {}（GetLastError={}）", path, GetLastError()));
+        const DWORD err = GetLastError();
+        std::string hint;
+        if (err == ERROR_MOD_NOT_FOUND) {
+            // 126：插件自身存在，但其依赖（最常见为引擎 DLL）按名未找到——
+            // 插件按构建时的名字导入 ShitEngine.dll，若宿主进程内的引擎模块名不同
+            // （如旧命名的 ShitEngine-d.dll / libShitEngine.dll），加载器无法复用也不会搜索插件目录
+            hint = "——126 通常是插件的依赖 DLL 未找到：请确认编辑器与插件使用同名引擎 DLL 构建（ShitEngine.dll）";
+        }
+        setLoadError(fmt::format("加载插件失败 {}（GetLastError={}）{}", path, err, hint));
 #else
         setLoadError(fmt::format("加载插件失败 {}（dlerror={}）", path, dlerror()));
 #endif

@@ -30,7 +30,7 @@ option(BUILD_TOOLS "构建工具项目（ReflectionScanner 等）" OFF)
 if(BUILD_TOOLS)
     add_subdirectory(Tools/ReflectionScanner)
     # 加载反射扫描配置（system include/resource dir 检测 + setup_reflection_scan 函数）
-    # 在此 include 以便 Engine/Examples 子目录能调用 setup_reflection_scan()
+    # 在此 include 以便 Engine 子目录能调用 setup_reflection_scan()
     include(${CMAKE_SOURCE_DIR}/Tools/ReflectionScanner/ReflectionScanSetup.cmake)
 elseif(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     # 仅在顶层项目且未启用工具时提醒，FetchContent 消费者不打印
@@ -43,12 +43,6 @@ endif()
 
 # Engine 库（检测 BUILD_TOOLS 决定是否自动运行 ReflectionScanner）
 add_subdirectory(Engine)
-
-# Examples 可选（外部用户 FetchContent 时跳过）
-set(BUILD_EXAMPLES ON CACHE BOOL "构建示例项目（本地开发默认开启）")
-if(BUILD_EXAMPLES)
-    add_subdirectory(Examples)
-endif()
 
 # Runtime 宿主程序（动态加载插件 DLL）
 set(BUILD_RUNTIME ON CACHE BOOL "构建 Runtime 宿主程序（本地开发默认开启）")
@@ -68,16 +62,16 @@ if(BUILD_EDITOR)
     endif()
 endif()
 
-# ── 反射扫描伞形目标（须在 Engine/Examples 之后，reflect-engine/reflect-examples 已创建）──
+# ── 反射扫描伞形目标（须在 Engine 之后，reflect-engine 已创建）──
 if(BUILD_TOOLS)
     set(_REFLECT_DEPS "")
     set(_REFLECT_FORCE_DEPS "")
-    foreach(_t reflect-engine reflect-examples)
+    foreach(_t reflect-engine)
         if(TARGET ${_t})
             list(APPEND _REFLECT_DEPS ${_t})
         endif()
     endforeach()
-    foreach(_t run-reflectionscanner-engine run-reflectionscanner-examples)
+    foreach(_t run-reflectionscanner-engine)
         if(TARGET ${_t})
             list(APPEND _REFLECT_FORCE_DEPS ${_t})
         endif()

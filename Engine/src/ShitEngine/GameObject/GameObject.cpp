@@ -147,9 +147,12 @@ namespace Shit {
 				if (comp) scene->indexComponentUuid(comp.get());
 			}
 
-			// 级联：所有子物体也设置场景
-			for (auto* child : m_children) {
-				if (child && child->m_scene != scene) {
+			// 级联：所有子物体也设置场景。
+			// 快照遍历：深层 onAttach（用户可覆写）内 setParent/addChild 可能改动
+			// m_children，range-for 迭代器会因 vector 重分配失效（AGENTS.md 约定）
+			const std::vector<GameObject*> childrenSnapshot = m_children;
+			for (auto* child : childrenSnapshot) {
+				if (child && child->m_scene != scene && child->getParent() == this) {
 					child->setScene(scene);
 				}
 			}

@@ -6,7 +6,7 @@ class Project;
 class QLineEdit;
 class QPlainTextEdit;
 
-/// P18 导出游戏对话框：游戏名 + 输出目录 + 导出日志区
+/// 导出游戏对话框：游戏名 + 输出目录 + 导出日志区
 class ExportDialog : public QDialog
 {
     Q_OBJECT

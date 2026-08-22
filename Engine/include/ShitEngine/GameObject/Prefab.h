@@ -7,6 +7,7 @@
 namespace Shit {
 
 class Scene;
+class TypeInfo;
 
 /**
  * @brief 预制体，可重复生成相同配置的 GameObject
@@ -26,6 +27,7 @@ public:
         std::string typeName;        ///< 组件类型名（TypeRegistry::Get 查询）
         uint64_t    uuid = 0;        ///< 组件持久 ID（0 = 未记录，加载时现场分配）
         nlohmann::json fields;       ///< 字段名 → 值（仅反射且可序列化的字段）
+        nlohmann::json properties;   ///< 属性名 → 值（SHIT_PROPERTY getter/setter 对，可读写者随档）
     };
 
     /// @brief 从现有 GameObject 捕获组件与字段（跳过 readOnly 字段与不可序列化类型）
@@ -55,6 +57,10 @@ private:
     /// @brief 应用组件数据；restoreUuid=true 时按记录恢复组件 UUID（场景反序列化用），
     /// false 时保留组件构造时随机分配的 UUID（运行时实例化用，防跨实例引用串线）
     void applyInternal(GameObject* go, bool restoreUuid) const;
+
+    /// @brief 经 setter 恢复反射属性（须在 onAfterDeserialize 之后调用：
+    /// 部分属性的 setter 依赖组件内部已重建的状态，如纹理加载）
+    void applyProperties(const TypeInfo* ti, const ComponentData& data, Component* comp) const;
 
     std::vector<ComponentData> m_components;
 };

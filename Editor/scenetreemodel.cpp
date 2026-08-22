@@ -94,7 +94,7 @@ Qt::DropActions SceneTreeModel::supportedDropActions() const
 
 QStringList SceneTreeModel::mimeTypes() const
 {
-    // 对象路径（层级拖拽）+ 组件引用列表（检查器引用字段拖入，P20）
+    // 对象路径（层级拖拽）+ 组件引用列表（检查器引用字段拖入）
     return { QString::fromLatin1(kDndObjectPath), QString::fromLatin1(kDndComponentRef) };
 }
 
@@ -119,7 +119,7 @@ QMimeData *SceneTreeModel::mimeData(const QModelIndexList &indexes) const
     const QByteArray path = encodePath(indexes.first());
     mime->setData(QString::fromLatin1(kDndObjectPath), path);
 
-    // P20: 同时附加组件引用列表（拖场景对象到检查器引用字段时，自动挑第一个可赋值的组件）
+    // 同时附加组件引用列表（拖场景对象到检查器引用字段时，自动挑第一个可赋值的组件）
     QList<std::pair<quint64, QString>> refs;
     if (Shit::GameObject *go = objectFromPath(path)) {
         go->forEachComponent([&refs](Shit::Component *comp) {

@@ -56,7 +56,7 @@ bool firstImageFile(const QMimeData *mime, QString &path)
     return false;
 }
 
-/// MIME 的 URL 列表中第一个 .prefab 文件路径；无则返回 false（P25c）
+/// MIME 的 URL 列表中第一个 .prefab 文件路径；无则返回 false
 bool firstPrefabFile(const QMimeData *mime, QString &path)
 {
     if (!mime || !mime->hasUrls()) return false;
@@ -77,8 +77,8 @@ Viewport::Viewport(QWidget *parent)
 {
     setObjectName("viewport");
     setMinimumSize(320, 240);
-    setAcceptDrops(true);   // P10：接受资源面板拖入的图片文件
-    setupGizmoBar();        // P14：左上角 Gizmo 工具条（Unity 风格，内联于场景视口）
+    setAcceptDrops(true);   // 接受资源面板拖入的图片文件
+    setupGizmoBar();        // 左上角 Gizmo 工具条（Unity 风格，内联于场景视口）
 }
 
 void Viewport::setupGizmoBar()
@@ -299,6 +299,35 @@ void Viewport::drawGizmo(QPainter &painter)
     painter.drawLine(p + QPoint(0, len), p + QPoint(4, len - 6));
 }
 
+bool Viewport::colliderHandleGeom(QPointF &center, float &rotRad, float &pixelScale) const
+{
+    if (!m_selected || !m_editScene || m_frame.isNull() || m_drawRect.isEmpty())
+        return false;
+    // 播放中游戏逻辑可能销毁了选中的对象：不在场景中 → 视为未选中（防悬垂解引用）
+    if (!m_editScene->containsGameObject(m_selected)) return false;
+    auto *camera = editorCamera();
+    auto *transform = m_selected->getComponent<Shit::TransformComponent>();
+    if (!camera || !transform) return false;
+
+    const Shit::Vector2 pos = transform->getPosition();
+    const Shit::Vector2 sp = camera->worldToScreen(pos);
+    center = logicalToWidget(sp.x, sp.y);
+    rotRad = transform->getRotation() * 3.14159265f / 180.0f;
+    // 控件缩放 × 相机 PPU(含 zoom)：世界像素→控件像素的完整换算
+    const float basePs = static_cast<float>(m_drawRect.width()) / std::max(1, m_frame.width());
+    pixelScale = basePs * camera->getPixelPerUnit();
+    return true;
+}
+
+/// 碰撞体手柄：局部坐标 → 控件坐标（对象旋转 + 中心平移 + letterbox 像素比例）
+static QPointF colliderLocalToScreen(const QPointF &center, float rotRad, float pixelScale,
+                                     const QPointF &local)
+{
+    const float c = std::cos(rotRad), s = std::sin(rotRad);
+    return QPointF(center.x() + (local.x() * c - local.y() * s) * pixelScale,
+                   center.y() + (local.x() * s + local.y() * c) * pixelScale);
+}
+
 void Viewport::drawTilemapGrid(QPainter &painter)
 {
     // 仅选中含 Tilemap 的对象时绘制网格线（辅助刷图对齐）
@@ -390,35 +419,6 @@ bool Viewport::paintTileAt(const QPoint &widgetPos)
     return true;
 }
 
-bool Viewport::colliderHandleGeom(QPointF &center, float &rotRad, float &pixelScale) const
-{
-    if (!m_selected || !m_editScene || m_frame.isNull() || m_drawRect.isEmpty())
-        return false;
-    // 播放中游戏逻辑可能销毁了选中的对象：不在场景中 → 视为未选中（防悬垂解引用）
-    if (!m_editScene->containsGameObject(m_selected)) return false;
-    auto *camera = editorCamera();
-    auto *transform = m_selected->getComponent<Shit::TransformComponent>();
-    if (!camera || !transform) return false;
-
-    const Shit::Vector2 pos = transform->getPosition();
-    const Shit::Vector2 sp = camera->worldToScreen(pos);
-    center = logicalToWidget(sp.x, sp.y);
-    rotRad = transform->getRotation() * 3.14159265f / 180.0f;
-    // 控件缩放 × 相机 PPU(含 zoom)：世界像素→控件像素的完整换算
-    const float basePs = static_cast<float>(m_drawRect.width()) / std::max(1, m_frame.width());
-    pixelScale = basePs * camera->getPixelPerUnit();
-    return true;
-}
-
-/// 碰撞体手柄：局部坐标 → 控件坐标（对象旋转 + 中心平移 + letterbox 像素比例）
-static QPointF colliderLocalToScreen(const QPointF &center, float rotRad, float pixelScale,
-                                     const QPointF &local)
-{
-    const float c = std::cos(rotRad), s = std::sin(rotRad);
-    return QPointF(center.x() + (local.x() * c - local.y() * s) * pixelScale,
-                   center.y() + (local.x() * s + local.y() * c) * pixelScale);
-}
-
 void Viewport::drawPhysicsDebug(QPainter &painter)
 {
     if (!m_showColliders || !m_editScene || m_frame.isNull()) return;
@@ -474,7 +474,7 @@ if (auto *box = go->getComponent<Shit::BoxCollider2D>()) {
 	        }
     }
 
-    // —— P26：关节可视化（青色连接线 + 锚点圆点）——
+    // —— 关节可视化（青色连接线 + 锚点圆点）——
     // 遍历场景中所有 Joint2D：连接本对象（bodyA）与引用刚体（bodyB），
     // 锚点处画青色圆点，线为青色虚线，便于编辑/调试关节约束。
     painter.setPen(QPen(QColor(60, 200, 230, 200), 2, Qt::DashLine));
@@ -509,7 +509,7 @@ if (auto *box = go->getComponent<Shit::BoxCollider2D>()) {
         painter.setPen(QPen(QColor(60, 200, 230, 200), 2, Qt::DashLine));
     }
 
-    // —— P25b：选中碰撞体的编辑手柄（黄色高亮轮廓 + 白色尺寸/半径块）——
+    // —— 选中碰撞体的编辑手柄（黄色高亮轮廓 + 白色尺寸/半径块）——
     QPointF selCenter;
     float selRot = 0.0f;
     float selPs = 1.0f;
@@ -552,7 +552,7 @@ void Viewport::mousePressEvent(QMouseEvent *event)
 {
     const QPoint pos = event->pos();
 
-    // P27：瓦片刷图。选中含 Tilemap 的对象时：左键+Shift 放置画笔瓦片、右键擦除。
+    // 瓦片刷图。选中含 Tilemap 的对象时：左键+Shift 放置画笔瓦片、右键擦除。
     // 优先于 Gizmo/碰撞体手柄与拾取（编辑锁时禁用；仅场景视图可刷，运行视口无 m_editScene）
     if (m_editEnabled && m_selected && m_editScene && !m_frame.isNull() && m_drawRect.contains(pos)) {
         if (event->button() == Qt::LeftButton && (event->modifiers() & Qt::ShiftModifier)) {
@@ -597,7 +597,7 @@ void Viewport::mousePressEvent(QMouseEvent *event)
 
 if (event->button() == Qt::LeftButton && m_editEnabled && m_selected && !m_frame.isNull()
         && m_drawRect.contains(pos)) {
-        // P25b：碰撞体编辑手柄命中（优先于 Gizmo——手柄目标更小，需更精确检测；
+        // 碰撞体编辑手柄命中（优先于 Gizmo——手柄目标更小，需更精确检测；
         // 与「碰撞体」开关联动：轮廓隐藏时手柄一并失活；播放态编辑锁禁用）
         if (m_editEnabled && m_showColliders) {
             QPointF c; float rotRad = 0.0f; float ps = 1.0f;
@@ -680,7 +680,7 @@ if (event->button() == Qt::LeftButton && m_editEnabled && m_selected && !m_frame
                     return;
                 }
             } else {
-                // Move：X/Y 轴手柄单轴拖；中心方块整体拖（P11 遗留：此分支此前缺失）
+                // Move：X/Y 轴手柄单轴拖；中心方块整体拖（此前缺失）
                 const QPointF px(p.x() + len, p.y());
                 const QPointF py(p.x(), p.y() + len);
                 const float sx = transform->getPosition().x;
@@ -913,7 +913,7 @@ void Viewport::dragMoveEvent(QDragMoveEvent *event)
 
 void Viewport::dropEvent(QDropEvent *event)
 {
-    // P38：精灵帧拖入 → 发送帧参数信号
+    // 精灵帧拖入 → 发送帧参数信号
     if (event->mimeData()->hasFormat(kSpriteFrameMime)) {
         const QByteArray data = event->mimeData()->data(kSpriteFrameMime);
         nlohmann::json payload;
@@ -923,14 +923,17 @@ void Viewport::dropEvent(QDropEvent *event)
 #else
         const QPoint pos = event->pos();
 #endif
-        Q_UNUSED(pos);
+        // 落点逻辑像素坐标（与资源拖入同变换），供创建精灵定位
+        const QPointF logical = widgetToLogical(pos);
         emit spriteFrameDropped(
             QString::fromStdString(payload.value("texture", "")),
             payload.value("frameIndex", 0),
             payload.value("frameWidth", 0.0f),
             payload.value("frameHeight", 0.0f),
             payload.value("margin", 0.0f),
-            payload.value("spacing", 0.0f));
+            payload.value("spacing", 0.0f),
+            payload.value("cols", 0),
+            static_cast<float>(logical.x()), static_cast<float>(logical.y()));
         event->acceptProposedAction();
         return;
     }

@@ -6,7 +6,7 @@
 
 class Project;
 
-/// P18 导出游戏：把项目装配为可独立运行的绿色游戏包。
+/// 导出游戏：把项目装配为可独立运行的绿色游戏包。
 /// 包内 exe 已 chdir 到自身目录（Runtime 硬化），任意位置双击可运行。
 struct GameExportOptions
 {

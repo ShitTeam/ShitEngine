@@ -52,6 +52,15 @@ namespace Shit {
 		/// @brief 是否已注册任何 System（SceneManager 用于自动初始化，防止漏调 init() 导致空场景）
 		bool hasSystems() const { return !m_systems.empty(); }
 
+		/// @brief 场景中是否存在已启用的相机（含延迟添加的 pending 对象）。
+		/// 运行态加载场景时对象先进 m_pendingAdditions、m_gameObjects 为空，
+		/// 只扫正式容器会误判"没有相机"而重复注入兜底相机。
+		bool hasEnabledCamera();
+
+		/// @brief 遍历全部对象（正式 + pending），返回第一个名为 name 的对象。
+		/// 与 hasEnabledCamera 同理，覆盖 pending 防止运行态漏判。
+		GameObject* findGameObjectByName(const std::string& name);
+
 		void addGameObject(std::unique_ptr<GameObject>&& gameObject);  ///< 延迟添加 GameObject（帧末生效）
 		GameObject* createGameObject(const std::string& name);          ///< 创建并添加 GameObject
 		GameObject* instantiate(const Prefab& prefab, const std::string& name = ""); ///< 从预制体实例化

@@ -5,7 +5,7 @@
 
 namespace Shit { class AnimationComponent; }
 
-/// 帧动画剪辑编辑入口（P29，对齐方案 A）：检查器内不再内嵌 AnimationComponent 的多剪辑表单，
+/// 帧动画剪辑编辑入口（对齐方案 A）：检查器内不再内嵌 AnimationComponent 的多剪辑表单，
 /// 只保留一个「打开 Animation 窗口」按钮（Unity 的 Open Animation 同款），
 /// 点击经 openEditorRequested() 信号由 mainwindow 显示并聚焦 AnimationDock。
 /// 帧动画剪辑统一在独立 Animation 窗口（.anim 资产）中制作/编辑。

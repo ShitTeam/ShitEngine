@@ -53,7 +53,7 @@ private:
     QStringList m_names;   ///< 绑定名（SDL 名 / MouseButton.X），顺序即存储顺序
 };
 
-/// 项目设置对话框（P15）：通用（名称/SDK/启动场景）+ 输入（动作/轴按键映射）。
+/// 项目设置对话框：通用（名称/SDK/启动场景）+ 输入（动作/轴按键映射）。
 /// 内容在 OK 时写入 m_project（config.json 的 inputMappings / engine.sdkDir / scene）。
 class ProjectSettingsDialog : public QDialog
 {

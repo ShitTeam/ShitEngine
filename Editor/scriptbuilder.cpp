@@ -115,7 +115,7 @@ void ScriptBuilder::startConfigure()
     });
     connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
             this, &ScriptBuilder::onProcessFinished);
-    // P33：cmake 无法启动（未安装/不在 PATH）→ 明确原因，否则只有含糊的退出码 -2
+    // cmake 无法启动（未安装/不在 PATH）→ 明确原因，否则只有含糊的退出码 -2
     connect(m_process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError err) {
         if (err == QProcess::FailedToStart)
             finishFailure(tr("无法启动 cmake：未安装或不在 PATH 中"));
@@ -139,7 +139,7 @@ void ScriptBuilder::startBuild()
     });
     connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
             this, &ScriptBuilder::onProcessFinished);
-    // P33：同 startConfigure——cmake 无法启动时给出明确原因
+    // 同 startConfigure——cmake 无法启动时给出明确原因
     connect(m_process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError err) {
         if (err == QProcess::FailedToStart)
             finishFailure(tr("无法启动 cmake：未安装或不在 PATH 中"));

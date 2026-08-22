@@ -3,7 +3,6 @@
 
 #include <ShitEngine/Scene/Scene.h>
 
-#include <QList>
 #include <QWidget>
 
 #include <functional>
@@ -26,10 +25,11 @@ class Scene;
 class System;
 struct FieldInfo;
 struct TypeInfo;
+struct PropertyInfo;
 }
 
 /// 右侧属性检查器：反射选中对象的组件字段，生成可编辑控件。
-/// P4：TypeRegistry 查询字段元数据（displayName/range/step/readOnly），
+/// TypeRegistry 查询字段元数据（displayName/range/step/readOnly），
 /// 编辑通过 GetFieldPtr 就地写回组件；refresh() 每帧从引擎回读，实时同步。
 class Inspector : public QWidget
 {
@@ -37,20 +37,16 @@ class Inspector : public QWidget
 public:
     explicit Inspector(QWidget *parent = nullptr);
 
-    /// 清空并重建表单（无对象时显示占位）
+    /// 清空并重建表单（无对象时显示占位或场景系统面板）
     void clear();
 
     /// 反射 object 的组件并渲染为编辑表单
     void setGameObject(Shit::GameObject *object);
 
-    /// P36：批量编辑模式——渲染多选对象的公共组件/字段，编辑写入全部选中对象。
-    /// 少于 2 个对象时回退 setGameObject；引用字段/只读字段不提供批量编辑。
-    void setGameObjects(const QList<Shit::GameObject *> &objects);
-
     /// 从组件重读当前值并更新控件（引擎 → 检查器实时同步）
     void refresh();
 
-    /// 播放态编辑锁（P25d）：播放中所有控件只读（Unity 语义）——字段控件/Add Component/
+    /// 播放态编辑锁：播放中所有控件只读（Unity 语义）——字段控件/Add Component/
     /// 移除按钮/对象名栏全部禁用，但每帧回读刷新照常（运行时值实时可见）。
     /// 停止后自动解锁；重建表单（setGameObject）时按当前状态重新应用。
     void setPlayMode(bool playing);
@@ -59,8 +55,6 @@ public:
     void setScene(Shit::Scene *scene);
 
 signals:
-    /// 诊断：每次重建时报告渲染了 n 个组件 / n 个字段（供日志定位）
-    void buildInfo(int components, int fields);
     /// 任一字段被编辑（控件写入引擎值 → 会话 dirty）
     void fieldEdited();
     /// 一次字段编辑结束（数值/文本控件 editingFinished，或按钮/下拉即时提交 → 撤销提交点）
@@ -89,10 +83,8 @@ private:
     /// 为单个字段生成一行编辑控件
     void addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj);
 
-    /// P36：批量字段行——控件值写入全部对象的同类型组件（typeIdx 为组件 type_index）
-    void addMultiFieldRow(const Shit::FieldInfo &field, const std::type_index &typeIdx);
-    /// 取对象上指定类型组件的反射指针（无该组件返回 nullptr）
-    void *multiComponentOf(Shit::GameObject *go, const std::type_index &typeIdx) const;
+    /// 为属性生成一行编辑控件（通过 getter/setter 读写）
+    void addPropertyRow(const Shit::PropertyInfo &prop, Shit::Component *obj);
 
     /// 只读字段/未知类型的字符串展示
     QString fieldToString(const Shit::FieldInfo &field, Shit::Component *obj) const;
@@ -106,52 +98,19 @@ private:
     /// 移除选中对象的某个组件（refuse 为 true 时先做基础设施拒删判断，拒绝则提示不执行）
     void removeComponentFromObject(Shit::Component *component);
 
-protected:
-    // ── 面板级文件拖拽（P31）：资源面板/文件管理器拖文件到属性面板，
-    // 按扩展名语义自动填充匹配的路径类 string 字段 ──
-    void dragEnterEvent(QDragEnterEvent *event) override;
-    void dragMoveEvent(QDragMoveEvent *event) override;
-    void dragLeaveEvent(QDragLeaveEvent *event) override;
-    void dropEvent(QDropEvent *event) override;
-
 private:
-    /// 找该文件可自动填充的字段（std::string 非只读 + 扩展名→字段名关键字匹配；
-    /// 扩展名不在已知表时仅当对象只有一个候选字段才兜底）。返回 false 表示无匹配。
-    bool findFileDropTarget(const QString &filePath, Shit::Component **outComp,
-                            Shit::FieldInfo *outField) const;
-
-    /// 拖拽悬停高亮开关（QSS 属性选择器）
-    void setDropActive(bool on);
-    bool m_dropActive = false;
-
-    // ── P34：组件/字段搜索过滤 ──
-    /// 一个组件渲染的 QFormLayout 行区间（组件头行..最后一个字段行）+ 搜索关键字
-    struct ComponentSection {
-        int startRow = -1;
-        int endRow = -1;
-        QString searchKey;
-    };
-    void applyFilter();   ///< 按 m_searchEdit 文本显隐组件行区间（清空恢复全显）
-    std::vector<ComponentSection> m_sections;
-
     QScrollArea *m_scroll;
-    QLineEdit *m_searchEdit = nullptr;   ///< P34：组件/字段搜索框（表单顶部，不随重建移除）
     QWidget *m_content;
     QFormLayout *m_form;
 
-    /// 当前正在编辑的对象（nullptr = 未选中/批量模式）；添加组件后需重建表单
+    /// 当前正在编辑的对象（nullptr = 未选中，显示场景系统面板）
     Shit::GameObject *m_object = nullptr;
-
-    /// P36：批量编辑目标对象（空 = 单选模式）
-    std::vector<Shit::GameObject *> m_multiObjects;
-    /// P36：公共组件类型（首个对象组件 ∩ 其余对象）
-    std::vector<std::pair<std::type_index, const Shit::TypeInfo *>> m_multiTypes;
 
     /// 每个字段的"组件 → 控件"回读函数（refresh 时逐行调用）
     std::vector<std::function<void()>> m_readbacks;
 
-    int m_componentCount = 0;  ///< 本次构建渲染的组件数（诊断）
-    int m_fieldCount = 0;      ///< 本次构建渲染的字段数（诊断）
+    int m_componentCount = 0;  ///< 本次构建渲染的组件数
+    int m_fieldCount = 0;      ///< 本次构建渲染的字段数
     bool m_playMode = false;   ///< 播放态编辑锁（setPlayMode 写入，setGameObject 重建时重新应用）
     void applyEditLock();      ///< 按 m_playMode 统一禁用/启用表单控件
 
@@ -171,7 +130,7 @@ private:
     QFormLayout *m_systemFieldsForm = nullptr; ///< 选中系统的字段编辑表单布局
     QString m_selectedSystemName;        ///< 当前选中的系统名（展开字段编辑）
     QWidget *m_systemFieldsContainer = nullptr; ///< 选中系统的字段编辑容器
-    int m_systemFieldCount = 0;          ///< 系统字段数（诊断）
+    int m_systemFieldCount = 0;          ///< 系统字段数
 };
 
 #endif // INSPECTOR_H

@@ -1,6 +1,6 @@
 #include "animationdock.h"
 #include "dopesheetwidget.h"
-#include "spritesheetdock.h"
+#include "spritesheetdock.h"   // kSpriteFrameMime
 
 #include <QCheckBox>
 #include <QCoreApplication>
@@ -10,19 +10,14 @@
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
-#include <QGridLayout>
 #include <QHBoxLayout>
-#include <QIcon>
-#include <QImage>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QMimeData>
 #include <QPixmap>
 #include <QPushButton>
-#include <QScrollArea>
 #include <QSpinBox>
-#include <QStyle>
 #include <QTimer>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -31,17 +26,21 @@
 
 #include <algorithm>
 #include <cmath>
-#include <initializer_list>
-#include <set>
 
 namespace {
 
-QString resolveAssetPath(const QString &path)
+/// 解析资产路径：绝对路径直接用；相对路径优先按项目根解析，
+/// 无项目时回退 exe 目录（resource/assets/Assets）
+QString resolveAssetPath(const QString &path, const QString &projectRoot)
 {
     if (path.isEmpty()) return QString();
     QFileInfo direct(path);
     if (direct.isAbsolute() || direct.exists())
         return direct.absoluteFilePath();
+    if (!projectRoot.isEmpty()) {
+        const QString candidate = projectRoot + "/" + path;
+        if (QFileInfo(candidate).isFile()) return candidate;
+    }
     const QString appDir = QCoreApplication::applicationDirPath();
     QString candidate = appDir + "/" + path;
     if (QFileInfo(candidate).isFile()) return candidate;
@@ -82,34 +81,7 @@ AnimationDock::AnimationDock(QWidget *parent)
     toolbar->addStretch();
     toolbar->addWidget(m_fileLabel, 1);
 
-    // ── 左侧精灵表面板 ──
-    m_texEdit = new QLineEdit(this);
-    m_texEdit->setPlaceholderText(tr("纹理路径"));
-    m_rowsSpin = new QSpinBox(this); m_rowsSpin->setRange(1, 256);
-    m_colsSpin = new QSpinBox(this); m_colsSpin->setRange(1, 256);
-    m_fwSpin = new QDoubleSpinBox(this); m_fwSpin->setRange(1, 4096); m_fwSpin->setDecimals(1);
-    m_fhSpin = new QDoubleSpinBox(this); m_fhSpin->setRange(1, 4096); m_fhSpin->setDecimals(1);
-    m_gridHost = new QWidget(this);
-
-    auto *sheetPanel = new QWidget(this);
-    sheetPanel->setFixedWidth(240);
-    auto *sheetLayout = new QVBoxLayout(sheetPanel);
-    sheetLayout->setContentsMargins(0, 0, 0, 0);
-    sheetLayout->addWidget(new QLabel(tr("精灵表"), this));
-    sheetLayout->addWidget(m_texEdit);
-    auto *gridParamRow = new QHBoxLayout;
-    gridParamRow->addWidget(m_rowsSpin); gridParamRow->addWidget(m_colsSpin);
-    sheetLayout->addLayout(gridParamRow);
-    auto *gridParamRow2 = new QHBoxLayout;
-    gridParamRow2->addWidget(m_fwSpin); gridParamRow2->addWidget(m_fhSpin);
-    sheetLayout->addLayout(gridParamRow2);
-    auto *frameScroll = new QScrollArea(this);
-    frameScroll->setWidgetResizable(true);
-    frameScroll->setWidget(m_gridHost);
-    sheetLayout->addWidget(frameScroll, 1);
-    sheetLayout->addWidget(new QLabel(tr("点选帧加入时间轴"), this));
-
-    // ── 右侧：时间轴 + 剪辑参数 ──
+    // ── 时间轴 + 剪辑参数 ──
     m_timeline = new DopeSheetWidget(this);
 
     m_nameEdit = new QLineEdit(this);
@@ -126,23 +98,13 @@ AnimationDock::AnimationDock(QWidget *parent)
     paramRow->addWidget(new QLabel(tr("每帧秒"), this));
     paramRow->addWidget(m_uniformDurSpin);
 
-    auto *rightPanel = new QWidget(this);
-    auto *rightLayout = new QVBoxLayout(rightPanel);
-    rightLayout->setContentsMargins(0, 0, 0, 0);
-    rightLayout->addWidget(m_timeline, 1);
-    rightLayout->addLayout(paramRow);
-    rightLayout->addWidget(new QLabel(tr("拖块排序 · 拉右缘调时长 · 双击移除 · 底部为统一每帧时长（拉伸后逐帧生效）"), this));
-
-    // ── 主布局：左精灵表 + 右时间轴 ──
-    auto *main = new QHBoxLayout;
-    main->setContentsMargins(0, 0, 0, 0);
-    main->addWidget(sheetPanel);
-    main->addWidget(rightPanel, 1);
-
+    // ── 主布局 ──
     auto *outer = new QVBoxLayout(this);
     outer->setContentsMargins(0, 0, 0, 0);
     outer->addLayout(toolbar);
-    outer->addLayout(main, 1);
+    outer->addWidget(m_timeline, 1);
+    outer->addLayout(paramRow);
+    outer->addWidget(new QLabel(tr("拖块排序 · 拉右缘调时长 · 双击移除 · 底部为统一每帧时长（拉伸后逐帧生效）"), this));
 
     // ── 连接 ──
     connect(newBtn, &QToolButton::clicked, this, &AnimationDock::onNew);
@@ -154,16 +116,9 @@ AnimationDock::AnimationDock(QWidget *parent)
     connect(m_nameEdit, &QLineEdit::editingFinished, this, &AnimationDock::onNameEdited);
     connect(m_uniformDurSpin, qOverload<double>(&QDoubleSpinBox::valueChanged),
             this, &AnimationDock::onUniformDurationChanged);
-    connect(m_texEdit, &QLineEdit::editingFinished, this, &AnimationDock::onTextureEdited);
-    connect(m_rowsSpin, qOverload<int>(&QSpinBox::valueChanged), this, &AnimationDock::onGridParamChanged);
-    connect(m_colsSpin, qOverload<int>(&QSpinBox::valueChanged), this, &AnimationDock::onGridParamChanged);
-    connect(m_fwSpin, qOverload<double>(&QDoubleSpinBox::valueChanged), this, &AnimationDock::onGridParamChanged);
-    connect(m_fhSpin, qOverload<double>(&QDoubleSpinBox::valueChanged), this, &AnimationDock::onGridParamChanged);
 
     connect(m_timeline, &DopeSheetWidget::clipChanged, this, &AnimationDock::onTimelineChanged);
-    connect(m_timeline, &DopeSheetWidget::selectedFrameChanged, this,
-            [this](int index) { if (index >= 0) refreshFrameHighlights(); });
-    connect(m_timeline, &DopeSheetWidget::frameActivated, this, &AnimationDock::onFrameActivated);
+    connect(m_timeline, &DopeSheetWidget::frameRemoved, this, &AnimationDock::onFrameRemoved);
 
     // 预览播放定时器
     auto *timer = new QTimer(this);
@@ -171,10 +126,10 @@ AnimationDock::AnimationDock(QWidget *parent)
     connect(timer, &QTimer::timeout, this, &AnimationDock::advancePlayback);
     timer->start();
 
-    // P38：接受精灵拖入（从 SpriteSheetDock 或资源面板拖入）
-    setAcceptDrops(true);
-
     updateTitle();
+
+    // 接受精灵表 Dock 的帧拖入
+    setAcceptDrops(true);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -204,7 +159,6 @@ void AnimationDock::onNew()
     m_playBtn->setText(tr("▶ 播放"));
     loadClip(m_clip);
     updateTitle();
-    rebuildFrameGrid();
 }
 
 bool AnimationDock::openFile(const QString &path)
@@ -236,7 +190,6 @@ bool AnimationDock::openFile(const QString &path)
     m_playBtn->setText(tr("▶ 播放"));
     loadClip(m_clip);
     updateTitle();
-    rebuildFrameGrid();
     return true;
 }
 
@@ -345,210 +298,32 @@ void AnimationDock::onNameEdited()
 void AnimationDock::onUniformDurationChanged(double v)
 {
     if (!m_clipValid || m_updating) return;
-    // 统一时长：若当前无逐帧时长，直接改 duration；有则保留逐帧（仅更新基础值）
     m_clip.duration = static_cast<float>(v);
     notifyClipChanged();
-    refreshTimelinePixmaps();
-}
-
-// ═══════════════════════════════════════════════════════════
-// 精灵表面板
-// ═══════════════════════════════════════════════════════════
-
-void AnimationDock::onTextureEdited()
-{
-    if (!m_clipValid) return;
-    m_clip.texturePath = m_texEdit->text().trimmed().toStdString();
-    notifyClipChanged();
-    rebuildFrameGrid();
-}
-
-void AnimationDock::onGridParamChanged()
-{
-    if (!m_clipValid || m_updating) return;
-    m_clip.rows = m_rowsSpin->value();
-    m_clip.cols = m_colsSpin->value();
-    m_clip.frameWidth = static_cast<float>(m_fwSpin->value());
-    m_clip.frameHeight = static_cast<float>(m_fhSpin->value());
-    notifyClipChanged();
-    rebuildFrameGrid();
-    refreshTimelinePixmaps();
-}
-
-void AnimationDock::onFrameGridClicked(int tileId)
-{
-    if (!m_clipValid) return;
-    m_clip.frames.push_back(tileId);
-    // 逐帧时长默认用统一值（若已开启逐帧，追加统一值）
-    if (m_clip.frameDurations.size() == m_clip.frames.size() - 1)
-        m_clip.frameDurations.push_back(m_clip.duration);
-    else if (m_clip.frameDurations.empty())
-        m_clip.frameDurations.clear();  // 保持空=统一时长
-    notifyClipChanged();   // 内部已 syncTimeline + refreshTimelinePixmaps + refreshFrameHighlights
 }
 
 void AnimationDock::onTimelineChanged()
 {
     notifyClipChanged();
-    refreshTimelinePixmaps();
 }
 
-void AnimationDock::onFrameActivated(int frameId)
+void AnimationDock::onFrameRemoved(int blockIndex)
 {
-    // 双击时间轴某帧：可选联动（当前无额外动作，忽略）
-    Q_UNUSED(frameId)
+    // 双击时间轴块 → 移除该位置的帧（blockIndex = 时间轴块序号，与 frames 一一对应）
+    if (!m_clipValid) return;
+    if (blockIndex < 0 || blockIndex >= static_cast<int>(m_clip.frames.size())) return;
+    m_clip.frames.erase(m_clip.frames.begin() + blockIndex);
+    // 逐帧时长数组与帧序列同步删除（长度一致时逐帧生效）
+    if (m_clip.frameDurations.size() > static_cast<size_t>(blockIndex) &&
+        m_clip.frameDurations.size() == m_clip.frames.size() + 1) {
+        m_clip.frameDurations.erase(m_clip.frameDurations.begin() + blockIndex);
+    }
+    notifyClipChanged();
 }
 
 // ═══════════════════════════════════════════════════════════
-// 内部
+// 精灵帧拖入（来自精灵表 Dock）
 // ═══════════════════════════════════════════════════════════
-
-void AnimationDock::loadClip(const Shit::AnimationClip &clip)
-{
-    m_updating = true;
-    m_nameEdit->setText(QString::fromStdString(clip.name));
-    m_uniformDurSpin->setValue(clip.duration);
-    m_texEdit->setText(QString::fromStdString(clip.texturePath));
-    m_rowsSpin->setValue(clip.rows);
-    m_colsSpin->setValue(clip.cols);
-    m_fwSpin->setValue(clip.frameWidth);
-    m_fhSpin->setValue(clip.frameHeight);
-    m_loopCheck->setChecked(clip.loop);
-    m_updating = false;
-    m_timeline->setClip(&m_clip);
-    syncTimeline();
-    refreshTimelinePixmaps();
-}
-
-void AnimationDock::syncTimeline()
-{
-    m_timeline->setClip(&m_clip);
-    m_timeline->selectFrameAt(-1);
-}
-
-void AnimationDock::notifyClipChanged()
-{
-    m_dirty = true;
-    updateTitle();
-    emit changed();
-    syncTimeline();
-    refreshTimelinePixmaps();
-    refreshFrameHighlights();
-}
-
-void AnimationDock::refreshClipParams()
-{
-    if (!m_clipValid) return;
-    m_updating = true;
-    m_nameEdit->setText(QString::fromStdString(m_clip.name));
-    m_uniformDurSpin->setValue(m_clip.duration);
-    m_updating = false;
-}
-
-void AnimationDock::updateTitle()
-{
-    if (m_filePath.isEmpty()) {
-        m_fileLabel->setText(m_clipValid ? tr("未保存剪辑 %1").arg(m_dirty ? QStringLiteral("•") : QString())
-                                         : tr("（未打开）"));
-    } else {
-        m_fileLabel->setText(QStringLiteral("%1%2")
-                                 .arg(QFileInfo(m_filePath).fileName(),
-                                      m_dirty ? QStringLiteral(" •") : QString()));
-    }
-}
-
-void AnimationDock::rebuildFrameGrid()
-{
-    if (m_gridHost->layout()) {
-        while (auto *item = m_gridHost->layout()->takeAt(0))
-            if (QWidget *w = item->widget()) delete w;
-        delete m_gridHost->layout();
-    }
-    m_gridButtons.clear();
-
-    if (!m_clipValid) return;
-    const int rows = m_clip.rows, cols = m_clip.cols;
-    if (rows <= 0 || cols <= 0 || m_clip.frameWidth <= 0 || m_clip.frameHeight <= 0) return;
-
-    const QString texPath = resolveAssetPath(QString::fromStdString(m_clip.texturePath));
-    m_sheetImage = QImage(texPath);
-    m_sheetValid = !m_sheetImage.isNull();
-    if (!m_sheetValid) return;
-    const QImage &sheet = m_sheetImage;
-
-    const int tileW = static_cast<int>(m_clip.frameWidth);
-    const int tileH = static_cast<int>(m_clip.frameHeight);
-    const int margin = static_cast<int>(m_clip.margin);
-    const int spacing = static_cast<int>(m_clip.spacing);
-    // P38 修复：帧切分需考虑 margin 和 spacing
-    const int tilesPerRow = qMax(1, (sheet.width() - margin + spacing) / (tileW + spacing));
-    const int tilesPerCol = qMax(1, (sheet.height() - margin + spacing) / (tileH + spacing));
-    const int tileCount = tilesPerRow * tilesPerCol;
-    if (tilesPerRow <= 0 || tileCount <= 0) return;
-
-    auto *grid = new QGridLayout(m_gridHost);
-    grid->setContentsMargins(2, 2, 2, 2);
-    grid->setSpacing(2);
-    const int maxCols = 3;
-    const int pw = 60, ph = 60;
-    for (int id = 0; id < tileCount; ++id) {
-        const int col = id % tilesPerRow;
-        const int row = id / tilesPerRow;
-        const int sx = margin + col * (tileW + spacing);
-        const int sy = margin + row * (tileH + spacing);
-        QImage img = sheet.copy(sx, sy, tileW, tileH)
-                         .scaled(pw, ph, Qt::KeepAspectRatio, Qt::FastTransformation);
-        auto *btn = new QToolButton(m_gridHost);
-        btn->setIcon(QIcon(QPixmap::fromImage(img)));
-        btn->setIconSize(img.size());
-        btn->setToolTip(QStringLiteral("帧 %1").arg(id));
-        grid->addWidget(btn, id / maxCols, id % maxCols);
-        connect(btn, &QToolButton::clicked, this, [this, id] { onFrameGridClicked(id); });
-        m_gridButtons.emplace_back(id, btn);
-    }
-    m_gridHost->adjustSize();
-    refreshTimelinePixmaps();
-}
-
-void AnimationDock::refreshFrameHighlights()
-{
-    std::set<int> used;
-    for (int f : m_clip.frames) used.insert(f);
-    for (auto &[id, btn] : m_gridButtons) {
-        // 高亮已加入时间轴的帧（用边框样式）
-        btn->setProperty("inTimeline", used.count(id) > 0);
-        btn->style()->unpolish(btn);
-        btn->style()->polish(btn);
-    }
-}
-
-void AnimationDock::refreshTimelinePixmaps()
-{
-    // 从精灵表切出当前序列各帧的缩略图灌给时间轴
-    if (!m_sheetValid || m_sheetImage.isNull()) { m_timeline->clearPixmaps(); return; }
-    const int tileW = static_cast<int>(m_clip.frameWidth);
-    const int tileH = static_cast<int>(m_clip.frameHeight);
-    const int margin = static_cast<int>(m_clip.margin);
-    const int spacing = static_cast<int>(m_clip.spacing);
-    if (tileW <= 0 || tileH <= 0) return;
-    const int tilesPerRow = qMax(1, (m_sheetImage.width() - margin + spacing) / (tileW + spacing));
-    if (tilesPerRow <= 0) return;
-    for (int frameId : m_clip.frames) {
-        if (frameId < 0) continue;
-        const int col = frameId % tilesPerRow;
-        const int row = frameId / tilesPerRow;
-        const int sx = margin + col * (tileW + spacing);
-        const int sy = margin + row * (tileH + spacing);
-        if (sx + tileW > m_sheetImage.width() || sy + tileH > m_sheetImage.height()) continue;
-        QImage img = m_sheetImage.copy(sx, sy, tileW, tileH)
-                         .scaled(56, 56, Qt::KeepAspectRatio, Qt::FastTransformation);
-        m_timeline->setFramePixmap(frameId, QPixmap::fromImage(img));
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════
-// P38：精灵拖入 Animation 窗口
-// ═══════════════════════════════════════════════════════════════
 
 void AnimationDock::dragEnterEvent(QDragEnterEvent *event)
 {
@@ -584,7 +359,7 @@ void AnimationDock::addSpriteFrames(const QString &texturePath, int rows, int co
 {
     if (frameIds.empty()) return;
 
-    // 无剪辑打开时自动新建
+    // 无剪辑打开时自动新建（网格参数取自拖入载荷）
     if (!m_clipValid) {
         m_clip = Shit::AnimationClip();
         m_clip.texturePath = texturePath.toStdString();
@@ -600,12 +375,109 @@ void AnimationDock::addSpriteFrames(const QString &texturePath, int rows, int co
         m_filePath.clear();
         loadClip(m_clip);
         updateTitle();
-        rebuildFrameGrid();
+    } else if (m_clip.texturePath != texturePath.toStdString()) {
+        // 换纹理：以新载荷的网格参数重置（同一剪辑只对应一张精灵表）
+        m_clip.texturePath = texturePath.toStdString();
+        m_clip.rows = rows;
+        m_clip.cols = cols;
+        m_clip.frameWidth = frameWidth;
+        m_clip.frameHeight = frameHeight;
+        m_clip.margin = margin;
+        m_clip.spacing = spacing;
     }
 
     // 追加帧到序列
     for (int fid : frameIds)
         m_clip.frames.push_back(fid);
 
+    reloadSheetImage();
     notifyClipChanged();
+}
+
+// ═══════════════════════════════════════════════════════════
+// 内部
+// ═══════════════════════════════════════════════════════════
+
+void AnimationDock::loadClip(const Shit::AnimationClip &clip)
+{
+    m_updating = true;
+    m_nameEdit->setText(QString::fromStdString(clip.name));
+    m_uniformDurSpin->setValue(clip.duration);
+    m_loopCheck->setChecked(clip.loop);
+    m_updating = false;
+    m_timeline->setClip(&m_clip);
+    reloadSheetImage();
+    syncTimeline();
+}
+
+void AnimationDock::reloadSheetImage()
+{
+    m_sheetImage = QImage();
+    if (!m_clipValid) return;
+    const QString texPath = resolveAssetPath(QString::fromStdString(m_clip.texturePath), m_projectRoot);
+    if (texPath.isEmpty()) return;
+    m_sheetImage = QImage(texPath);
+    refreshTimelinePixmaps();
+}
+
+void AnimationDock::refreshTimelinePixmaps()
+{
+    // 从精灵表切出当前序列各帧的缩略图灌给时间轴
+    if (m_sheetImage.isNull()) { m_timeline->clearPixmaps(); return; }
+    const int tileW = static_cast<int>(m_clip.frameWidth);
+    const int tileH = static_cast<int>(m_clip.frameHeight);
+    const int margin = static_cast<int>(m_clip.margin);
+    const int spacing = static_cast<int>(m_clip.spacing);
+    if (tileW <= 0 || tileH <= 0) return;
+    // 列数以元数据为准（与精灵表缩略图、引擎 SpriteSheet::getFrameRect 同源），
+    // 缺失时按纹理宽度反推兜底
+    const int tilesPerRow = (m_clip.cols > 0) ? m_clip.cols
+                            : qMax(1, (m_sheetImage.width() - margin + spacing) / (tileW + spacing));
+    if (tilesPerRow <= 0) return;
+    for (int frameId : m_clip.frames) {
+        if (frameId < 0) continue;
+        const int col = frameId % tilesPerRow;
+        const int row = frameId / tilesPerRow;
+        const int sx = margin + col * (tileW + spacing);
+        const int sy = margin + row * (tileH + spacing);
+        if (sx + tileW > m_sheetImage.width() || sy + tileH > m_sheetImage.height()) continue;
+        QImage img = m_sheetImage.copy(sx, sy, tileW, tileH)
+                         .scaled(56, 56, Qt::KeepAspectRatio, Qt::FastTransformation);
+        m_timeline->setFramePixmap(frameId, QPixmap::fromImage(img));
+    }
+}
+
+void AnimationDock::syncTimeline()
+{
+    m_timeline->setClip(&m_clip);
+    m_timeline->selectFrameAt(-1);
+}
+
+void AnimationDock::notifyClipChanged()
+{
+    m_dirty = true;
+    updateTitle();
+    emit changed();
+    syncTimeline();
+}
+
+void AnimationDock::refreshClipParams()
+{
+    if (!m_clipValid) return;
+    m_updating = true;
+    m_nameEdit->setText(QString::fromStdString(m_clip.name));
+    m_uniformDurSpin->setValue(m_clip.duration);
+    m_updating = false;
+}
+
+void AnimationDock::updateTitle()
+{
+    if (m_filePath.isEmpty()) {
+        m_fileLabel->setText(m_clipValid ? tr("未保存剪辑 %1").arg(m_dirty ? QStringLiteral("•") : QString())
+                                         : tr("（未打开）"));
+    } else {
+        m_fileLabel->setText(QStringLiteral("%1%2")
+                                 .arg(QFileInfo(m_filePath).fileName(),
+                                      m_dirty ? QStringLiteral(" •") : QString()));
+    }
 }

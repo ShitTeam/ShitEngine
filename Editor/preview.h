@@ -36,15 +36,15 @@ public:
     /// 运行状态（start 后 true）
     bool isRunning() const { return m_running; }
 
-    /// P14：切换项目插件集 —— 先清空场景对象（组件析构调用 DLL 内代码，须在
+    /// 切换项目插件集 —— 先清空场景对象（组件析构调用 DLL 内代码，须在
     /// UnloadAll 前完成），再卸载旧插件，最后从项目 config.json 加载新插件。
     /// configPath 不存在或没有 plugins 时仅完成卸载（不视为失败）。
     bool loadProjectConfig(const QString &configPath);
 
-    /// P14：卸载项目插件（回到引擎内置类型集合）；场景对象先清空。
+    /// 卸载项目插件（回到引擎内置类型集合）；场景对象先清空。
     void unloadPlugins();
 
-    /// P14：热重载 —— 场景 JSON 快照 → 销毁场景对象（旧 DLL 代码析构完毕）
+    /// 热重载 —— 场景 JSON 快照 → 销毁场景对象（旧 DLL 代码析构完毕）
     /// → 卸载旧插件 →（可选 onDllReleased：此时旧 DLL 已无文件锁，可覆盖替换）
     /// → 从项目 config 重载新 DLL → 注册 → 快照恢复场景。
     /// 引擎会话与编辑器现场保持不变；onDllReleased 返回 false 则中止加载并恢复快照。
@@ -62,7 +62,7 @@ signals:
     void gameFrameReady(const QImage &image);
     /// 引擎 spdlog 日志转发（isCore=引擎/用户日志；level=spdlog 等级；message=文本）
     void engineLogMessage(bool isCore, int level, const QString &message);
-    /// P33：插件加载失败（DLL 缺失/ABI 不匹配等，detail 为引擎侧失败描述），
+    /// 插件加载失败（DLL 缺失/ABI 不匹配等，detail 为引擎侧失败描述），
     /// 由 mainwindow 弹窗提示用户（延迟到事件循环空闲，避开启动期）
     void pluginLoadFailed(const QString &detail);
 

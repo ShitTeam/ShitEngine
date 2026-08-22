@@ -66,3 +66,27 @@
 
 // ── 字段级元数据 ──────────────────────────────────
 #define SHIT_META(...) SHIT_DETAIL_ANNOTATE("shit-meta:" #__VA_ARGS__)
+
+// ── 方法反射 ──────────────────────────────────────
+// 放在方法声明上方，标记该方法可被反射系统发现。
+// Scanner 遍历 CXCursor_CXXMethod 时检查此注解。
+//
+// 用法：
+//   SHIT_METHOD
+//   float getSourceRectX() const;
+//
+#define SHIT_METHOD SHIT_DETAIL_ANNOTATE("shit-method")
+
+// ── 属性反射（getter/setter 对）────────────────────
+// 放在 getter 方法声明上方，标记一对 getter/setter 为一个属性。
+// Scanner 检测到此注解后，会查找同名 setter 方法。
+//
+// 用法：
+//   SHIT_PROPERTY(getSourceRectX, setSourceRectX)
+//   float getSourceRectX() const;
+//   void setSourceRectX(float v);
+//
+// 属性在编辑器中渲染为可编辑字段，通过 getter/setter 读写。
+// setter 为空字符串时表示只读属性。
+//
+#define SHIT_PROPERTY(Getter, Setter) SHIT_DETAIL_ANNOTATE("shit-property:" #Getter ":" #Setter)

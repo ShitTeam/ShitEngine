@@ -160,7 +160,7 @@ namespace Shit {
         if (m_currentAnimation->getFrameCount() == 0) return;
 
         // duration <= 0 时 getFrame 会安全返回首帧
-        SDL_FRect frame = m_currentAnimation->getFrame(m_currentTime);
+        Rect frame = m_currentAnimation->getFrame(m_currentTime);
 
         auto* owner = getOwner();
         if (!owner) return;

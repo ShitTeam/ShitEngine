@@ -1,7 +1,7 @@
 #pragma once
 #include "../Core/Core.h"
+#include "../Math.h"
 #include <string>
-#include <SDL3/SDL_rect.h>
 #include <optional>
 
 namespace Shit {
@@ -14,16 +14,16 @@ class SpriteSheet;
 class SHIT_API Sprite final {
 public:
     Sprite();
-    Sprite(const std::string& texturePath, const std::optional<SDL_FRect>& sourceRect = std::nullopt, bool flipped = false)
+    Sprite(const std::string& texturePath, const std::optional<Rect>& sourceRect = std::nullopt, bool flipped = false)
         : m_texturePath(texturePath), m_sourceRect(sourceRect), m_isFlipped(flipped) {}
 
     // --- getter & setter ---
     const std::string& getTexturePath() const { return m_texturePath; }
-    const std::optional<SDL_FRect>& getSourceRect() const { return m_sourceRect; }
+    const std::optional<Rect>& getSourceRect() const { return m_sourceRect; }
     bool isFlipped() const { return m_isFlipped; }
 
     void setTexturePath(const std::string& texturePath) { m_texturePath = texturePath; }
-    void setSourceRect(const std::optional<SDL_FRect>& rect) { m_sourceRect = rect; }
+    void setSourceRect(const std::optional<Rect>& rect) { m_sourceRect = rect; }
     void setFlipped(bool flipped) { m_isFlipped = flipped; }
 
     /// 从 SpriteSheet 中取第 frameIndex 帧作为源矩形
@@ -31,7 +31,7 @@ public:
 
 private:
     std::string m_texturePath;
-    std::optional<SDL_FRect> m_sourceRect;
+    std::optional<Rect> m_sourceRect;
     bool m_isFlipped = false;
 };
 

@@ -180,6 +180,46 @@ public:
 		return *this;
 	}
 
+		// ── 方法注册 ──────────────────────────────────────
+		TypeInfoBuilder& Method(const char* name, const char* returnType,
+			std::function<void*(void*, const void**)> invoker,
+			std::vector<std::string> paramTypes = {}) {
+			MethodInfo mi;
+			mi.name = name;
+			mi.returnType = returnType ? returnType : "void";
+			mi.paramTypes = std::move(paramTypes);
+			mi.invoker = std::move(invoker);
+			m_info.methods.push_back(std::move(mi));
+			return *this;
+		}
+
+	TypeInfoBuilder& MethodMeta(const FieldMeta& meta) {
+		if (!m_info.methods.empty()) {
+			m_info.methods.back().meta.push_back(meta);
+		}
+		return *this;
+	}
+
+	// ── 属性注册（getter/setter 对）──────────────────
+	TypeInfoBuilder& Property(const char* name, const char* typeName,
+		std::function<void*(void*)> getter,
+		std::function<void(void*, const void*)> setter) {
+		PropertyInfo pi;
+		pi.name = name;
+		pi.typeName = typeName ? typeName : "";
+		pi.getter = std::move(getter);
+		pi.setter = std::move(setter);
+		m_info.properties.push_back(std::move(pi));
+		return *this;
+	}
+
+	TypeInfoBuilder& PropertyMeta(const FieldMeta& meta) {
+		if (!m_info.properties.empty()) {
+			m_info.properties.back().meta.push_back(meta);
+		}
+		return *this;
+	}
+
 	// ── P1-2: 工厂注册 ─────────────────────────────────
 	template<typename T>
 	TypeInfoBuilder& Factory() {
@@ -206,7 +246,7 @@ private:
 	friend TypeInfoBuilder ReflectType(const char* name, size_t size);
 
 	explicit TypeInfoBuilder(const char* name, size_t size)
-		: m_info{name, size, nullptr, {}, {}, {}, typeid(nullptr)} {}
+		: m_info{name, size, nullptr, {}, {}, {}, {}, {}, typeid(nullptr)} {}
 
 	// ── Factory SFINAE 辅助：抽象类型跳过 factory ──
 	template<typename T>
