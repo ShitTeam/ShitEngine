@@ -1,5 +1,32 @@
 #pragma once
 
+/**
+ * @file Macros.h
+ * @brief 反射标记宏（annotate 方案）——引擎反射系统的源码侧入口
+ *
+ * 用法总览（完整说明见各宏定义处的注释）：
+ * @code
+ * // 组件：BlackList = 反射全部字段（SHIT_META(Disable) 除外）
+ * class SHIT_API SHIT_REFLECT(BlackList) Health : public Shit::Behavior {
+ *     SHIT_REFLECT_BODY(Health)
+ * public:
+ *     /// 当前血量（编辑器属性面板可编辑，随 .scene 序列化）
+ *     SHIT_META(({.displayName = "HP", .range = {0, 100}}))
+ *     float hp = 100.0f;
+ *
+ *     /// 属性示例：getter 上标记一对 getter/setter，编辑器经其读写
+ *     SHIT_PROPERTY(GetRatio, SetRatio)
+ *     float GetRatio() const;
+ *     void  SetRatio(float v);
+ * };
+ * @endcode
+ *
+ * 构建时 ReflectionScanner（libClang）扫描这些注解生成 .gen.h，
+ * 经 RegisterAllReflectedTypes() 注册进 TypeRegistry——编辑器属性面板、
+ * .scene 序列化、Prefab 复制粘贴均依赖此链路。改过带宏的头文件后
+ * 需重扫（BUILD_TOOLS=ON 时自动）。
+ */
+
 // 反射标记宏（annotate 方案）
 //
 // SHIT_REFLECT(Mode)

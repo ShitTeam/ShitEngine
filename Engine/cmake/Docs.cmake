@@ -10,6 +10,8 @@ if(Doxygen_FOUND)
     # 注意：用 CMAKE_CURRENT_SOURCE_DIR（引擎自身目录）而非 CMAKE_SOURCE_DIR（顶层），
     # 这样引擎被 add_subdirectory 引入 Example 等顶层项目时，仍能正确定位 Doxyfile.in / docs / include。
     set(SHIT_DOXYGEN_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+    # 文档站头部显示的版本号（Engine 未自声明 project()，取根工程的版本）
+    set(SHIT_ENGINE_VERSION "${PROJECT_VERSION}")
 
     configure_file(
         "${SHIT_DOXYGEN_SOURCE_DIR}/Doxyfile.in"

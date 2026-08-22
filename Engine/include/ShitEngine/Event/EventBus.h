@@ -20,7 +20,7 @@ namespace Shit {
  *   struct CollisionEvent : public Shit::Event { class GameObject* a; class GameObject* b; };
  *
  *   uint64_t id = Shit::EventBus::Subscribe<CollisionEvent>(
- *       [](const CollisionEvent& e) { /* handle *\/ });
+ *       [](const CollisionEvent& e) { ... });
  *
  *   Shit::EventBus::Emit(CollisionEvent{nullptr, nullptr});
  *   // 游戏循环结束时：

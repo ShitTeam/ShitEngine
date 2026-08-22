@@ -4,7 +4,13 @@
 
 namespace Shit {
 
-    // 按键码 （扫描码）
+	/**
+	 * @brief 键盘键码表（基于 SDL 扫描码，值为物理键位、不随键盘布局变化）
+	 *
+	 * 与 @ref Input 的三态查询配合使用：Input::IsKeyDown(KeyCode::Space)。
+	 * 推荐优先用动作映射（Input::IsActionDown("Jump")）解耦具体键位——
+	 * 键位到动作的绑定在 settings.json / 编辑器项目设置中配置，玩家可改键。
+	 */
     enum class KeyCode : int {
         Unknown = SDL_SCANCODE_UNKNOWN,
 
@@ -166,7 +172,9 @@ namespace Shit {
         Count = SDL_SCANCODE_COUNT
     };
 
-    // 鼠标按键码
+	/**
+	 * @brief 鼠标按键码（左/右/中键 + 两个侧键）
+	 */
     enum class MouseButton : int {
         Left = SDL_BUTTON_LEFT,
         Right = SDL_BUTTON_RIGHT,

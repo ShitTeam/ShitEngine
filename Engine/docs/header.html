@@ -57,6 +57,16 @@ $extrastylesheet
         'border-radius:50%;cursor:pointer;display:flex;align-items:center;' +
         'justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.15);';
       document.body.appendChild(toggle);
+      // 跨站导航：返回手册 / 教程主站（API 站为 engine.shitteam.top 的 /api/ 子路径）
+      var guide = document.createElement('a');
+      guide.href = 'https://engine.shitteam.top';
+      guide.textContent = '📘 手册 / 教程';
+      guide.title = '前往 ShitEngine 主文档站（手册与教程）';
+      guide.style.cssText = 'position:fixed;bottom:16px;left:16px;z-index:9999;' +
+        'padding:8px 14px;background:#fff;color:#3a4a5a;border:1px solid #ddd;' +
+        'border-radius:22px;cursor:pointer;text-decoration:none;font-size:13px;' +
+        'box-shadow:0 2px 8px rgba(0,0,0,.15);';
+      document.body.appendChild(guide);
       // fragment copy
       DoxygenAwesomeFragmentCopyButton.init();
     }

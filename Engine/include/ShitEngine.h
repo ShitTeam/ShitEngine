@@ -1,5 +1,10 @@
 #pragma once
 
+/**
+ * @file ShitEngine.h
+ * @brief 消费者统一入口——include 本文件即获得引擎全部公共头（Core/场景/对象/
+ *        组件/渲染/动画/音频/输入/事件/资源/反射/UI/物理/插件）。
+ */
 // Core
 #include "ShitEngine/Core/Core.h"
 #include "ShitEngine/Core/Game.h"
