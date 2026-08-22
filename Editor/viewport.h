@@ -8,6 +8,7 @@
 
 class QMouseEvent;
 class QWheelEvent;
+class QKeyEvent;
 class QDragEnterEvent;
 class QDragMoveEvent;
 class QDropEvent;
@@ -73,6 +74,8 @@ signals:
     void spriteFrameDropped(const QString &texturePath, int frameIndex,
                             float frameWidth, float frameHeight, float margin, float spacing,
                             int cols, float logicalX, float logicalY);
+    /// 鼠标在视口内移动（世界坐标；供状态栏常驻显示）
+    void mouseWorldMoved(float worldX, float worldY);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -81,6 +84,7 @@ protected:
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
     void wheelEvent(QWheelEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;   ///< F 键聚焦选中对象
     void dragEnterEvent(QDragEnterEvent *event) override;   ///< 接受图片文件拖入
     void dragMoveEvent(QDragMoveEvent *event) override;
     void dropEvent(QDropEvent *event) override;
@@ -146,6 +150,8 @@ private:
     /// 构建左上角工具条（构造时调用）；setGizmoMode 同步按钮选中态
     void setupGizmoBar();
     void syncGizmoBar();
+    /// F 键聚焦：编辑相机移到选中对象位置，按包围盒调整 zoom（Unity 帧化）
+    void frameSelected();
 };
 
 #endif // VIEWPORT_H

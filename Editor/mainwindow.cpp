@@ -14,6 +14,7 @@
 #include <QKeyEvent>
 #include <QKeySequence>
 #include <QLineEdit>
+#include <QLabel>
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
@@ -40,6 +41,7 @@
 #include <vector>
 
 #include "viewport.h"
+#include "assetpaths.h"
 #include "scenetree.h"
 #include "inspector.h"
 #include "logwidget.h"
@@ -165,6 +167,11 @@ MainWindow::MainWindow(QWidget *parent)
 
     // 场景视图点击 → 拾取（须在双视口创建后连接）
     connect(m_sceneViewport, &Viewport::logicalClicked, this, &MainWindow::pickSceneAt);
+    // 鼠标世界坐标 → 状态栏常驻信息（每帧由 onSceneFrameReady 汇总刷新）
+    connect(m_sceneViewport, &Viewport::mouseWorldMoved, this, [this](float x, float y) {
+        m_mouseWorldX = x;
+        m_mouseWorldY = y;
+    });
 
     // 编辑会话安全：任何编辑动作 → dirty。Gizmo 拖拽结束 / 树操作置脏在撤销/重做连接中同步置位，
     // 此处保留"编辑进行中"即置脏的检查器路径（字段一旦改动标题立刻带 *）。
@@ -330,6 +337,9 @@ if (Shit::Scene *sc = m_preview->getScene(); sc) {
     updateUndoActions();
     updateWindowTitle();   // 初始标题（未命名场景）
     updateProjectMenus();  // 按是否有项目初始化菜单可用性
+    // 状态栏常驻信息（右侧固定区）：选中对象 + 鼠标世界坐标（每帧刷新）
+    m_statusInfo = new QLabel(this);
+    statusBar()->addPermanentWidget(m_statusInfo);
     statusBar()->showMessage(tr("就绪"));
 
     // 脚本工程编译管线（buildFinished → 热重载）
@@ -363,12 +373,12 @@ void MainWindow::createDocks()
     m_sceneViewport = new Viewport(this);
     m_gameViewport = new Viewport(this);
     m_gameViewport->setGizmoBarVisible(false);   // 运行视口不显示 Gizmo 工具条（运行态无编辑）
-    auto *viewTabs = new QTabWidget(this);
-    viewTabs->setObjectName("viewTabs");
-    viewTabs->setDocumentMode(true);   // 扁平标签条（贴近 Unity 观感）
-    viewTabs->addTab(m_sceneViewport, tr("场景视口"));
-    viewTabs->addTab(m_gameViewport, tr("运行视口"));
-    setCentralWidget(viewTabs);
+    m_viewTabs = new QTabWidget(this);
+    m_viewTabs->setObjectName("viewTabs");
+    m_viewTabs->setDocumentMode(true);   // 扁平标签条（贴近 Unity 观感）
+    m_viewTabs->addTab(m_sceneViewport, tr("场景视口"));
+    m_viewTabs->addTab(m_gameViewport, tr("运行视口"));
+    setCentralWidget(m_viewTabs);
 
     // 左侧：场景树
     auto *sceneDock = new QDockWidget(tr("场景"), this);
@@ -501,6 +511,8 @@ void MainWindow::createMenus()
     copyAction->setShortcut(QKeySequence::Copy);   // Ctrl+C
     auto *pasteAction = editMenu->addAction(tr("粘贴对象"), this, &MainWindow::pasteObject);
     pasteAction->setShortcut(QKeySequence::Paste); // Ctrl+V
+    auto *dupAction = editMenu->addAction(tr("原地复制对象"), this, &MainWindow::duplicateObject);
+    dupAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_D));   // Ctrl+D
 
     // 打开代码编辑器（IDE 在项目设置 → 通用 → 代码编辑器 中选择）
     editMenu->addSeparator();
@@ -532,6 +544,10 @@ void MainWindow::newScene()
 
     if (!confirmDiscardChanges(tr("新建场景")))
         return;
+
+    // 先清掉指向旧对象的选中态（对象即将销毁），再清场
+    m_inspector->setGameObject(nullptr);
+    m_sceneViewport->setSelectedObject(nullptr);
 
     // 先收集再删：编辑器下 removeGameObject 当场 erase，不能在遍历中删（迭代器失效）
     std::vector<Shit::GameObject *> toRemove;
@@ -593,6 +609,10 @@ bool MainWindow::openScenePath(const QString &path)
         }
 
         backup = Shit::SceneSerializer::toJson(scene);
+
+        // 先清掉指向旧对象的选中态（对象即将销毁），再清场
+        m_inspector->setGameObject(nullptr);
+        m_sceneViewport->setSelectedObject(nullptr);
 
         // 先收集再删（编辑器下 removeGameObject 当场 erase，不能在遍历中删）
         std::vector<Shit::GameObject *> toRemove;
@@ -779,6 +799,30 @@ void MainWindow::pasteObject()
     // 刷新树并选中新对象（联动检查器/Gizmo；播放中 setScene 另由每帧同步重建，幂等）
     m_sceneTree->setScene(scene, false);
     m_sceneTree->selectObject(dup);
+}
+
+void MainWindow::duplicateObject()
+{
+    // 原地复制（Unity Ctrl+D）：捕获选中 → 立即粘贴（重名去重 + 同父 + 选中副本，
+    // 一次撤销栈条目）；复用内部剪贴板路径，不触碰系统剪贴板
+    if (isTextEditFocused()) return;
+    Shit::GameObject *sel = m_sceneTree->selectedObject();
+    if (!sel) {
+        m_log->appendMessage(tr("未选中对象，无法复制"), Qt::yellow);
+        return;
+    }
+    m_clipboard = Shit::Prefab::Capture(sel).toJson();
+    pasteObject();
+}
+
+void MainWindow::updateStatusInfo()
+{
+    if (!m_statusInfo) return;
+    QString selection = tr("(无)");
+    if (Shit::GameObject *sel = m_sceneTree ? m_sceneTree->selectedObject() : nullptr)
+        selection = QString::fromStdString(sel->getName());
+    m_statusInfo->setText(tr("选中: %1    鼠标: (%2, %3)")
+        .arg(selection).arg(m_mouseWorldX, 0, 'f', 0).arg(m_mouseWorldY, 0, 'f', 0));
 }
 
 // ── Prefab 预置资产（存为预置 / 拖入或双击实例化）──
@@ -1036,7 +1080,7 @@ void MainWindow::onViewportAssetDropped(const QString &path, float logicalX, flo
     if (auto *t = go->addComponent<Shit::TransformComponent>())
         t->setPosition(world);
     if (auto *sr = go->addComponent<Shit::SpriteRenderer>())
-        sr->setTexturePath(path.toStdString());
+        sr->setTexturePath(AssetPaths::toRelative(path).toStdString());   // 项目内相对存储
     undoCommit(tr("拖入图片 %1").arg(base));
     setDirty(true);
 
@@ -1076,7 +1120,7 @@ void MainWindow::onViewportSpriteFrameDropped(const QString &texturePath, int fr
     if (auto *t = go->addComponent<Shit::TransformComponent>())
         t->setPosition(world);
     if (auto *sr = go->addComponent<Shit::SpriteRenderer>()) {
-        sr->setTexturePath(absTexPath.toStdString());
+        sr->setTexturePath(AssetPaths::toRelative(absTexPath).toStdString());   // 项目内相对存储
         // 计算帧源矩形：基于网格参数（margin + spacing）定位帧在纹理中的位置。
         // 列数以 .sprite 元数据为准（与精灵表缩略图、引擎 SpriteSheet::getFrameRect 同源），
         // 元数据缺失时按纹理宽度反推兜底——纹理宽度不能被网格整除时反推值会错位
@@ -1112,6 +1156,7 @@ void MainWindow::onSceneFrameReady(const QImage &frame)
     syncSceneSelection();
     m_inspector->refresh();
     m_animatorDock->refresh();
+    updateStatusInfo();   // 状态栏常驻信息（选中对象 + 鼠标世界坐标）
 }
 
 void MainWindow::syncSceneSelection()
@@ -1363,6 +1408,21 @@ void MainWindow::createToolbar()
     addGizmoShortcut(Qt::Key_W, Viewport::GizmoMode::Rotate);
     addGizmoShortcut(Qt::Key_E, Viewport::GizmoMode::Scale);
 
+    // 播放控制快捷键（窗口级不可见动作，仅运行态生效）
+    auto *pauseShortcut = new QAction(this);
+    pauseShortcut->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_P));
+    connect(pauseShortcut, &QAction::triggered, this, [this] {
+        if (m_pauseAction && m_pauseAction->isEnabled()) m_pauseAction->toggle();
+    });
+    addAction(pauseShortcut);
+    auto *stepShortcut = new QAction(this);   // 单步：暂停态推进一帧（Ctrl+Shift+P）
+    stepShortcut->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_P));
+    connect(stepShortcut, &QAction::triggered, this, [this] {
+        if (m_preview && m_pauseAction && m_pauseAction->isEnabled() && m_pauseAction->isChecked())
+            m_preview->singleStep();
+    });
+    addAction(stepShortcut);
+
     // 工具栏增补 —— 撤销 / 重做（与菜单共享同一 QAction）
     toolbar->addSeparator();
     toolbar->addAction(m_undoAction);
@@ -1406,6 +1466,7 @@ void MainWindow::setPlaying(bool playing)
 void MainWindow::enterPlayMode()
 {
     if (m_playAction) m_playAction->setText(tr("■ 停止"));
+    if (m_viewTabs) m_viewTabs->setCurrentWidget(m_gameViewport);   // 自动切到运行视口
     if (m_pauseAction) {
         m_pauseAction->setEnabled(true);
         m_pauseAction->setChecked(false);   // 默认运行（未暂停）
@@ -1439,6 +1500,7 @@ void MainWindow::enterPlayMode()
 void MainWindow::exitPlayMode()
 {
     if (m_playAction) m_playAction->setText(tr("▶ 运行"));
+    if (m_viewTabs) m_viewTabs->setCurrentWidget(m_sceneViewport);  // 切回场景视口
     if (m_pauseAction) {
         m_pauseAction->setChecked(false);
         m_pauseAction->setEnabled(false);
@@ -1577,7 +1639,10 @@ void MainWindow::enterProject(const Project &project)
     }
 
     // 4) 资源窗口绑定整个项目根（Unity 式：树里可见 Assets/ Scenes/ Scripts/）；
-    //    最近场景切到项目级列表；Animator/Animation 相对路径基准设为项目根
+    //    最近场景切到项目级列表；统一路径服务 + 引擎资产根均指向项目根
+    //    （编辑器不 chdir：引擎侧相对路径靠 ResourceManager 资产根解析）
+    AssetPaths::setProjectRoot(project.rootDir());
+    Shit::ResourceManager::SetAssetRoot(project.rootDir().toStdString());
     m_assets->applyProjectDir(project.rootDir());
     m_animatorDock->setProjectRoot(project.rootDir());
     m_spriteSheetDock->setProjectRoot(project.rootDir());
@@ -1631,6 +1696,8 @@ void MainWindow::closeProjectInternal()
     Shit::Log::SetLogDirectory(std::string());   // 无项目：文件日志回落到默认（CWD/.shitengine/log）
     m_log->setDefaultDir(QString());
 
+    AssetPaths::setProjectRoot(QString());        // 无项目：路径存绝对、按 exe 目录解析
+    Shit::ResourceManager::SetAssetRoot(std::string());
     m_assets->applyProjectDir(m_settings.value("projectDir").toString());
     m_animatorDock->setProjectRoot(QString());   // 无项目：资产路径存绝对
     m_spriteSheetDock->setProjectRoot(QString());
@@ -2046,8 +2113,12 @@ void MainWindow::pickSceneAt(float x, float y)
         m_sceneViewport->setSelectedObject(hit); // 场景视图显示 Gizmo
         m_sceneTree->selectObject(hit);          // 同步场景树高亮
     } else {
-        // 点空白 → 清空检查器 + 瓦片面板
+        // 点空白 = 取消选中：树 current 与视口 Gizmo 必须一并清，
+        // 否则树/检查器失同步后再点同一行，currentChanged 相等早退，
+        // 检查器永远卡在系统面板
+        m_sceneTree->clearSelection();               // 触发 objectSelected(nullptr) 统一清联动面板
         m_inspector->setGameObject(nullptr);
+        m_sceneViewport->setSelectedObject(nullptr);
         m_tileset->setGameObject(nullptr);
         m_animatorDock->setGameObject(nullptr);
 

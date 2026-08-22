@@ -322,6 +322,11 @@ void EnginePreview::tick()
     if (!m_context) return;
     Shit::EngineContext::setCurrent(m_context.get());
 
+    // 单步：暂停态下临时解除暂停推进本帧，帧末恢复（游戏逻辑无感知）
+    const bool stepping = m_stepRequested && Shit::Game::IsPaused();
+    m_stepRequested = false;
+    if (stepping) Shit::Game::SetPaused(false);
+
     // 场景指针每帧跟随 SceneManager：播放中游戏代码 LoadScene 会整体替换场景
     //（旧场景销毁），若仍持有旧指针，refreshCameras/渲染会解引用已释放内存。
     m_scene = Shit::SceneManager::GetCurrentScene();
@@ -398,4 +403,6 @@ void EnginePreview::tick()
     // 编辑器相机（scene_camera）不入库，无需复位。
     if (m_gameCam) m_gameCam->setEnabled(true);
     if (m_editorCam) m_editorCam->setEnabled(false);
+
+    if (stepping) Shit::Game::SetPaused(true);   // 单步帧结束：恢复暂停
 }

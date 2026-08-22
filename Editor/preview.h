@@ -55,6 +55,9 @@ public:
     /// 设置运行状态：true=引擎逻辑运行，false=暂停（画面静止）
     void setPlaying(bool playing);
 
+    /// 单步：暂停态下请求推进一帧（下一 tick 临时解除暂停，帧末恢复暂停）
+    void singleStep() { m_stepRequested = true; }
+
 signals:
     /// 场景视图帧（编辑器相机，满窗）
     void sceneFrameReady(const QImage &image);
@@ -89,6 +92,7 @@ private:
     int m_logicalWidth = 0;
     int m_logicalHeight = 0;
     bool m_running = false;
+    bool m_stepRequested = false;   ///< 单步请求（Ctrl+Shift+P：暂停态推进一帧）
 };
 
 #endif // PREVIEW_H

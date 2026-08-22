@@ -16,6 +16,7 @@
 #include <QHeaderView>
 #include <QItemSelectionModel>
 #include <QKeySequence>
+#include <QLineEdit>
 #include <QMenu>
 #include <QTreeView>
 #include <QVBoxLayout>
@@ -26,10 +27,20 @@ SceneTree::SceneTree(QWidget *parent)
     : QWidget(parent)
     , m_view(new QTreeView(this))
     , m_model(new SceneTreeModel(this))
+    , m_filterEdit(new QLineEdit(this))
 {
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(2);
+
+    // 名称过滤框（Ctrl+F 聚焦；输入即过滤，匹配节点保留整条祖先链，清空恢复全显）
+    m_filterEdit->setPlaceholderText(tr("过滤对象名称…（Ctrl+F）"));
+    m_filterEdit->setClearButtonEnabled(true);
+    m_filterEdit->setStyleSheet(
+        "QLineEdit { border: 1px solid #3a4a5a; border-radius: 3px;"
+        "             background: #1c2430; color: #e0e8f0; padding: 3px 6px; }"
+        "QLineEdit:focus { border-color: #7ac0ff; }");
+    layout->addWidget(m_filterEdit);
 
     layout->addWidget(m_view);
 
@@ -47,11 +58,31 @@ SceneTree::SceneTree(QWidget *parent)
     m_view->setDragDropMode(QAbstractItemView::InternalMove);
     m_view->setDefaultDropAction(Qt::MoveAction);
 
+    connect(m_filterEdit, &QLineEdit::textChanged, this, [this] { applyFilter(); });
+
+    // Ctrl+F 聚焦过滤框（树范围内生效，不与主窗口其他快捷键冲突）
+    auto *filterAction = new QAction(this);
+    filterAction->setShortcut(QKeySequence::Find);
+    filterAction->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+    addAction(filterAction);
+    connect(filterAction, &QAction::triggered, this, [this] {
+        m_filterEdit->setFocus();
+        m_filterEdit->selectAll();
+    });
+
     // 选中 → objectSelected，供属性检查器联动
     connect(m_view->selectionModel(), &QItemSelectionModel::currentChanged,
             this, [this](const QModelIndex &current) {
                 emit objectSelected(m_model->gameObjectAt(current));
             });
+
+    // 兜底重发：点击"已是 current 的行"时 setCurrentIndex 相等早退、
+    // currentChanged 不发——clicked 每次点击必发，保证 objectSelected
+    // 必达检查器，选中态失同步（如视口点空白只清了检查器）可点击自愈
+    connect(m_view, &QTreeView::clicked, this, [this](const QModelIndex &idx) {
+        if (idx.isValid())
+            emit objectSelected(m_model->gameObjectAt(idx));
+    });
 
     // 撤销接线：按下（含进入编辑/发起拖拽）→ begin；模型编辑完成（重命名/改层级）→ 提交
     connect(m_view, &QTreeView::pressed, this, [this] { emit sceneActionStarted(); });
@@ -73,6 +104,7 @@ void SceneTree::setScene(Shit::Scene *scene, bool autoSelect)
     m_scene = scene;
     m_model->setScene(scene);
     m_view->expandAll();
+    applyFilter();   // 重建树后保持当前过滤状态
 
     if (!autoSelect) return;
 
@@ -108,6 +140,36 @@ void SceneTree::selectObject(Shit::GameObject *object)
             QItemSelectionModel::Select | QItemSelectionModel::Rows);
         m_view->scrollTo(idx);
     }
+}
+
+void SceneTree::clearSelection()
+{
+    // selection 与 current 都要清：只清 selection 的话 current 仍指向旧行，
+    // 再点同一行时 currentChanged 相等早退不发信号，联动面板无法恢复
+    auto *sm = m_view->selectionModel();
+    sm->clearSelection();
+    sm->clearCurrentIndex();   // current 置无效 → currentChanged → objectSelected(nullptr)
+}
+
+void SceneTree::applyFilter()
+{
+    const QString text = m_filterEdit->text().trimmed();
+
+    // 递归判定：节点自身名称匹配 或 任一后代匹配 → 显示（匹配节点保留整条祖先链）
+    std::function<bool(const QModelIndex &)> walk = [&](const QModelIndex &parent) {
+        bool anyShown = false;
+        for (int r = 0; r < m_model->rowCount(parent); ++r) {
+            const QModelIndex idx = m_model->index(r, 0, parent);
+            const bool self = text.isEmpty()
+                || m_model->data(idx, Qt::DisplayRole).toString().contains(text, Qt::CaseInsensitive);
+            const bool childShown = walk(idx);
+            const bool show = self || childShown;
+            m_view->setRowHidden(r, parent, !show);
+            anyShown = anyShown || show;
+        }
+        return anyShown;
+    };
+    walk({});
 }
 
 void SceneTree::contextMenuEvent(QContextMenuEvent *event)

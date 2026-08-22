@@ -1,8 +1,10 @@
 #include "inspector.h"
 
+#include "assetpaths.h"
 #include "componentmenu.h"
 #include "systemmenu.h"
 #include "dnd.h"
+#include "pathfieldwidget.h"
 #include "animatoreditorwidget.h"
 #include "animatorwidget.h"
 
@@ -18,6 +20,11 @@
 #include <QCursor>
 #include <QDoubleSpinBox>
 #include <QDrag>
+#include <QDragEnterEvent>
+#include <QDragLeaveEvent>
+#include <QDragMoveEvent>
+#include <QDropEvent>
+#include <QFileInfo>
 #include <QFormLayout>
 #include <QFrame>
 #include <QHBoxLayout>
@@ -28,6 +35,9 @@
 #include <QPushButton>
 #include <QScrollArea>
 #include <QSpinBox>
+#include <QStyle>
+#include <QTabWidget>
+#include <QUrl>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -265,20 +275,54 @@ private:
 
 Inspector::Inspector(QWidget *parent)
     : QWidget(parent)
+    , m_tabs(new QTabWidget(this))
     , m_scroll(new QScrollArea(this))
     , m_content(new QWidget)
     , m_form(new QFormLayout(m_content))
+    , m_systemScroll(new QScrollArea(this))
+    , m_systemContent(new QWidget)
+    , m_systemPageLayout(new QVBoxLayout(m_systemContent))
 {
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(2);
 
-    layout->addWidget(m_scroll);
+    layout->addWidget(m_tabs);
+    m_tabs->setDocumentMode(true);
+
+    // 文件拖到属性面板 → 自动填充匹配的路径字段（P31，拖拽悬停时虚线高亮）
+    setAcceptDrops(true);
+    setStyleSheet("Inspector[dropActive=\"true\"] { border: 2px dashed #7ac0ff; }");
+
+    // 页 1「组件」：搜索框 + 对象属性（启用/名称/Tag）+ 各组件字段 + Add Component
+    m_searchEdit = new QLineEdit(this);
+    m_searchEdit->setPlaceholderText(tr("搜索组件或字段…"));
+    m_searchEdit->setClearButtonEnabled(true);
+    m_searchEdit->setStyleSheet(
+        "QLineEdit { border: 1px solid #3a4a5a; border-radius: 3px;"
+        "             background: #1c2430; color: #e0e8f0; padding: 3px 6px; }"
+        "QLineEdit:focus { border-color: #7ac0ff; }");
+    connect(m_searchEdit, &QLineEdit::textChanged, this, [this] { applyFilter(); });
+
+    auto *componentPage = new QWidget(this);
+    auto *componentPageLayout = new QVBoxLayout(componentPage);
+    componentPageLayout->setContentsMargins(0, 0, 0, 0);
+    componentPageLayout->setSpacing(2);
+    componentPageLayout->addWidget(m_searchEdit);
+    componentPageLayout->addWidget(m_scroll);
+
     m_scroll->setWidget(m_content);
     m_scroll->setWidgetResizable(true);
-
     m_form->setContentsMargins(8, 8, 8, 8);
     m_form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+    m_tabs->addTab(componentPage, tr("组件"));
+
+    // 页 2「系统」：场景系统列表 + 系统属性（常驻，未选中对象也能查看/编辑）
+    m_systemPageLayout->setContentsMargins(8, 8, 8, 8);
+    m_systemPageLayout->setSpacing(2);
+    m_systemScroll->setWidget(m_systemContent);
+    m_systemScroll->setWidgetResizable(true);
+    m_tabs->addTab(m_systemScroll, tr("系统"));
 
     clear();
 }
@@ -286,29 +330,23 @@ Inspector::Inspector(QWidget *parent)
 void Inspector::clear()
 {
     m_readbacks.clear();
+    m_sections.clear();   // 组件行区间随表单重建失效
     m_object = nullptr;
-    m_selectedSystemName.clear();
-    m_scenePanel = nullptr;         // 重置指针（旧 widget 由 m_form->removeRow 摘除后 Qt 父子关系回收）
-    m_systemFieldsForm = nullptr;
-    m_systemLayout = nullptr;
-    m_systemFieldsContainer = nullptr;
+    // 系统页常驻独立：此处只清组件页，不动 m_selectedSystemName / 系统面板
     while (m_form->rowCount() > 0)
         m_form->removeRow(0);
 
-    if (m_scene) {
-        buildSceneSystemPanel();
-    } else {
-        auto *placeholder = new QLabel(tr("未选中对象\n\n选中场景中的对象后，\n在此编辑其组件属性。"), m_content);
-        placeholder->setAlignment(Qt::AlignCenter);
-        placeholder->setWordWrap(true);
-        m_form->addRow(placeholder);
-    }
+    auto *placeholder = new QLabel(tr("未选中对象\n\n选中场景中的对象后，\n在此编辑其组件属性。"), m_content);
+    placeholder->setAlignment(Qt::AlignCenter);
+    placeholder->setWordWrap(true);
+    m_form->addRow(placeholder);
 }
 
 void Inspector::refresh()
 {
-    // 系统面板刷新：比较签名，仅变化时重建
-    if (m_object == nullptr && m_scene) {
+    // 系统页刷新：比较签名，仅变化时重建。
+    // 无条件检测（不依赖未选中态）——选中对象时系统列表也会变（如播放态物理自愈注册）
+    if (m_scene) {
         std::string sig;
         for (const auto& name : m_scene->getRegisteredSystemTypeNames()) {
             auto* sys = m_scene->getSystem(name);
@@ -321,6 +359,8 @@ void Inspector::refresh()
         }
     }
     for (auto &readback : m_readbacks)
+        readback();
+    for (auto &readback : m_systemReadbacks)
         readback();
 }
 
@@ -337,8 +377,31 @@ void Inspector::setGameObject(Shit::GameObject *object)
     while (m_form->rowCount() > 0)
         m_form->removeRow(0);
 
-    // Unity 风格：顶部对象名编辑行（提交走撤销"重命名"；与树内 F2 等价，两处同步）
-    auto *nameEdit = new QLineEdit(QString::fromStdString(m_object->getName()), m_content);
+    m_tabs->setCurrentWidget(m_scroll);   // 选中对象 → 自动切到组件页（系统页随时可手动切回）
+
+    // Unity 风格：顶部对象属性区 —— [启用 ✓][名称编辑框]，下方 Tag 行。
+    // 名称提交走撤销"重命名"（与树内 F2 等价，两处同步）；启用/Tag 走通用字段撤销
+    auto *nameRow = new QWidget(m_content);
+    auto *nameRowLayout = new QHBoxLayout(nameRow);
+    nameRowLayout->setContentsMargins(0, 0, 0, 0);
+    nameRowLayout->setSpacing(4);
+
+    auto *activeCheck = new QCheckBox(nameRow);
+    activeCheck->setChecked(m_object->isActive());
+    activeCheck->setToolTip(tr("启用/禁用对象（失活不渲染、不更新行为/UI/物理，子对象随父级联）"));
+    connect(activeCheck, &QCheckBox::toggled, this, [this](bool on) {
+        emit fieldEdited();               // undo begin（须在修改前）
+        m_object->setActive(on);
+        emit fieldCommitted();             // undo commit
+    });
+    m_readbacks.push_back([this, activeCheck] {
+        activeCheck->blockSignals(true);
+        activeCheck->setChecked(m_object->isActive());
+        activeCheck->blockSignals(false);
+    });
+    nameRowLayout->addWidget(activeCheck);
+
+    auto *nameEdit = new QLineEdit(nameRow);
     nameEdit->setAlignment(Qt::AlignCenter);
     nameEdit->setStyleSheet(
         "QLineEdit { border: 1px solid #3a4a5a; border-radius: 3px; background: #1c2430;"
@@ -360,7 +423,25 @@ void Inspector::setGameObject(Shit::GameObject *object)
         nameEdit->setText(QString::fromStdString(m_object->getName()));
         nameEdit->blockSignals(false);
     });
-    m_form->addRow(nameEdit);
+    nameRowLayout->addWidget(nameEdit, 1);
+    m_form->addRow(nameRow);
+
+    auto *tagEdit = new QLineEdit(QString::fromStdString(m_object->getTag()), m_content);
+    tagEdit->setPlaceholderText(tr("Tag（如 player / enemy）"));
+    tagEdit->setToolTip(tr("对象标签（用于分类查找，随场景保存）"));
+    connect(tagEdit, &QLineEdit::editingFinished, this, [this, tagEdit] {
+        const std::string newTag = tagEdit->text().toStdString();
+        if (newTag == m_object->getTag()) return;
+        emit fieldEdited();               // undo begin（须在修改前）
+        m_object->setTag(newTag);
+        emit fieldCommitted();             // undo commit
+    });
+    m_readbacks.push_back([this, tagEdit] {
+        tagEdit->blockSignals(true);
+        tagEdit->setText(QString::fromStdString(m_object->getTag()));
+        tagEdit->blockSignals(false);
+    });
+    m_form->addRow(tr("Tag"), tagEdit);
 
     auto *nameSep = new QFrame(m_content);
     nameSep->setFrameShape(QFrame::HLine);
@@ -375,6 +456,9 @@ void Inspector::setGameObject(Shit::GameObject *object)
             return; // 无反射元数据（如编辑器自定义 Behavior），跳过
 
         ++m_componentCount;
+        // 记录本组件渲染的表单行区间 + 搜索键（P34：按区间整块过滤）
+        const int startRow = m_form->rowCount();
+        QString searchKey = normalizeTypeName(typeInfo->name);
         // 组件头可拖拽（携带自身 uuid + 类型名，供引用字段拖入）
         QList<std::pair<quint64, QString>> refs;
         refs.append({ component->getUuid(), QString::fromStdString(typeInfo->name) });
@@ -442,6 +526,10 @@ void Inspector::setGameObject(Shit::GameObject *object)
             addPropertyRow(prop, component);
             ++m_fieldCount;
         }
+
+        for (const auto &f : typeInfo->fields)
+            searchKey += " " + QString::fromStdString(f.name);
+        m_sections.push_back({ startRow, m_form->rowCount() - 1, searchKey });
     });
 
     // Unity 风格 "Add Component"：组件列表底部的虚线按钮，点击弹出组件类型菜单
@@ -471,19 +559,170 @@ void Inspector::setPlayMode(bool playing)
 
 void Inspector::applyEditLock()
 {
-    // 统一递归禁用表单（含字段控件/移除按钮/Add Component/对象名栏/引用控件）；
+    // 两页内容分别统一递归禁用（含字段控件/移除按钮/Add Component/对象名栏/引用控件）；
+    // QTabWidget 本体不禁用——播放态仍可切页查看运行时值（Unity 语义）。
     // 禁用控件仍可被回读刷新 setText/setValue（blockSignals 已防回环），运行时值实时可见
     if (m_content) m_content->setEnabled(!m_playMode);
+    if (m_systemContent) m_systemContent->setEnabled(!m_playMode);
 }
 
 void Inspector::setScene(Shit::Scene *scene)
 {
+    // 同一场景的代数变化（对象增删/改名等）不影响系统列表，不重建系统页
+    // （系统列表增删/优先级变化由 refresh() 的签名检测处理）
+    if (m_scene == scene) return;
     m_scene = scene;
     m_systemsSignature.clear();
-    // 当前正显示未选中态 → 重绘
-    if (!m_object) {
-        clear();
-        if (m_playMode) applyEditLock();
+    m_selectedSystemName.clear();   // 场景已整体替换，旧展开的系统名不再有效
+    rebuildSystemPanel();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 文件拖到属性面板 → 自动填充匹配的路径字段（面板级兜底；
+// 具体字段行上的 PathFieldWidget 接受更精确的字段级拖放）
+// ═══════════════════════════════════════════════════════════════
+
+bool Inspector::findFileDropTarget(const QString &filePath, Shit::Component **outComp,
+                                   Shit::FieldInfo *outField) const
+{
+    if (!m_object) return false;
+    if (m_playMode) return false;   // 播放态只读锁：不接受拖拽填充
+
+    const QString ext = QFileInfo(filePath).suffix().toLower();
+    // 全部已知资产后缀（用于"未知扩展 + 唯一候选"兜底判定）
+    static const QStringList kAllKnown = {
+        "png", "jpg", "jpeg", "bmp", "webp", "gif",
+        "wav", "ogg", "mp3", "flac",
+        "ttf", "otf", "ttc",
+        "anim", "scene", "prefab",
+    };
+
+    std::vector<std::pair<Shit::Component *, const Shit::FieldInfo *>> stringFields;
+    Shit::Component *hitComp = nullptr;
+    const Shit::FieldInfo *hitField = nullptr;
+
+    m_object->forEachComponent([&](Shit::Component *comp) {
+        const Shit::TypeInfo *ti = Shit::TypeRegistry::Get(std::type_index(typeid(*comp)));
+        if (!ti) return;
+        for (const auto &field : ti->fields) {
+            if (typeNameOf(field) != "std::string") continue;
+            if (const FieldMeta *m = metaOf(field); m && m->readOnly) continue;
+            stringFields.emplace_back(comp, &field);
+            // 字段语义（图片/音频/字体/动画/场景/预置体）与拖入扩展名匹配
+            const PathFieldSpec spec = pathSpecForFieldName(field.name);
+            if (spec.isPath && spec.suffixes.contains(ext)) {
+                hitComp = comp;
+                hitField = &field;
+            }
+        }
+    });
+    if (hitComp) {
+        if (outComp) *outComp = hitComp;
+        if (outField) *outField = *hitField;
+        return true;
+    }
+
+    // 兜底：扩展名不在任何已知语义表 && 对象只有一个可写 string 字段 → 视为目标
+    //（如自定义路径字段），避免拖入被静默拒绝
+    if (!kAllKnown.contains(ext) && stringFields.size() == 1) {
+        if (outComp) *outComp = stringFields[0].first;
+        if (outField) *outField = *stringFields[0].second;
+        return true;
+    }
+    return false;
+}
+
+void Inspector::setDropActive(bool on)
+{
+    if (m_dropActive == on) return;
+    m_dropActive = on;
+    setProperty("dropActive", on);
+    style()->unpolish(this);
+    style()->polish(this);
+}
+
+void Inspector::dragEnterEvent(QDragEnterEvent *event)
+{
+    if (event->mimeData()->hasUrls()) {
+        for (const QUrl &url : event->mimeData()->urls()) {
+            if (url.isLocalFile() && findFileDropTarget(url.toLocalFile(), nullptr, nullptr)) {
+                event->acceptProposedAction();
+                setDropActive(true);
+                return;
+            }
+        }
+    }
+    QWidget::dragEnterEvent(event);
+}
+
+void Inspector::dragMoveEvent(QDragMoveEvent *event)
+{
+    if (event->mimeData()->hasUrls()) {
+        for (const QUrl &url : event->mimeData()->urls()) {
+            if (url.isLocalFile() && findFileDropTarget(url.toLocalFile(), nullptr, nullptr)) {
+                event->acceptProposedAction();
+                return;
+            }
+        }
+    }
+    QWidget::dragMoveEvent(event);
+}
+
+void Inspector::dragLeaveEvent(QDragLeaveEvent *event)
+{
+    setDropActive(false);
+    QWidget::dragLeaveEvent(event);
+}
+
+void Inspector::dropEvent(QDropEvent *event)
+{
+    setDropActive(false);
+    if (!event->mimeData()->hasUrls()) {
+        QWidget::dropEvent(event);
+        return;
+    }
+
+    for (const QUrl &url : event->mimeData()->urls()) {
+        if (!url.isLocalFile()) continue;
+        const QString path = QFileInfo(url.toLocalFile()).absoluteFilePath();
+        Shit::Component *comp = nullptr;
+        Shit::FieldInfo field;
+        if (!findFileDropTarget(path, &comp, &field)) continue;
+
+        // 与检查器其他编辑一致：先撤销 begin，写回规范化（项目内相对）路径，再提交
+        emit fieldEdited();
+        *reinterpret_cast<std::string *>(field.GetFieldPtr(comp)) =
+            AssetPaths::toRelative(path).toStdString();
+        comp->onFieldChanged(field.name);
+        emit fieldCommitted();
+
+        refresh();   // 回读更新对应控件显示
+        ST_INFO("[Inspector] 文件拖入 {} -> {}.{}",
+                AssetPaths::toRelative(path).toStdString(),
+                comp->getOwner() ? comp->getOwner()->getName() : "?", field.name);
+        event->acceptProposedAction();
+        return;
+    }
+    QWidget::dropEvent(event);
+}
+
+void Inspector::applyFilter()
+{
+    const QString text = m_searchEdit->text().trimmed();
+
+    // 按组件区间显隐：行上的 label/field/spanning 控件统一 setVisible。
+    // 清空搜索框 = 全显（区间外行：对象属性区/Add Component 按钮始终显示）
+    for (const auto &sec : m_sections) {
+        const bool show = text.isEmpty() || sec.searchKey.contains(text, Qt::CaseInsensitive);
+        for (int r = sec.startRow; r <= sec.endRow; ++r) {
+            for (QFormLayout::ItemRole role : { QFormLayout::LabelRole,
+                                                QFormLayout::FieldRole,
+                                                QFormLayout::SpanningRole }) {
+                if (auto *item = m_form->itemAt(r, role))
+                    if (auto *w = item->widget())
+                        w->setVisible(show);
+            }
+        }
     }
 }
 
@@ -496,7 +735,7 @@ void Inspector::buildSceneSystemPanel()
     m_systemFieldsContainer = nullptr;
     m_systemLayout = nullptr;
 
-    m_scenePanel = new QWidget(m_content);
+    m_scenePanel = new QWidget(m_systemContent);
     auto *outerLayout = new QVBoxLayout(m_scenePanel);
     outerLayout->setContentsMargins(0, 0, 0, 0);
     outerLayout->setSpacing(4);
@@ -617,20 +856,21 @@ void Inspector::buildSceneSystemPanel()
     outerLayout->addWidget(addRow);
 
     outerLayout->addStretch(1);
-    m_form->addRow(m_scenePanel);
+    m_systemPageLayout->addWidget(m_scenePanel);
 }
 
 void Inspector::rebuildSystemPanel()
 {
-    if (!m_scenePanel) return;
-    m_readbacks.clear();  // BUG FIX: 清空旧回读，防 refresh 调用已删除控件的 lambda（use-after-free）
-    m_scenePanel->deleteLater();
-    m_scenePanel = nullptr;
+    if (!m_scene) return;
+    if (m_scenePanel) {
+        m_scenePanel->deleteLater();
+        m_scenePanel = nullptr;
+    }
+    // 只清系统页回读（防 refresh 调用已删除控件的 lambda）；组件页 m_readbacks 不受影响
+    m_systemReadbacks.clear();
     m_systemFieldsContainer = nullptr;
     m_systemLayout = nullptr;
     m_systemFieldsForm = nullptr;
-    while (m_form->rowCount() > 0)
-        m_form->removeRow(0);
     buildSceneSystemPanel();
     if (m_playMode) applyEditLock();
 }
@@ -711,7 +951,7 @@ void Inspector::addSystemFieldRow(const Shit::FieldInfo &field, Shit::System *sy
         });
         connect(box, &QDoubleSpinBox::editingFinished, this, [this] { emit fieldCommitted(); });
         m_systemFieldsForm->addRow(name, box);
-        m_readbacks.push_back([box, sys, field] {
+        m_systemReadbacks.push_back([box, sys, field] {
             box->blockSignals(true);
             box->setValue(*reinterpret_cast<float*>(field.GetFieldPtr(sys)));
             box->blockSignals(false);
@@ -728,7 +968,7 @@ void Inspector::addSystemFieldRow(const Shit::FieldInfo &field, Shit::System *sy
         });
         connect(box, &QSpinBox::editingFinished, this, [this] { emit fieldCommitted(); });
         m_systemFieldsForm->addRow(name, box);
-        m_readbacks.push_back([box, sys, field] {
+        m_systemReadbacks.push_back([box, sys, field] {
             box->blockSignals(true);
             box->setValue(*reinterpret_cast<int*>(field.GetFieldPtr(sys)));
             box->blockSignals(false);
@@ -744,7 +984,7 @@ void Inspector::addSystemFieldRow(const Shit::FieldInfo &field, Shit::System *sy
             emit fieldCommitted();
         });
         m_systemFieldsForm->addRow(name, check);
-        m_readbacks.push_back([check, sys, field] {
+        m_systemReadbacks.push_back([check, sys, field] {
             check->blockSignals(true);
             check->setChecked(*reinterpret_cast<bool*>(field.GetFieldPtr(sys)));
             check->blockSignals(false);
@@ -772,7 +1012,7 @@ void Inspector::addSystemFieldRow(const Shit::FieldInfo &field, Shit::System *sy
         layout->addWidget(xBox);
         layout->addWidget(yBox);
         m_systemFieldsForm->addRow(name, row);
-        m_readbacks.push_back([xBox, yBox, sys, field] {
+        m_systemReadbacks.push_back([xBox, yBox, sys, field] {
             auto *p = reinterpret_cast<Shit::Vector2*>(field.GetFieldPtr(sys));
             xBox->blockSignals(true);
             yBox->blockSignals(true);
@@ -792,7 +1032,7 @@ void Inspector::addSystemFieldRow(const Shit::FieldInfo &field, Shit::System *sy
         });
         connect(edit, &QLineEdit::editingFinished, this, [this] { emit fieldCommitted(); });
         m_systemFieldsForm->addRow(name, edit);
-        m_readbacks.push_back([edit, sys, field] {
+        m_systemReadbacks.push_back([edit, sys, field] {
             edit->blockSignals(true);
             edit->setText(QString::fromStdString(*reinterpret_cast<std::string*>(field.GetFieldPtr(sys))));
             edit->blockSignals(false);
@@ -818,7 +1058,7 @@ void Inspector::addSystemFieldRow(const Shit::FieldInfo &field, Shit::System *sy
                 emit fieldCommitted();
             });
             m_systemFieldsForm->addRow(name, combo);
-            m_readbacks.push_back([combo, sys, field] {
+            m_systemReadbacks.push_back([combo, sys, field] {
                 const int v = *reinterpret_cast<int*>(field.GetFieldPtr(sys));
                 const int idx = combo->findData(v);
                 combo->blockSignals(true);
@@ -952,19 +1192,38 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
     }
     else if (typeNameOf(field) == "std::string") {
         auto *p = reinterpret_cast<std::string *>(field.GetFieldPtr(obj));
-        auto *edit = new QLineEdit(QString::fromStdString(*p), m_content);
-        connect(edit, &QLineEdit::textChanged, this, [this, obj, field](const QString &text) {
-            emit fieldEdited();
-            *reinterpret_cast<std::string *>(field.GetFieldPtr(obj)) = text.toStdString();
-            obj->onFieldChanged(field.name);
-        });
-        connect(edit, &QLineEdit::editingFinished, this, [this] { emit fieldCommitted(); });
-        m_form->addRow(name, edit);
-        m_readbacks.push_back([edit, obj, field] {
-            edit->blockSignals(true);
-            edit->setText(QString::fromStdString(*reinterpret_cast<std::string *>(field.GetFieldPtr(obj))));
-            edit->blockSignals(false);
-        });
+        // 路径类字段（字段名语义命中）→ 统一路径控件：拖拽填充 + 浏览选择 + 手输解析，
+        // 提交值经 AssetPaths 规范化（项目内相对存储），一次一提交接撤销栈
+        if (const PathFieldSpec spec = pathSpecForFieldName(field.name); spec.isPath && !readOnly) {
+            auto *pathField = new PathFieldWidget(spec, m_content);
+            pathField->setPath(QString::fromStdString(*p));
+            connect(pathField, &PathFieldWidget::pathCommitted, this,
+                    [this, obj, field, p](const QString &stored) {
+                        emit fieldEdited();               // undo begin（须在修改前）
+                        *p = stored.toStdString();
+                        obj->onFieldChanged(field.name);
+                        emit fieldCommitted();             // undo commit
+                    });
+            m_form->addRow(name, pathField);
+            m_readbacks.push_back([pathField, p] {
+                pathField->setPath(QString::fromStdString(*p));
+            });
+        }
+        else {
+            auto *edit = new QLineEdit(QString::fromStdString(*p), m_content);
+            connect(edit, &QLineEdit::textChanged, this, [this, obj, field](const QString &text) {
+                emit fieldEdited();
+                *reinterpret_cast<std::string *>(field.GetFieldPtr(obj)) = text.toStdString();
+                obj->onFieldChanged(field.name);
+            });
+            connect(edit, &QLineEdit::editingFinished, this, [this] { emit fieldCommitted(); });
+            m_form->addRow(name, edit);
+            m_readbacks.push_back([edit, obj, field] {
+                edit->blockSignals(true);
+                edit->setText(QString::fromStdString(*reinterpret_cast<std::string *>(field.GetFieldPtr(obj))));
+                edit->blockSignals(false);
+            });
+        }
     }
     else {
         // 枚举或未知类型：优先尝试枚举下拉，否则只读展示

@@ -6,6 +6,7 @@
 
 class QTreeView;
 class QMenu;
+class QLineEdit;
 class SceneTreeModel;
 
 namespace Shit { class Scene; class GameObject; struct TypeInfo; }
@@ -24,6 +25,13 @@ public:
 
     /// 程序化选中对象（供视口拾取联动），会触发 objectSelected
     void selectObject(Shit::GameObject *object);
+
+    /// 取消选中（清 selection 与 current；current 置无效会触发
+    /// objectSelected(nullptr)，联动清空检查器等面板）
+    void clearSelection();
+
+    /// 按名称过滤节点（匹配节点保留整条祖先链；空文本全显）
+    void applyFilter();
 
     /// 当前选中对象（无选中/索引失效时返回 nullptr；仅地址比较，调用方需自行校验存活）
     Shit::GameObject *selectedObject() const;
@@ -54,6 +62,7 @@ private:
     QTreeView *m_view;
     SceneTreeModel *m_model;
     Shit::Scene *m_scene = nullptr;
+    QLineEdit *m_filterEdit;   ///< 名称过滤框（Ctrl+F 聚焦）
 };
 
 #endif // SCENETREE_H

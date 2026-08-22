@@ -3,6 +3,7 @@
 
 #include <ShitEngine/Scene/Scene.h>
 
+#include <QString>
 #include <QWidget>
 
 #include <functional>
@@ -15,8 +16,13 @@ class QScrollArea;
 class QLineEdit;
 class QPushButton;
 class QSpinBox;
+class QTabWidget;
 class QWidget;
 class QVBoxLayout;
+class QDragEnterEvent;
+class QDragMoveEvent;
+class QDragLeaveEvent;
+class QDropEvent;
 
 namespace Shit {
 class GameObject;
@@ -37,7 +43,7 @@ class Inspector : public QWidget
 public:
     explicit Inspector(QWidget *parent = nullptr);
 
-    /// 清空并重建表单（无对象时显示占位或场景系统面板）
+    /// 清空并重建组件页表单（无对象时显示占位；系统页常驻独立，不受影响）
     void clear();
 
     /// 反射 object 的组件并渲染为编辑表单
@@ -51,7 +57,7 @@ public:
     /// 停止后自动解锁；重建表单（setGameObject）时按当前状态重新应用。
     void setPlayMode(bool playing);
 
-    /// 设置当前场景（供场景系统面板在无选中对象时显示）
+    /// 设置当前场景（场景整体替换时重建系统页；同一场景的代数变化不重建）
     void setScene(Shit::Scene *scene);
 
 signals:
@@ -79,6 +85,21 @@ signals:
     /// 场景系统优先级被调整（撤销提交点，标签"调整系统优先级"）
     void systemPriorityChanged();
 
+protected:
+    // ── 面板级文件拖拽（P31）：文件拖到属性面板 → 自动填充匹配的路径字段 ──
+    void dragEnterEvent(QDragEnterEvent* event) override;
+    void dragMoveEvent(QDragMoveEvent* event) override;
+    void dragLeaveEvent(QDragLeaveEvent* event) override;
+    void dropEvent(QDropEvent* event) override;
+
+private:
+    /// 按扩展名语义在选中对象的 string 字段中找拖放目标（首个命中；未知扩展且
+    /// 唯一 string 字段时兜底）。命中返回 true 并写出 comp/field
+    bool findFileDropTarget(const QString& filePath, Shit::Component** outComp,
+                            Shit::FieldInfo* outField) const;
+    void setDropActive(bool on);   ///< 拖拽悬停时虚线高亮
+    void applyFilter();            ///< 组件/字段搜索过滤（P34，按组件行区间显隐）
+
 private:
     /// 为单个字段生成一行编辑控件
     void addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj);
@@ -99,24 +120,37 @@ private:
     void removeComponentFromObject(Shit::Component *component);
 
 private:
+    QTabWidget *m_tabs;             ///< 「组件 / 系统」两页顶层标签（选中对象自动切组件页）
     QScrollArea *m_scroll;
     QWidget *m_content;
     QFormLayout *m_form;
 
-    /// 当前正在编辑的对象（nullptr = 未选中，显示场景系统面板）
+    QScrollArea *m_systemScroll;    ///< 系统页滚动容器（常驻，独立于组件页）
+    QWidget *m_systemContent;
+    QVBoxLayout *m_systemPageLayout;   ///< 系统页内容布局（m_scenePanel 挂载点）
+
+    /// 当前正在编辑的对象（nullptr = 未选中，组件页显示占位）
     Shit::GameObject *m_object = nullptr;
 
-    /// 每个字段的"组件 → 控件"回读函数（refresh 时逐行调用）
+    /// 每个字段的"组件 → 控件"回读函数（refresh 时逐行调用，组件页）
     std::vector<std::function<void()>> m_readbacks;
+    /// 系统页字段的回读函数（与组件页分开清理，重建系统页不误杀组件页回读）
+    std::vector<std::function<void()>> m_systemReadbacks;
+
+    /// 组件在表单中的行区间（P34 搜索过滤：按区间整块显隐）
+    struct SectionRange { int startRow; int endRow; QString searchKey; };
+    std::vector<SectionRange> m_sections;
+    QLineEdit* m_searchEdit = nullptr;   ///< 组件/字段搜索框（组件页顶部）
+    bool m_dropActive = false;           ///< 文件拖拽悬停高亮状态
 
     int m_componentCount = 0;  ///< 本次构建渲染的组件数
     int m_fieldCount = 0;      ///< 本次构建渲染的字段数
     bool m_playMode = false;   ///< 播放态编辑锁（setPlayMode 写入，setGameObject 重建时重新应用）
     void applyEditLock();      ///< 按 m_playMode 统一禁用/启用表单控件
 
-    // ── 场景系统面板 ──
-    void buildSceneSystemPanel();  ///< 在 clear() 未选中态时构建场景系统面板
-    void rebuildSystemPanel();     ///< refresh 时按签名重建系统面板
+    // ── 场景系统页 ──
+    void buildSceneSystemPanel();  ///< 构建场景系统面板（挂载到系统页 m_systemPageLayout）
+    void rebuildSystemPanel();     ///< 场景替换 / 签名变化时重建系统页内容
     void showAddSystemMenu();      ///< 弹出添加系统菜单
     void addSystemToScene(const Shit::TypeInfo *type);  ///< 向场景添加系统
     void removeSystemFromScene(const std::string &typeName);  ///< 从场景移除系统

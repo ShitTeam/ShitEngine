@@ -11,6 +11,7 @@
 #include <QDropEvent>
 #include <QFileInfo>
 #include <QHBoxLayout>
+#include <QKeyEvent>
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QPainter>
@@ -78,6 +79,7 @@ Viewport::Viewport(QWidget *parent)
     setObjectName("viewport");
     setMinimumSize(320, 240);
     setAcceptDrops(true);   // 接受资源面板拖入的图片文件
+    setFocusPolicy(Qt::ClickFocus);   // 点击获得焦点 → F 键聚焦等按键交互可用
     setupGizmoBar();        // 左上角 Gizmo 工具条（Unity 风格，内联于场景视口）
 }
 
@@ -723,7 +725,18 @@ if (event->button() == Qt::LeftButton && m_editEnabled && m_selected && !m_frame
 
 void Viewport::mouseMoveEvent(QMouseEvent *event)
 {
-    if (m_drag == DragMode::None || m_frame.isNull() || m_drawRect.isEmpty()) {
+    // 状态栏常驻信息：无拖拽也上报鼠标世界坐标（编辑相机满视口，局部坐标即全局逻辑坐标）
+    if (m_frame.isNull() || m_drawRect.isEmpty()) {
+        QWidget::mouseMoveEvent(event);
+        return;
+    }
+    if (m_drag == DragMode::None) {
+        if (auto *camera = editorCamera()) {
+            const QPointF logical = widgetToLogical(event->pos());
+            const Shit::Vector2 world =
+                camera->screenToWorld({ float(logical.x()), float(logical.y()) });
+            emit mouseWorldMoved(world.x, world.y);
+        }
         QWidget::mouseMoveEvent(event);
         return;
     }
@@ -874,13 +887,62 @@ void Viewport::mouseReleaseEvent(QMouseEvent *event)
 void Viewport::wheelEvent(QWheelEvent *event)
 {
     if (auto *camera = editorCamera()) {
-        const float factor = (event->angleDelta().y() > 0) ? 1.1f : (1.0f / 1.1f);
-        camera->setZoom(std::clamp(camera->getZoom() * factor, 0.1f, 10.0f));
-        update();
+        auto *camTransform = camera->getOwner()->getComponent<Shit::TransformComponent>();
+        if (camTransform) {
+            // 鼠标锚定缩放（Unity/Godot 同款）：缩放前后保持鼠标下的世界点不动，
+            // 修正缩放差为相机平移——此前以相机中心缩放，光标处的物体会"漂走"
+            const QPointF logical = widgetToLogical(event->position().toPoint());
+            const Shit::Vector2 before =
+                camera->screenToWorld({ float(logical.x()), float(logical.y()) });
+            const float factor = (event->angleDelta().y() > 0) ? 1.1f : (1.0f / 1.1f);
+            camera->setZoom(std::clamp(camera->getZoom() * factor, 0.1f, 10.0f));
+            const Shit::Vector2 after =
+                camera->screenToWorld({ float(logical.x()), float(logical.y()) });
+            const Shit::Vector2 pos = camTransform->getPosition();
+            camTransform->setPosition({ pos.x + before.x - after.x,
+                                        pos.y + before.y - after.y });
+            update();
+            event->accept();
+            return;
+        }
+    }
+    QWidget::wheelEvent(event);
+}
+
+void Viewport::keyPressEvent(QKeyEvent *event)
+{
+    if (event->key() == Qt::Key_F && !event->modifiers().testFlag(Qt::ControlModifier)) {
+        frameSelected();   // F 键聚焦选中对象（Unity 帧化）
         event->accept();
         return;
     }
-    QWidget::wheelEvent(event);
+    QWidget::keyPressEvent(event);
+}
+
+void Viewport::frameSelected()
+{
+    auto *camera = editorCamera();
+    auto *transform = m_selected ? m_selected->getComponent<Shit::TransformComponent>() : nullptr;
+    if (!camera || !transform) return;
+    auto *camTransform = camera->getOwner()->getComponent<Shit::TransformComponent>();
+    if (!camTransform) return;
+
+    // 对象包围盒（精灵取世界包围盒；无几何对象以位置为心给默认半视野）
+    float halfW = 160.0f, halfH = 90.0f;
+    if (auto *sprite = m_selected->getComponent<Shit::SpriteRenderer>()) {
+        const SDL_FRect bounds = sprite->getGlobalBounds();
+        halfW = std::max(bounds.w * 0.5f, 8.0f);
+        halfH = std::max(bounds.h * 0.5f, 8.0f);
+    }
+
+    // 相机中心对准对象；zoom 让包围盒（含 2 倍边距）恰好装进相机世界视野
+    const Shit::Vector2 pos = transform->getPosition();
+    camTransform->setPosition({ pos.x, pos.y });
+    const Shit::Vector2 worldSize = camera->getSize();
+    const float zx = worldSize.x / (halfW * 4.0f);
+    const float zy = worldSize.y / (halfH * 4.0f);
+    camera->setZoom(std::clamp(std::min(zx, zy), 0.1f, 10.0f));
+    update();
 }
 
 void Viewport::dragEnterEvent(QDragEnterEvent *event)

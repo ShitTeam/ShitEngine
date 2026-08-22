@@ -17,6 +17,10 @@ set(PROJECT_SOURCES
         mainwindow.cpp
         mainwindow.h
         mainwindow.ui
+        assetpaths.cpp
+        assetpaths.h
+        pathfieldwidget.cpp
+        pathfieldwidget.h
         viewport.cpp
         viewport.h
         scenetree.cpp

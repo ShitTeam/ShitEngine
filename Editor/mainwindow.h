@@ -22,6 +22,8 @@ class QCloseEvent;
 class QMenu;
 class QActionGroup;
 class QDockWidget;
+class QTabWidget;
+class QLabel;
 class Viewport;
 class SceneTree;
 class Inspector;
@@ -68,6 +70,8 @@ private slots:
     void redo();                         ///< 重做（Ctrl+Shift+Z）
     void copySelectedObject();           ///< 复制选中对象到内部剪贴板（Ctrl+C；文本控件获焦时不劫持）
     void pasteObject();                  ///< 粘贴剪贴板对象为选中对象兄弟（Ctrl+V）
+    void duplicateObject();              ///< 原地复制选中对象（Ctrl+D；复用内部剪贴板粘贴路径）
+    void updateStatusInfo();             ///< 刷新状态栏常驻信息（选中对象 + 鼠标世界坐标）
     void about();
     void resetDockLayout();              ///< 恢复出厂默认 Dock 布局
     void saveLayoutAsDefault();          ///< 把当前 Dock 布局存为默认
@@ -172,9 +176,13 @@ private:
     ScriptBuilder *m_scriptBuilder = nullptr;   ///< 脚本工程 cmake 编译管线
 
     QAction *m_playAction = nullptr;   ///< ▶ 运行 / ■ 停止（createToolbar 创建；须默认初始化——createMenus 的 updateUndoActions 会先读 isPlaying()）
-    QAction *m_pauseAction = nullptr;  ///< ⏸ 暂停/继续（仅运行态启用）
+    QAction *m_pauseAction = nullptr;  ///< ⏸ 暂停/继续（仅运行态启用；Ctrl+P 同效）
     QAction *m_undoAction = nullptr;
     QAction *m_redoAction = nullptr;
+    QTabWidget *m_viewTabs = nullptr;  ///< 中央「场景视口/运行视口」标签页（播放自动切页）
+    QLabel *m_statusInfo = nullptr;    ///< 状态栏常驻信息（选中对象 + 鼠标世界坐标）
+    float m_mouseWorldX = 0.0f;        ///< 场景视口鼠标世界坐标（mouseWorldMoved 信号更新）
+    float m_mouseWorldY = 0.0f;
     std::vector<QAction *> m_gizmoShortcutActions;   ///< Gizmo 三模式窗口快捷键（Q/W/E，不可见；运行态禁用防抢游戏键）
     QMenu *m_recentMenu = nullptr;
     AssetsDock *m_assets = nullptr;

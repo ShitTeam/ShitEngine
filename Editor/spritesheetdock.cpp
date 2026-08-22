@@ -1,5 +1,7 @@
 #include "spritesheetdock.h"
 
+#include "assetpaths.h"
+
 #include <nlohmann/json.hpp>
 
 #include <QApplication>
@@ -46,11 +48,8 @@ void SpriteSheetDock::setProjectRoot(const QString &root)
 
 QString SpriteSheetDock::resolveTexturePath(const QString &rel) const
 {
-    if (rel.isEmpty()) return QString();
-    if (QFileInfo(rel).isAbsolute() && QFileInfo(rel).exists())
-        return rel;
-    const QString candidate = m_projectRoot + "/" + rel;
-    return QFileInfo(candidate).exists() ? candidate : rel;
+    // 委托统一路径服务（项目根由全局注入，与各 Dock 一致）
+    return AssetPaths::toAbsolute(rel);
 }
 
 void SpriteSheetDock::openSpriteFile(const QString &path)

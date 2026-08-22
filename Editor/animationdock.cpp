@@ -1,4 +1,5 @@
 #include "animationdock.h"
+#include "assetpaths.h"
 #include "dopesheetwidget.h"
 #include "spritesheetdock.h"   // kSpriteFrameMime
 
@@ -29,26 +30,12 @@
 
 namespace {
 
-/// 解析资产路径：绝对路径直接用；相对路径优先按项目根解析，
-/// 无项目时回退 exe 目录（resource/assets/Assets）
+/// 解析资产路径（委托统一路径服务：项目根 → exe 目录 → 常见资源根；全局项目根
+/// 由 MainWindow 注入。参数 projectRoot 仅为兼容旧调用签名保留，不再参与解析）
 QString resolveAssetPath(const QString &path, const QString &projectRoot)
 {
-    if (path.isEmpty()) return QString();
-    QFileInfo direct(path);
-    if (direct.isAbsolute() || direct.exists())
-        return direct.absoluteFilePath();
-    if (!projectRoot.isEmpty()) {
-        const QString candidate = projectRoot + "/" + path;
-        if (QFileInfo(candidate).isFile()) return candidate;
-    }
-    const QString appDir = QCoreApplication::applicationDirPath();
-    QString candidate = appDir + "/" + path;
-    if (QFileInfo(candidate).isFile()) return candidate;
-    for (const QString &root : { "resource", "assets", "Assets" }) {
-        candidate = appDir + "/" + root + "/" + path;
-        if (QFileInfo(candidate).isFile()) return candidate;
-    }
-    return path;
+    Q_UNUSED(projectRoot);
+    return AssetPaths::toAbsolute(path);
 }
 
 } // namespace

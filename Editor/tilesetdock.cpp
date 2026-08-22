@@ -1,5 +1,7 @@
 #include "tilesetdock.h"
 
+#include "assetpaths.h"
+
 #include <QCoreApplication>
 #include <QFileInfo>
 #include <QGridLayout>
@@ -17,30 +19,11 @@
 
 namespace {
 
-/// 尝试把相对路径解析为可读的绝对路径。
-/// 候选基准：路径原样（cwd 相对）→ exe 目录 → exe 目录下常见资源目录。
+/// 把相对路径解析为可读的绝对路径（委托统一路径服务：项目根 → exe 目录
+/// → 常见资源根——此前仅认 exe 目录，现随全局服务获得项目根感知）
 QString resolveTexturePath(const QString &path)
 {
-    if (path.isEmpty()) return QString();
-
-    // 已是绝对路径或可从 cwd 直接读
-    QFileInfo direct(path);
-    if (direct.isAbsolute() || direct.exists())
-        return direct.absoluteFilePath();
-
-    // 相对 exe 目录
-    const QString appDir = QCoreApplication::applicationDirPath();
-    QString candidate = appDir + "/" + path;
-    if (QFileInfo(candidate).isFile())
-        return candidate;
-
-    // 常见资源根：exe 同级的 resource/、assets/、Assets/
-    for (const QString &root : { "resource", "assets", "Assets" }) {
-        candidate = appDir + "/" + root + "/" + path;
-        if (QFileInfo(candidate).isFile())
-            return candidate;
-    }
-    return path; // 找不到就按原样（引擎可能自己能找到）
+    return AssetPaths::toAbsolute(path);
 }
 
 } // namespace

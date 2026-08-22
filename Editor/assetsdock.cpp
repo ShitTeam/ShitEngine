@@ -5,6 +5,7 @@
 #include <nlohmann/json.hpp>
 
 #include <QAction>
+#include <QColor>
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
@@ -12,6 +13,7 @@
 #include <QFileIconProvider>
 #include <QFileInfo>
 #include <QFileSystemModel>
+#include <QFont>
 #include <QHash>
 #include <QImage>
 #include <QInputDialog>
@@ -19,6 +21,7 @@
 #include <QListView>
 #include <QMenu>
 #include <QMessageBox>
+#include <QPainter>
 #include <QPixmap>
 #include <QSettings>
 #include <QSortFilterProxyModel>
@@ -61,6 +64,51 @@ bool dirAcceptable(const QString &name)
     return !isInfraDir(name);
 }
 
+/// 手绘引擎文件类型图标：彩色圆角块 + 类型符号（OS 对 .scene/.anim 等私有后缀
+/// 无关联程序，默认全是同一个白板文件图标）。按缓存键生成一次，多档尺寸供树/网格共用
+QIcon typeIcon(const QString &cacheKey, const QColor &color, const QString &glyph)
+{
+    static QHash<QString, QIcon> cache;
+    auto it = cache.find(cacheKey);
+    if (it != cache.end()) return it.value();
+
+    QIcon icon;
+    for (int size : {16, 32, 56}) {   // 树默认小图标 / 高分屏 / 网格 iconSize(56)
+        QPixmap pm(size, size);
+        pm.fill(Qt::transparent);
+        QPainter p(&pm);
+        p.setRenderHint(QPainter::Antialiasing);
+        const qreal pad = size * 0.08;
+        QRectF r(pad, pad, size - 2 * pad, size - 2 * pad);
+        p.setPen(Qt::NoPen);
+        p.setBrush(color);
+        p.drawRoundedRect(r, size * 0.18, size * 0.18);
+        QFont f = p.font();
+        f.setPixelSize(size * 0.42);
+        f.setBold(true);
+        p.setFont(f);
+        p.setPen(Qt::white);
+        p.drawText(r, Qt::AlignCenter, glyph);
+        p.end();
+        icon.addPixmap(pm);
+    }
+    cache.insert(cacheKey, icon);
+    return icon;
+}
+
+/// 引擎文件类型的专属图标（图片走缩略图路径，不在此列；未命中返回空 QIcon）
+QIcon iconForSuffix(const QString &suffix)
+{
+    if (suffix == "scene")  return typeIcon("scene",  QColor(52, 120, 198), "SC");  // 场景：蓝
+    if (suffix == "anim")   return typeIcon("anim",   QColor(230, 145, 56), "▶");   // 动画剪辑：橙
+    if (suffix == "prefab") return typeIcon("prefab", QColor(64, 165, 175), "PB");  // 预置体：青
+    if (suffix == "sprite") return typeIcon("sprite", QColor(150, 110, 200), "SP"); // 精灵表：紫
+    if (suffix == "wav")    return typeIcon("wav",    QColor(90, 170, 90), "♪");    // 音频：绿
+    if (suffix == "ttf" || suffix == "otf")
+                            return typeIcon("font",   QColor(90, 100, 115), "A");   // 字体：灰蓝
+    return {};
+}
+
 /// 文件系统模型：图片文件返回缩略图（按 56×56 缩放并缓存），其余回落 OS 图标
 class ThumbFileSystemModel : public QFileSystemModel
 {
@@ -73,6 +121,11 @@ public:
             const QString path = filePath(index);
             if (isImageAsset(path))
                 return thumbFor(path);
+            // 引擎私有类型（scene/anim/prefab/sprite/wav/ttf）→ 手绘类型图标，
+            // 其余回落基类 OS 图标；树和网格共享本模型，一处生效双视图
+            if (const QIcon icon = iconForSuffix(QFileInfo(path).suffix().toLower());
+                !icon.isNull())
+                return icon;
         }
         return QFileSystemModel::data(index, role);
     }

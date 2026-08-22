@@ -1,5 +1,6 @@
 #include "animatordock.h"
 #include "animatorgraphview.h"
+#include "assetpaths.h"
 
 #include <ShitEngine/Animation/Animator.h>
 #include <ShitEngine/GameObject/GameObject.h>
@@ -240,21 +241,14 @@ void AnimatorDock::setProjectRoot(const QString &root)
 
 QString AnimatorDock::toRelativePath(const QString &abs) const
 {
-    if (abs.isEmpty() || m_projectRoot.isEmpty()) return abs;
-    QFileInfo fileInfo(abs);
-    if (!fileInfo.isAbsolute()) return abs;
-    const QString rel = QDir(m_projectRoot).relativeFilePath(abs);
-    // 相对路径不允许以 ".." 开头（越出项目根则保留绝对路径）
-    if (rel.startsWith(QStringLiteral("../")) || rel == QStringLiteral("..")) return abs;
-    return rel;
+    // 委托统一路径服务（无项目/逃逸项目根自动回退绝对路径）
+    return AssetPaths::toRelative(abs);
 }
 
 QString AnimatorDock::toAbsolutePath(const QString &rel) const
 {
-    if (rel.isEmpty() || m_projectRoot.isEmpty()) return rel;
-    QFileInfo info(rel);
-    if (info.isAbsolute()) return rel;
-    return m_projectRoot + "/" + rel;
+    // 委托统一路径服务（项目根 → exe 目录 → 常见资源根）
+    return AssetPaths::toAbsolute(rel);
 }
 
 bool AnimatorDock::loadClipFromFile(const QString &path, Shit::AnimationClip &out)

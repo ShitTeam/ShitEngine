@@ -5,6 +5,7 @@
 
 #include "dnd.h"
 
+#include <QColor>
 #include <QDataStream>
 #include <QIODevice>
 #include <QMimeData>
@@ -66,6 +67,9 @@ QVariant SceneTreeModel::data(const QModelIndex &index, int role) const
     if (!obj) return {};
     if (role == Qt::DisplayRole || role == Qt::EditRole)
         return QString::fromStdString(obj->getName());
+    // 失活对象灰显（Unity 同款，一眼可辨；isActiveInHierarchy 含父链级联状态）
+    if (role == Qt::ForegroundRole && !obj->isActiveInHierarchy())
+        return QColor(120, 120, 120);
     return {};
 }
 
