@@ -102,7 +102,8 @@ namespace Shit {
 		void init();
 		void clear();
 
-		/// 懒注册：Res 的缓存首次访问时创建（注册表容器操作走 cpp 辅助函数）
+		/// 懒注册：Res 的缓存首次访问时创建（Load/Find/Unload/Clear 均经此——仅查询
+		/// 也会留下空缓存条目，无害：清理时空缓存自动跳过、uuid 遍历为空集）
 		template <typename Res>
 		TypedResourceCache<Res>& cacheFor() {
 			const std::type_index id(typeid(Res));
@@ -203,9 +204,11 @@ namespace Shit {
 		}
 
 	private:
-		// 日志键显示：字符串键原样，复合键取路径部分
+		// 日志键显示：字符串键原样；复合键带区分维度（字体字号），便于排查
 		static const std::string& logKey(const std::string& k) { return k; }
-		static const std::string& logKey(const FontKey& k) { return k.path; }
+		static std::string logKey(const FontKey& k) {
+			return k.path + " (" + std::to_string(k.size) + ")";
+		}
 
 		ResourceManager& m_owner;
 		std::unordered_map<KeyType, std::unique_ptr<Res>, HashType> m_cache;

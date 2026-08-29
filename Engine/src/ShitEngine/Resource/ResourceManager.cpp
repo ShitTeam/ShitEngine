@@ -1,4 +1,4 @@
-#include "ShitEngine/Core/pch.h"
+﻿#include "ShitEngine/Core/pch.h"
 #include "ShitEngine/Core/EngineContext.h"
 #include "ShitEngine/Resource/ResourceManager.h"
 #include "ShitEngine/Core/Log.h"

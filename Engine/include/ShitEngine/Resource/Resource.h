@@ -128,6 +128,11 @@ namespace Shit {
 	 *
 	 * 引擎/插件侧新增的资源类型缓存都以此基类指针进入管理器的类型注册表，
 	 * GetResourceByUuid / 全量清理 / 日志计数只依赖本接口（无跨 DLL 模板问题）。
+	 *
+	 * 注意：插件侧实例化的 TypedResourceCache<T> 其虚函数实现在插件 DLL 内——
+	 * 插件热卸载前必须先 ResourceManager::Clear<T>() 清掉该类型缓存，否则引擎
+	 * 关停遍历注册表会调进已卸载模块（将来做插件资源需补 System::
+	 * unregisterSystemsBySource 同款按来源注销机制；引擎内置三类型不受影响）。
 	 */
 	class SHIT_API TypedCacheBase {
 	public:
