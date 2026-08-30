@@ -2,6 +2,7 @@
 
 #include "../Core/Core.h"
 #include "../Math.h"
+#include "../Animation/AnimationClip.h"   // AnimFrame
 #include <string>
 #include <vector>
 
@@ -9,7 +10,7 @@ namespace Shit{
     /**
      * @brief 逐帧动画数据
      *
-     * 存储一组帧矩形（Rect）及每帧持续时间。
+     * 存储一组帧（AnimFrame：纹理路径 + 源矩形）及每帧持续时间。
      * getFrame(elapsedTime) 根据当前播放时间返回对应帧。
      * 通常由 AnimationComponent 自动管理，不直接使用。
      */
@@ -18,15 +19,16 @@ namespace Shit{
         Animation(float duration = 0.1f, bool loop = true);
         ~Animation();
 
-        void addFrame(const Rect& frame);      ///< 添加单帧
-        void addFrames(const std::vector<Rect>& frames); ///< 批量添加帧
+        void addFrame(const AnimFrame& frame);      ///< 添加单帧（带纹理路径）
+        void addFrame(const Rect& rect);            ///< 兼容：空路径（沿用当前纹理，动态 play API 用）
+        void addFrames(const std::vector<Rect>& frames); ///< 批量添加（空路径，兼容）
 
         /// 设置每帧独立时长（秒）。传入空 → 回退到统一 duration；传入长度须等于帧数。
         void setFrameDurations(const std::vector<float>& durations) { m_frameDurations = durations; }
         /// 清除每帧独立时长，回退到统一 duration
         void clearFrameDurations() { m_frameDurations.clear(); }
 
-        Rect getFrame(float elapsedTime) const; ///< 根据已播放时间返回当前帧的源矩形
+        AnimFrame getFrame(float elapsedTime) const; ///< 根据已播放时间返回当前帧（纹理+矩形）
 
         // --- getter & setter ---
         void setLoop(bool loop) { m_loop = loop; }
@@ -41,7 +43,7 @@ namespace Shit{
         int getFrameCount() const { return static_cast<int>(m_frames.size()); }
 
     private:
-        std::vector<Rect> m_frames;
+        std::vector<AnimFrame> m_frames;
         std::vector<float> m_frameDurations;   ///< 每帧独立时长（可选；空=统一 m_duration）
         float m_duration;
         bool m_loop = true;

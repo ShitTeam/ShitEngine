@@ -160,12 +160,16 @@ namespace Shit {
         if (m_currentAnimation->getFrameCount() == 0) return;
 
         // duration <= 0 时 getFrame 会安全返回首帧
-        Rect frame = m_currentAnimation->getFrame(m_currentTime);
+        AnimFrame frame = m_currentAnimation->getFrame(m_currentTime);
 
         auto* owner = getOwner();
         if (!owner) return;
         auto* sprite = owner->getComponent<SpriteRenderer>();
-        if (sprite) sprite->setSourceRect(frame);
+        if (sprite) {
+            if (!frame.texturePath.empty())
+                sprite->setTexturePath(frame.texturePath);
+            sprite->setSourceRect(frame.rect);
+        }
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -196,15 +200,14 @@ namespace Shit {
 
     void AnimationComponent::rebuildFromClips() {
         // 以剪辑重建运行时动画（覆盖同名），不动 m_animations 里由 play() 动态添加的其它项
-        for (const auto& clip : m_clips) {
-            if (clip.frames.empty()) continue;
-            SpriteSheet sheet(clip.rows, clip.cols, clip.frameWidth, clip.frameHeight,
-                              clip.margin, clip.spacing);
+        for (auto& clip : m_clips) {
+            clip.expandFramesToSprites();  // 补全 frameSprites（代码直接设 frames 时，幂等）
+            if (clip.frameSprites.empty()) continue;
             auto anim = std::make_unique<Animation>(clip.duration, clip.loop);
-            for (int idx : clip.frames)
-                anim->addFrame(sheet.getFrameRect(idx));
+            for (const auto& f : clip.frameSprites)
+                anim->addFrame(f);
             // 逐帧独立时长（P29 Dope Sheet）：长度匹配时传给运行时
-            if (clip.frameDurations.size() == clip.frames.size())
+            if (clip.frameDurations.size() == clip.frameSprites.size())
                 anim->setFrameDurations(clip.frameDurations);
             m_animations[clip.name] = std::move(anim);
         }

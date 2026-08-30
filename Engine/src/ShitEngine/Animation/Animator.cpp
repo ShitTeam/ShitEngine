@@ -409,25 +409,26 @@ namespace Shit {
     // ═══════════════════════════════════════════════════════════
 
     void Animator::enterState(int index) {
-        const AnimatorState* s = stateAt(index);
-        if (!s) return;
+        if (index < 0 || index >= static_cast<int>(m_states.size())) return;
+        AnimatorState& s = m_states[static_cast<size_t>(index)];
         m_currentState = index;
         m_animTime = 0.0f;
         m_isPlaying = true;
-        m_currentStateDisplay = s->name;
+        m_currentStateDisplay = s.name;
         m_playingDisplay = true;
 
-        const AnimationClip& clip = s->clip;
-        if (clip.frames.empty()) {
+        // 确保帧数据展开（代码直接构造 clip 设 frames 时补全 frameSprites，幂等）
+        AnimationClip& clip = s.clip;
+        clip.expandFramesToSprites();
+        if (clip.frameSprites.empty()) {
             m_currentAnimation.reset();
             return;
         }
-        SpriteSheet sheet(clip.rows, clip.cols, clip.frameWidth, clip.frameHeight, clip.margin, clip.spacing);
         auto anim = std::make_unique<Animation>(clip.duration, clip.loop);
-        for (int idx : clip.frames)
-            anim->addFrame(sheet.getFrameRect(idx));
+        for (const auto& f : clip.frameSprites)
+            anim->addFrame(f);
         // 逐帧独立时长（P29 Dope Sheet）：长度匹配时传给运行时
-        if (clip.frameDurations.size() == clip.frames.size())
+        if (clip.frameDurations.size() == clip.frameSprites.size())
             anim->setFrameDurations(clip.frameDurations);
         m_currentAnimation = std::move(anim);
         applyCurrentFrame();
@@ -498,10 +499,13 @@ namespace Shit {
 
     void Animator::applyCurrentFrame() {
         if (!m_currentAnimation || m_currentAnimation->getFrameCount() == 0) return;
-        Rect frame = m_currentAnimation->getFrame(m_animTime);
+        AnimFrame frame = m_currentAnimation->getFrame(m_animTime);
         auto* owner = getOwner();
         if (!owner) return;
-        if (auto* sprite = owner->getComponent<SpriteRenderer>())
-            sprite->setSourceRect(frame);
+        if (auto* sprite = owner->getComponent<SpriteRenderer>()) {
+            if (!frame.texturePath.empty())
+                sprite->setTexturePath(frame.texturePath);
+            sprite->setSourceRect(frame.rect);
+        }
     }
 }

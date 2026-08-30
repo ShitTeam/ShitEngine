@@ -7,14 +7,18 @@ namespace Shit {
     Animation::Animation(float duration, bool loop) : m_duration(duration), m_loop(loop) { }
     Animation::~Animation() = default;
 
-    void Animation::addFrame(const Rect& frame) {
+    void Animation::addFrame(const AnimFrame& frame) {
         m_frames.push_back(frame);
+    }
+
+    void Animation::addFrame(const Rect& rect) {
+        m_frames.push_back(AnimFrame{ std::string{}, rect });
     }
 
     void Animation::addFrames(const std::vector<Rect>& frames)
     {
         for (const auto& frame : frames) {
-            m_frames.push_back(frame);
+            m_frames.push_back(AnimFrame{ std::string{}, frame });
         }
     }
 
@@ -34,9 +38,9 @@ namespace Shit {
         return static_cast<float>(m_frames.size()) * m_duration;
     }
 
-    Rect Animation::getFrame(float elapsedTime) const
+    AnimFrame Animation::getFrame(float elapsedTime) const
     {
-        if (m_frames.empty()) return Rect{};
+        if (m_frames.empty()) return AnimFrame{};
 
         const int frameCount = static_cast<int>(m_frames.size());
         const bool perFrame = (m_frameDurations.size() == static_cast<size_t>(frameCount));

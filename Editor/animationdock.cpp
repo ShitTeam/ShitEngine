@@ -300,6 +300,7 @@ void AnimationDock::onFrameRemoved(int blockIndex)
     if (!m_clipValid) return;
     if (blockIndex < 0 || blockIndex >= static_cast<int>(m_clip.frames.size())) return;
     m_clip.frames.erase(m_clip.frames.begin() + blockIndex);
+    m_clip.frameSprites.clear();   // frames 已改：清运行时真值，避免保存时写残留
     // 逐帧时长数组与帧序列同步删除（长度一致时逐帧生效）
     if (m_clip.frameDurations.size() > static_cast<size_t>(blockIndex) &&
         m_clip.frameDurations.size() == m_clip.frames.size() + 1) {
@@ -376,6 +377,7 @@ void AnimationDock::addSpriteFrames(const QString &texturePath, int rows, int co
     // 追加帧到序列
     for (int fid : frameIds)
         m_clip.frames.push_back(fid);
+    m_clip.frameSprites.clear();   // frames 已改：清运行时真值，保存时由 toJson 写 frames（避免残留）
 
     reloadSheetImage();
     notifyClipChanged();
