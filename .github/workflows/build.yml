@@ -33,10 +33,22 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build cmake g++ llvm-dev libclang-dev
+          # X11/Wayland/音频开发库必须安装：BUILD_TOOLS=ON 触发完整引擎配置，
+          # FetchContent 配置 SDL3 时在 Linux 上强制要求 X11 或 Wayland（同 build-linux job）
+          sudo apt-get install -y ninja-build cmake g++ llvm-dev libclang-dev \
+            libgl1-mesa-dev \
+            libx11-dev libxext-dev libxrandr-dev libxinerama-dev \
+            libxcursor-dev libxi-dev libxss-dev libxtst-dev \
+            libasound2-dev libpulse-dev libpipewire-0.3-dev \
+            libwayland-dev
 
       - name: Configure (BUILD_TOOLS=ON)
-        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TOOLS=ON
+        run: >
+          cmake -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DBUILD_TOOLS=ON
+          -DBUILD_EDITOR=OFF
+          -DBUILD_RUNTIME=OFF
 
       - name: Regenerate reflection code
         run: cmake --build build --target reflect
