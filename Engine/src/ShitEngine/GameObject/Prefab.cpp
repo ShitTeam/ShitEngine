@@ -23,6 +23,15 @@ bool isReadOnly(const FieldInfo& field) {
     return false;
 }
 
+/// @brief 字段是否标记「只读但仍序列化」（序列化载体：Tilemap::m_gridData 等）。
+/// readOnly 的语义是"编辑器显示"，不应决定是否落盘——载体字段两者都要。
+bool isSerializeAlways(const FieldInfo& field) {
+    for (const auto& meta : field.meta) {
+        if (meta.serializeAlways) return true;
+    }
+    return false;
+}
+
 /// @brief 去掉类型名的命名空间前缀
 /// 引擎头文件在 namespace Shit 内声明（如 "Vector2"）；插件全局类引用时写成
 /// "Shit::Vector2"。序列化按裸类型名分派，故先归一化。
@@ -88,20 +97,29 @@ bool fieldFromJson(const FieldInfo& field, void* obj, const json& j) {
         std::memcpy(p, &uuid, sizeof(uuid));
         return true;
     }
-    if (t == "float")            { *static_cast<float*>(p) = j.get<float>(); return true; }
+    // 逐分支类型守卫：类型不符返回 false（跳过该字段）而非抛 nlohmann 异常——
+    // 异常会穿透 Prefab::fromJson（.scene 头注释承诺"仅跳过对应对象，不抛异常"），
+    // 导致编辑器槽 std::terminate / 场景加载整体中止
+    if (t == "float")            { if (!j.is_number()) return false; *static_cast<float*>(p) = j.get<float>(); return true; }
     // 与 fieldToJson 对称：int 分支校验 size（防 libclang 模板字段退化 "int" 的 4 字节误写）
-    if (t == "int" && field.size == sizeof(int)) { *static_cast<int*>(p) = j.get<int>(); return true; }
-    if (t == "unsigned int")     { *static_cast<unsigned int*>(p) = j.get<unsigned int>(); return true; }
-    if (t == "long")             { *static_cast<long*>(p) = j.get<long>(); return true; }
-    if (t == "unsigned long")    { *static_cast<unsigned long*>(p) = j.get<unsigned long>(); return true; }
-    if (t == "long long")        { *static_cast<long long*>(p) = j.get<long long>(); return true; }
-    if (t == "unsigned long long") { *static_cast<unsigned long long*>(p) = j.get<unsigned long long>(); return true; }
-    if (t == "double")           { *static_cast<double*>(p) = j.get<double>(); return true; }
-    if (t == "size_t")           { *static_cast<size_t*>(p) = j.get<size_t>(); return true; }
-    if (t == "bool")             { *static_cast<bool*>(p) = j.get<bool>(); return true; }
-    if (t == "std::string")      { *static_cast<std::string*>(p) = j.get<std::string>(); return true; }
-    if (t == "Vector2")          { *static_cast<Vector2*>(p) = Vector2{ j[0].get<float>(), j[1].get<float>() }; return true; }
+    if (t == "int" && field.size == sizeof(int)) { if (!j.is_number_integer()) return false; *static_cast<int*>(p) = j.get<int>(); return true; }
+    if (t == "unsigned int")     { if (!j.is_number_unsigned()) return false; *static_cast<unsigned int*>(p) = j.get<unsigned int>(); return true; }
+    if (t == "long")             { if (!j.is_number_integer()) return false; *static_cast<long*>(p) = j.get<long>(); return true; }
+    if (t == "unsigned long")    { if (!j.is_number_unsigned()) return false; *static_cast<unsigned long*>(p) = j.get<unsigned long>(); return true; }
+    if (t == "long long")        { if (!j.is_number_integer()) return false; *static_cast<long long*>(p) = j.get<long long>(); return true; }
+    if (t == "unsigned long long") { if (!j.is_number_unsigned()) return false; *static_cast<unsigned long long*>(p) = j.get<unsigned long long>(); return true; }
+    if (t == "double")           { if (!j.is_number()) return false; *static_cast<double*>(p) = j.get<double>(); return true; }
+    if (t == "size_t")           { if (!j.is_number_unsigned()) return false; *static_cast<size_t*>(p) = j.get<size_t>(); return true; }
+    if (t == "bool")             { if (!j.is_boolean()) return false; *static_cast<bool*>(p) = j.get<bool>(); return true; }
+    if (t == "std::string")      { if (!j.is_string()) return false; *static_cast<std::string*>(p) = j.get<std::string>(); return true; }
+    if (t == "Vector2")          {
+        if (!j.is_array() || j.size() < 2 || !j[0].is_number() || !j[1].is_number()) return false;
+        *static_cast<Vector2*>(p) = Vector2{ j[0].get<float>(), j[1].get<float>() };
+        return true;
+    }
     if (t == "Color") {
+        if (!j.is_array() || j.size() < 4) return false;
+        for (int ci = 0; ci < 4; ++ci) if (!j[ci].is_number()) return false;
         auto& c = *static_cast<Color*>(p);
         c.red = j[0].get<uint8_t>(); c.green = j[1].get<uint8_t>();
         c.blue = j[2].get<uint8_t>(); c.alpha = j[3].get<uint8_t>();
@@ -162,7 +180,10 @@ Prefab Prefab::Capture(GameObject* source) {
         data.fields = json::object();
 
         for (const auto& field : ti->fields) {
-            if (isReadOnly(field)) continue;  // runtime/派生状态不入预制体
+            // readOnly 字段默认不入预制体（runtime/派生状态）；序列化载体字段
+            //（serializeAlways）豁免——否则载体不落盘（Tilemap::m_gridData 曾因
+            // 标 readOnly 导致每次保存丢全部瓦片）
+            if (isReadOnly(field) && !isSerializeAlways(field)) continue;
             json v = fieldToJson(field, comp);
             if (!v.is_null()) {
                 data.fields[field.name] = v;

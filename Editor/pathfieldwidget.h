@@ -3,9 +3,9 @@
 
 #include <QString>
 #include <QStringList>
+#include <QLineEdit>
 #include <QWidget>
 
-class QLineEdit;
 class QToolButton;
 
 /// 路径字段的文件语义（由字段名关键字推导）
@@ -35,6 +35,9 @@ public:
     /// 回显存储值（每帧回读用；不触发提交）
     void setPath(const QString& storedPath);
     QString path() const { return m_stored; }
+    /// 焦点是否在控件内部（含内嵌输入框）——每帧回读守卫用：
+    /// 用户正在手输时不回写，避免抹掉未提交输入
+    bool isEditing() const { return m_edit && m_edit->hasFocus(); }
 
 signals:
     /// 用户通过拖拽/浏览/手输提交了新路径（值为规范化存储形态；清空 = 空串）

@@ -27,6 +27,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <unordered_map>
 
 namespace {
 
@@ -168,6 +169,7 @@ bool AnimationDock::openFile(const QString &path)
         if (r != QMessageBox::Yes) return false;
     }
     m_clip = clip;
+    m_clip.expandFramesToSprites();   // 旧格式 frames → frameSprites（编辑器统一真值）
     m_clipValid = true;
     m_dirty = false;
     m_filePath = path;
@@ -225,7 +227,7 @@ void AnimationDock::onSaveAs() { saveAs(); }
 void AnimationDock::onPlayToggle()
 {
     if (!m_clipValid) { m_playBtn->setChecked(false); return; }
-    if (m_clip.frames.empty()) { m_playBtn->setChecked(false); return; }
+    if (m_clip.frameSprites.empty()) { m_playBtn->setChecked(false); return; }
     m_playing = m_playBtn->isChecked();
     if (m_playing) {
         if (m_playTime <= 0.0f || m_playTime >= totalDuration()) m_playTime = 0.0f;
@@ -245,7 +247,7 @@ void AnimationDock::onLoopToggled(bool on)
 
 void AnimationDock::advancePlayback()
 {
-    if (!m_playing || !m_clipValid || m_clip.frames.empty()) {
+    if (!m_playing || !m_clipValid || m_clip.frameSprites.empty()) {
         m_timeline->setPlayTime(-1.0f);
         return;
     }
@@ -260,13 +262,14 @@ void AnimationDock::advancePlayback()
 
 float AnimationDock::totalDuration() const
 {
-    if (m_clip.frames.empty()) return 0.0f;
-    if (m_clip.frameDurations.size() == m_clip.frames.size()) {
+    // 单一真值：frameSprites（与引擎运行时同源）
+    if (m_clip.frameSprites.empty()) return 0.0f;
+    if (m_clip.frameDurations.size() == m_clip.frameSprites.size()) {
         float t = 0.0f;
         for (float d : m_clip.frameDurations) t += d;
         return t;
     }
-    return static_cast<float>(m_clip.frames.size()) * m_clip.duration;
+    return static_cast<float>(m_clip.frameSprites.size()) * m_clip.duration;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -300,7 +303,8 @@ void AnimationDock::onFrameRemoved(int blockIndex)
     if (!m_clipValid) return;
     if (blockIndex < 0 || blockIndex >= static_cast<int>(m_clip.frames.size())) return;
     m_clip.frames.erase(m_clip.frames.begin() + blockIndex);
-    m_clip.frameSprites.clear();   // frames 已改：清运行时真值，避免保存时写残留
+    if (blockIndex < static_cast<int>(m_clip.frameSprites.size()))
+        m_clip.frameSprites.erase(m_clip.frameSprites.begin() + blockIndex);   // 单一真值同步删除
     // 逐帧时长数组与帧序列同步删除（长度一致时逐帧生效）
     if (m_clip.frameDurations.size() > static_cast<size_t>(blockIndex) &&
         m_clip.frameDurations.size() == m_clip.frames.size() + 1) {
@@ -374,10 +378,17 @@ void AnimationDock::addSpriteFrames(const QString &texturePath, int rows, int co
         m_clip.spacing = spacing;
     }
 
-    // 追加帧到序列
-    for (int fid : frameIds)
-        m_clip.frames.push_back(fid);
-    m_clip.frameSprites.clear();   // frames 已改：清运行时真值，保存时由 toJson 写 frames（避免残留）
+    // 追加帧：统一走 frameSprites（每帧 {纹理路径+源矩形}，支持跨图集）——由当前
+    // 网格参数把帧 id 转成 AnimFrame。不清空 frameSprites（旧实现清空会丢掉已打开
+    // 剪辑的全部帧数据）；frames 同步保留（帧索引记录，与 frameSprites 一一对应）
+    {
+        Shit::SpriteSheet sheet(m_clip.rows, m_clip.cols, m_clip.frameWidth,
+                                m_clip.frameHeight, m_clip.margin, m_clip.spacing);
+        for (int fid : frameIds) {
+            m_clip.frames.push_back(fid);
+            m_clip.frameSprites.push_back(Shit::AnimFrame{ m_clip.texturePath, sheet.getFrameRect(fid) });
+        }
+    }
 
     reloadSheetImage();
     notifyClipChanged();
@@ -411,28 +422,28 @@ void AnimationDock::reloadSheetImage()
 
 void AnimationDock::refreshTimelinePixmaps()
 {
-    // 从精灵表切出当前序列各帧的缩略图灌给时间轴
-    if (m_sheetImage.isNull()) { m_timeline->clearPixmaps(); return; }
-    const int tileW = static_cast<int>(m_clip.frameWidth);
-    const int tileH = static_cast<int>(m_clip.frameHeight);
-    const int margin = static_cast<int>(m_clip.margin);
-    const int spacing = static_cast<int>(m_clip.spacing);
-    if (tileW <= 0 || tileH <= 0) return;
-    // 列数以元数据为准（与精灵表缩略图、引擎 SpriteSheet::getFrameRect 同源），
-    // 缺失时按纹理宽度反推兜底
-    const int tilesPerRow = (m_clip.cols > 0) ? m_clip.cols
-                            : qMax(1, (m_sheetImage.width() - margin + spacing) / (tileW + spacing));
-    if (tilesPerRow <= 0) return;
-    for (int frameId : m_clip.frames) {
-        if (frameId < 0) continue;
-        const int col = frameId % tilesPerRow;
-        const int row = frameId / tilesPerRow;
-        const int sx = margin + col * (tileW + spacing);
-        const int sy = margin + row * (tileH + spacing);
-        if (sx + tileW > m_sheetImage.width() || sy + tileH > m_sheetImage.height()) continue;
-        QImage img = m_sheetImage.copy(sx, sy, tileW, tileH)
+    // 从各帧自己的 (texturePath, 源矩形) 切缩略图灌给时间轴——支持跨图集
+    //（每帧可来自不同纹理）；按路径缓存 QImage 避免同纹理重复解码
+    if (m_clip.frameSprites.empty()) { m_timeline->clearPixmaps(); return; }
+    std::unordered_map<std::string, QImage> texCache;
+    for (size_t i = 0; i < m_clip.frameSprites.size(); ++i) {
+        const Shit::AnimFrame &f = m_clip.frameSprites[i];
+        if (f.texturePath.empty() || f.rect.w <= 0.0f || f.rect.h <= 0.0f) continue;
+        auto it = texCache.find(f.texturePath);
+        if (it == texCache.end()) {
+            const QString texPath = AssetPaths::toAbsolute(QString::fromStdString(f.texturePath));
+            it = texCache.emplace(f.texturePath, texPath.isEmpty() ? QImage() : QImage(texPath)).first;
+        }
+        const QImage &img = it->second;
+        if (img.isNull()) continue;
+        const int sx = static_cast<int>(f.rect.x);
+        const int sy = static_cast<int>(f.rect.y);
+        const int tw = static_cast<int>(f.rect.w);
+        const int th = static_cast<int>(f.rect.h);
+        if (sx < 0 || sy < 0 || sx + tw > img.width() || sy + th > img.height()) continue;
+        QImage cut = img.copy(sx, sy, tw, th)
                          .scaled(56, 56, Qt::KeepAspectRatio, Qt::FastTransformation);
-        m_timeline->setFramePixmap(frameId, QPixmap::fromImage(img));
+        m_timeline->setFramePixmap(static_cast<int>(i), QPixmap::fromImage(cut));
     }
 }
 

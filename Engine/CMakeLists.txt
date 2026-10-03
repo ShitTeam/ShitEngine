@@ -181,7 +181,7 @@ _install_fetch_headers(SDL3_ttf     SDL3_ttf      "include/SDL3_ttf"    "*.h")
 _install_fetch_headers(glm          glm           "glm"                 "*.*")
 _install_fetch_headers(json         nlohmann_json "include/nlohmann"    "*.hpp")
 
-# 库文件（Debug 自动加 -d 后缀）
+# 库文件（所有配置统一 ShitEngine.dll，无 -d 后缀——见上方 set_target_properties 的插件 ABI 说明）
 install(TARGETS ShitEngine
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -195,6 +195,14 @@ install(TARGETS ShitEngine
 #           部分 vendored 库（如 SDL3_mixer 的 wavpack/mpg123）输出到 _deps 子目录
 if(WIN32)
     install(CODE "
+        # 清理目标目录中陈旧的引擎 DLL 变体：旧命名 libShitEngine.dll / ShitEngine-d.dll
+        # 会随历次 install 残留（install 只增不删），SDK 消费者可能静默链到旧引擎
+        file(GLOB _STALE_ENGINE
+             \"\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/ShitEngine*\"
+             \"\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/libShitEngine*\")
+        foreach(_s IN LISTS _STALE_ENGINE)
+            file(REMOVE \"\${_s}\")
+        endforeach()
         file(GLOB _SDK_DLLS \"${CMAKE_BINARY_DIR}/bin/*.dll\")
         foreach(_f IN LISTS _SDK_DLLS)
             file(INSTALL DESTINATION \"\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}\"
@@ -203,6 +211,12 @@ if(WIN32)
     ")
 elseif(APPLE)
     install(CODE "
+        file(GLOB _STALE_ENGINE
+             \"\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/libShitEngine*\"
+             \"\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/ShitEngine*\")
+        foreach(_s IN LISTS _STALE_ENGINE)
+            file(REMOVE \"\${_s}\")
+        endforeach()
         file(GLOB_RECURSE _SDK_LIBS
             \"${CMAKE_BINARY_DIR}/lib/*.dylib\"
             \"${CMAKE_BINARY_DIR}/_deps/*/lib/*.dylib\")
@@ -213,6 +227,12 @@ elseif(APPLE)
     ")
 else()
     install(CODE "
+        file(GLOB _STALE_ENGINE
+             \"\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/libShitEngine*\"
+             \"\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/ShitEngine*\")
+        foreach(_s IN LISTS _STALE_ENGINE)
+            file(REMOVE \"\${_s}\")
+        endforeach()
         file(GLOB_RECURSE _SDK_LIBS
             \"${CMAKE_BINARY_DIR}/lib/*.so*\"
             \"${CMAKE_BINARY_DIR}/_deps/*/lib/*.so*\")

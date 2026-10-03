@@ -35,10 +35,11 @@ if(BUILD_TOOLS)
 elseif(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     # 仅在顶层项目且未启用工具时提醒，FetchContent 消费者不打印
     message(WARNING
-        "BUILD_TOOLS=OFF：反射 .gen.h 不会自动重新生成。\n"
-        "  修改带 SHIT_REFLECT 的头文件后，请手动运行:\n"
-        "    cmake --build . --target run-reflectionscanner\n"
-        "  或配置时加 -DBUILD_TOOLS=ON 启用自动生成。")
+        "BUILD_TOOLS=OFF：反射 .gen.h 不会自动重新生成（使用已提交的生成代码）。\n"
+        "  修改带 SHIT_REFLECT 的头文件后，请重新配置以启用自动生成：\n"
+        "    cmake -B <build> -DBUILD_TOOLS=ON\n"
+        "  配置后构建即自动重扫；也可用 cmake --build . --target run-reflectionscanner\n"
+        "  强制单次重扫（注意：该目标仅在 BUILD_TOOLS=ON 配置下存在）。")
 endif()
 
 # Engine 库（检测 BUILD_TOOLS 决定是否自动运行 ReflectionScanner）

@@ -10,40 +10,24 @@ set(_LIB_DIR "${ShitEngine_LIB_DIR}")
 set(_INC_DIR "${ShitEngine_INCLUDE_DIR}")
 
 # ============================================================
-# Debug/Release 文件名后缀：Debug 版本带 -d 后缀
+# 引擎 DLL 命名：所有配置统一 ShitEngine.dll（无 -d 后缀）
 # ============================================================
-if(CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
-    set(_SE_SUFFIX "-d")
-elseif(CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "MinSizeRel")
-    # 显式 Release：尊重用户选择，不做后缀回退（运行时一致性由用户保证）
-    set(_SE_SUFFIX "")
-else()
-    # 未显式指定构建类型（多配置生成器 / 未传 CMAKE_BUILD_TYPE）：
-    # 按 SDK bin/ 实际安装的 DLL 形态探测，并给「双版本并存」明确的警告——
-    # 插件 DLL 的导入名必须与运行时引擎一致，并存且不判定时默认选 -d 匹配插件/编辑器生态。
-    set(_SE_SUFFIX "")
-    if(EXISTS "${_BIN_DIR}/ShitEngine-d.dll")
-        if(NOT EXISTS "${_BIN_DIR}/ShitEngine.dll")
-            set(_SE_SUFFIX "-d")
-            message(STATUS "ShitEngine: SDK 仅含 Debug 运行库（ShitEngine-d.dll），统一使用 -d 后缀")
-        else()
-            set(_SE_SUFFIX "-d")
-            message(WARNING
-                "ShitEngine: SDK 同时含有 ShitEngine.dll 与 ShitEngine-d.dll，且未指定构建类型。\n"
-                "  已默认选用 Debug（-d）以匹配插件/编辑器运行时；如需 Release 请显式设置 "
-                "CMAKE_BUILD_TYPE=Release，并移除 SDK 中另一版本避免混淆。")
-        endif()
-    endif()
-endif()
+# Engine/CMakeLists.txt 刻意统一命名（OUTPUT_NAME ShitEngine + PREFIX ""）：
+# 插件按模块名静态导入引擎，宿主进程内引擎模块名与导入名一致时加载器直接复用
+# 内存实例；命名漂移（ShitEngine-d.dll / libShitEngine.dll）会让插件 LoadLibrary
+# 报 126，甚至重复加载第二份引擎导致静态状态分裂。旧版模板按 -d 后缀查找，与
+# 统一命名矛盾——Debug/MinGW 消费者按配置链接会找不到引擎 DLL（或静默链到
+# 历次 install 残留的陈旧同名文件）。
+set(_SE_SUFFIX "")
 
 # ============================================================
 # 创建 imported target（DLL 不存在则跳过，该依赖已静态链接）
 # ============================================================
 set(_FOUND_DEPS "")
 
-# _create_dll(target 库名 是否带 Debug -d 后缀)
-#   第三方依赖（SDL3 等）只有一份 DLL，Debug/Release 共用，不带 -d 后缀；
-#   只有 ShitEngine 自身带 -d 后缀（ShitEngine-d.dll 的导入表引用的也是同名 SDL3.dll）。
+# _create_dll(target 库名 是否带后缀)
+#   第三方依赖（SDL3 等）只有一份 DLL，Debug/Release 共用，不带后缀；
+#   ShitEngine 自身也统一命名（无 -d 后缀）——插件按模块名静态导入引擎。
 macro(_create_dll _target _base_name _with_suffix)
     set(_sfx "")
     if(_with_suffix)
@@ -96,7 +80,9 @@ add_library(ShitEngine::ShitEngine SHARED IMPORTED)
 
 if(WIN32)
     if(MINGW)
-        set(_SE_DLL "${_BIN_DIR}/libShitEngine${_SE_SUFFIX}.dll")
+        # 引擎产物为 ShitEngine.dll（PREFIX "" 去掉 DLL 名的 lib 前缀；导入库仍为
+        # libShitEngine.dll.a）——旧模板期望 libShitEngine.dll 与实际产物不符
+        set(_SE_DLL "${_BIN_DIR}/ShitEngine${_SE_SUFFIX}.dll")
         set(_SE_LIB "${_LIB_DIR}/libShitEngine${_SE_SUFFIX}.dll.a")
     elseif(MSVC)
         set(_SE_DLL "${_BIN_DIR}/ShitEngine${_SE_SUFFIX}.dll")

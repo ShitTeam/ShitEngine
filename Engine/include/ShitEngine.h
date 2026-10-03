@@ -7,6 +7,7 @@
  */
 // Core
 #include "ShitEngine/Core/Core.h"
+#include "ShitEngine/Core/EngineContext.h"
 #include "ShitEngine/Core/Game.h"
 #include "ShitEngine/Core/Log.h"
 #include "ShitEngine/Core/Time.h"

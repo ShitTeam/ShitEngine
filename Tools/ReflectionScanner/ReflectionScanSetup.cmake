@@ -97,12 +97,27 @@ function(setup_reflection_scan SCOPE_NAME INPUT_DIR OUTPUT_DIR INCLUDE_ROOT)
         list(APPEND _SYS_INC_ARGS "--system-include" "${_path}")
     endforeach()
 
+    # ── target 三元组：按宿主编译器派生（不再硬编码 mingw）──
+    # 硬编码 -target x86_64-w64-mingw32 是为修「Windows+MinGW：libclang 默认 target(MSVC)
+    # 与检测出的 MinGW 系统头不匹配」。但 Linux/macOS 上该 target 与系统头不匹配——
+    # libstdc++ 头在 mingw target 下条件编译结构错乱，libclang 语义父链被幽灵 std
+    # 命名空间污染（类型被解析成 std::Shit::X，聚合头生成 std__ 前缀文件名，
+    # 跨平台生成 diff 不干净、CI 一致性校验误报）。
+    #   MinGW       → x86_64-w64-mingw32（匹配 MinGW 系统头，保持既有行为）
+    #   MSVC        → 不传（LLVM libclang 默认 target 即 MSVC，匹配 MSVC 系统头）
+    #   Linux/macOS → 不传（libclang 默认 target 与本机 g++/clang 系统头匹配）
+    set(_TARGET_ARGS "")
+    if(MINGW)
+        list(APPEND _TARGET_ARGS "--target" "x86_64-w64-mingw32")
+    endif()
+
     set(SCAN_COMMAND
         ${REFLECTION_SCANNER_EXE}
             --input "${INPUT_DIR}"
             --output "${OUTPUT_DIR}"
             --include "${INCLUDE_ROOT}"
             --include-root "${INCLUDE_ROOT}"
+            ${_TARGET_ARGS}
             ${_SYS_INC_ARGS}
     )
     if(_REFLECT_CLANG_RESOURCE_DIR)

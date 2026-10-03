@@ -10,13 +10,30 @@
 ### 新增
 
 - **固定步长脚本驱动 `Behavior::onFixedUpdate(float)`（引擎）**：把固定步循环从 `PhysicsSystem2D` 内部提升到 `Scene` 层——`Scene` 以固定节拍（60Hz、单帧最多 3 步防死亡螺旋）按系统优先级调用新的 `System::fixedUpdate(fixedDt)` 虚钩子（默认空实现）：`BehaviorSystem` 在其中补跑 onStart 并驱动 `Behavior::onFixedUpdate`，随后 `PhysicsSystem2D` 步进一次并派发该步接触事件——脚本施力/设速与物理模拟严格同拍（Unity FixedUpdate 模型），不再受渲染帧率影响；高帧率下部分渲染帧不执行固定步属预期行为。全局暂停时固定步整体冻结，编辑器单步调试照常可用；未覆写 onFixedUpdate 的行为零成本。**行为变更**：碰撞回调改为每固定步派发一次（原先整帧聚合派发）——Enter/Exit 触发时机不变，Stay 从每渲染帧变为每固定步一次
+- **`FieldMeta::serializeAlways` 元数据（引擎）**：`SHIT_META` 新增「只读但仍序列化」标志——`readOnly` 的语义从此只是"编辑器显示"，不再决定是否落盘；序列化载体类字段（如 `Tilemap::m_gridData`）标注后经 `Prefab::Capture` 正常持久化。扫描器对 `SHIT_META(({...}))` 结构化原文只透传，无需改扫描器
+- **CI 反射代码一致性 job（工程化）**：`check-reflection` 以 `BUILD_TOOLS=ON` 重新生成 `.gen.h` 并与已提交版本 `git diff --exit-code` 对比——"改了 SHIT_REFLECT 头而忘记重生成"（其余 job 用 BUILD_TOOLS=OFF 编译、照样绿，但 FieldInfo 偏移会与实际结构错位 → 编辑器/序列化按错误偏移 memcpy）从此直接红
+- **动画帧跨图集（编辑器）**：Dope Sheet / Animation 窗口统一到 `frameSprites` 单一真值，缩略图按每帧自己的 (texturePath, 源矩形) 切块——一个剪辑的各帧可来自不同精灵图（Unity 式帧引用 Sprite），新格式 `.anim` 从此可在编辑器完整编辑与播放
 
 ### 变更
 
 - **ResourceManager 模板化重构（引擎，破坏性）**：统一入口改为 `ResourceManager::Load<T>(key...)`——返回封装资源指针（懒加载，`->get()` 取底层句柄），配套 `Find<T>`（仅查询）/ `Unload<T>` / `Clear<T>`；缓存键由 `ResourceTraits<T>` 特化描述（内置 Texture/Audio 字符串键、Font 的 FontKey 复合键，`Load<Font>("a.ttf", 24.f)` 直传即可），类型注册表按 type_index 懒建缓存——新增资源类型继承 `Resource` + 特化 traits 即自动接入缓存/`GetResourceByUuid`/全量清理，管理器零改动。**删除旧 per-type 门面** `LoadTexture/GetTexture/GetTextureAsset/UnloadTexture/ClearAllTextures/ClearTexture/LoadAudio/GetAudio/GetAudioAsset/UnloadAudio/ClearAudio/LoadFont/GetFont/GetFontAsset/ClearAllFonts/ClearFont`（引擎内 14 处调用点已迁移；Editor 仅用 SetAssetRoot 不受影响）；`Init/Destroy/SetAudioMixer/SetAssetRoot/ResolveAssetPath/GetResourceByUuid` 签名不变。行为语义保持：懒加载、失败不缓存下次重试、资产根两级回退、Audio mixer 注入时机
+- **构建 stamp 出库 + 文档纠偏（工程化）**：`.reflect-engine-stamp`/`.reflect-stamp` 从 Git 移除并 ignore——全新 clone 时 stamp 与头文件同批 checkout、mtime 关系不确定，会让 Ninja 误判「输出已最新」而跳过扫描、沿用陈旧生成代码；根 CMake 警告/AGENTS.md/CLAUDE.md/ROADMAP.md 共 8 处「BUILD_TOOLS=OFF 时运行 run-reflectionscanner」的不可用指引改为「重新配置 -DBUILD_TOOLS=ON」（该目标仅在 ON 配置下存在）；AGENTS.md/CLAUDE.md 帧率机制描述更正为内联混合等待（原写 `SDL_AddTimer`，代码中已无此调用）；Editor/CMakeLists 最低版本 3.5→3.20、project 版本 0.1→1.4.2 对齐引擎；CMakePresets 移除硬编码本机 ninja 路径；总入口 `ShitEngine.h` 补 `EngineContext.h`（文档化多实例 API 此前无法经唯一入口使用）；Runtime POST_BUILD 注释与实现对齐；Release 创建改为 release.yml 统一创建、四平台 job 等待后只上传（防并发 create 竞态丢 CHANGELOG 正文）
 
 ### 修复
 
+- **全源码审计修复（引擎 + 编辑器，完整清单见 `AUDIT.md` §4；Critical/High 均经人工逐条复核）**：
+  - **Tilemap 瓦片数据每次保存全丢（Critical）**：`m_gridData` 载体字段标了 `.readOnly = true`，而 `Prefab::Capture` 对 readOnly 字段跳过 → 瓦片从不落盘、重载全部归 -1；新增 `serializeAlways` 元数据豁免（readOnly 与"是否落盘"语义分离）
+  - **AnimFrame 双真值回归（Critical×2，AnimFrame 改造引入）**：编辑器读侧只认 `frames`——新格式 `.anim` 在编辑器整体失效、拖帧追加清空原动画、拖动排序写回旧顺序；编辑器（DopeSheetWidget/AnimationDock）统一到 `frameSprites` 单一真值，`frames` 同序保留
+  - **Dope Sheet 拖动排序 off-by-one（High）**：`to` 已排除自身再减 1 属双重校正 → [A B] 两帧永远无法互换、向右拖动落点提前一格；改 `ins = std::clamp(to, 0, n-1)`
+  - **插件卸载不清理注册系统 → UAF（High）**：`loadProjectConfig`/`unloadPlugins` 缺"卸载前清理插件注册的系统"（热重载路径已有）——场景挂插件 System 时 `UnloadAll` 释放 DLL 后下一 tick `m_systems[i]->update()` 虚调用进已释放模块；两条路径复用同款清理段
+  - **检查器名称/Tag/路径字段每帧 setText 抹掉输入（High）**：预览 60fps 回读对「提交仅在 editingFinished」的控件无条件回写，输入一个字符 ~16ms 后被旧值覆盖，改名/改 Tag/手输路径基本不可用；回读前加 `hasFocus()`/`isEditing()` 守卫（与 animatordock 同款）
+  - **程序化选中不清旧选 → 批量删除误删（High）**：`selectObject`/右键用 `Select`（Qt 合并语义）——连续点选在树里累加多行高亮，Del/右键批量删除把之前点过的全部对象删掉；改 `ClearAndSelect`，右键点已选中项保留多选（Windows/Unity 语义）
+  - **播放中 Ctrl+S 保存运行态场景（High）**：`saveScene` 无 isPlaying 检查 → 物理瞬态位置、运行中生成/销毁的对象被写盘；先停再存（newScene/openScene 同款守卫）
+  - **损坏 .prefab 异常穿透 → 编辑器 terminate（High）**：`Prefab::fieldFromJson` 逐分支加类型守卫（类型不符跳过该字段而非抛 nlohmann 异常——对齐 .scene 头注释"仅跳过对应对象"承诺）；`instantiatePrefab` 包 try/catch 并关闭撤销事务
+  - **viewport 鼠标/按键路径缺 containsGameObject 校验（Medium）**：全部绘制路径都有校验、唯独鼠标/F 键没有——停止播放到下一帧同步的 ~16ms 窗口内点击即 UAF；补同款校验
+  - **Tilemap tileId 无上界 → 每帧错误刷屏（Medium）**：手改/损坏网格数据的越界 id 使 `src` 越出纹理，SDL 拒绝并置错；渲染前钳制到纹理容量
+  - **播放输入转发粘键（Medium）**：组合键期间 KeyRelease 被 Ctrl 过滤丢弃（按住 W 再按 Ctrl，松 W 后引擎三态永久粘住）；释放不按 Ctrl 过滤（多余 KEY_UP 对未按下键无害）；Alt+Tab/失焦时对引擎当前按下键补发 KEY_UP
+  - **SDK 导出包 Debug/MinGW 不可用（High，工程化）**：`ShitEngineConfig.cmake.in` 按已废除的 `-d` 后缀查找引擎 DLL（引擎统一命名 `ShitEngine.dll`），MinGW 分支还期望 `lib` 前缀；实测 SDK 里历次 install 残留的陈旧同名文件会被静默链接。配置模板改统一命名 + install 前清理陈旧引擎 DLL 变体
 - **全源码审查修复 6 处 BUG（引擎 + 编辑器）**：
   - **物理碰撞事件低帧率丢失（高）**：固定步进循环一帧最多跑 3 个子步，但接触事件只在循环外取一次——Box2D 的事件缓冲每次 `b2World_Step` 都会清空，多子步帧前面子步的 Begin/End 事件全部静默丢失。新增 `PhysicsSystem2D::collectContactEvents` 移入子步循环逐步收集，Enter/Stay/Exit 派发语义不变
   - **编辑态删除对象不级联子物体（中）**：运行态 `removeGameObject` 走 `destroy()` 级联标记整个子树，编辑态只删对象本身、子物体被遗留提升为根——同一 API 两种语义。编辑态对齐级联销毁（含 `removeGameObjectByName`）；批量删除/清场循环中已随父级销毁的指针只与容器比对、绝不解引用

@@ -66,7 +66,7 @@
 
 | # | 风险 | 说明 |
 |---|------|------|
-| 1 | 反射 `.gen.h` 重新生成 | 改带 `SHIT_FIELD` 的头文件后必须重扫：BUILD_TOOLS=ON 自动，OFF 手动 `cmake --build . --target run-reflectionscanner`；否则编辑器/序列化看不到新字段 |
+| 1 | 反射 `.gen.h` 重新生成 | 改带 `SHIT_FIELD` 的头文件后必须重扫：BUILD_TOOLS=ON 时构建自动；OFF 时使用已提交生成代码，需重新配置 `-DBUILD_TOOLS=ON`（`run-reflectionscanner` 目标仅在 ON 配置下存在）；否则编辑器/序列化看不到新字段，CI 的 check-reflection job 会拦截 |
 | 2 | 迭代中删除对象 | 编辑器下 `Scene::removeGameObject` 当场 erase（`Scene.cpp:149-180`），遍历中删会迭代器失效（cfa3b8d 教训）；保持「先收集再删」模式 |
 | 3 | 写字段绕过 setter | 编辑器与 Prefab 反序列化都走 `FieldInfo::GetFieldPtr` 直写内存，不触发 setter；涉及引擎状态的字段（如精灵纹理）需 `onAfterDeserialize` 钩子 |
 | 4 | EngineContext 切换 | 编辑器多个 context 并存，插件类型注册、面板操作前都必须 `setCurrent(preview)` |
@@ -303,7 +303,7 @@ virtual void onAfterDeserialize();
 for (auto& comp : components) if (comp) comp->onAfterDeserialize();
 ```
 
-**注意**：改 `SpriteRenderer.h`/`Component.h` 后必须重新生成 `.gen.h`（BUILD_TOOLS=OFF 手动 `cmake --build . --target run-reflectionscanner`），再重编 `ShitEngine` 与 Editor。
+**注意**：改 `SpriteRenderer.h`/`Component.h` 后必须重新生成 `.gen.h`（`BUILD_TOOLS=ON` 配置下构建自动重扫；OFF 需重新配置启用），再重编 `ShitEngine` 与 Editor。
 
 ### 5.3 Runtime 改动清单
 
