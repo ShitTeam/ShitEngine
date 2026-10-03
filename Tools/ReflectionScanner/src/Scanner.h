@@ -18,9 +18,15 @@ public:
     /// @param systemIncludePaths -isystem 系统 include 路径
     /// @param resourceDir      libclang resource 目录（含 builtin headers），
     ///                         为空时不传 -resource-dir，由 libclang 自行查找
+    /// @param targetTriple     clang target 三元组（如 x86_64-w64-mingw32）。
+    ///                         为空 = 不传 -target，用 libclang 默认（与构建 libclang
+    ///                         的平台匹配：Linux/macOS 上即本机 target，解析本机系统头
+    ///                         正确）。Windows+MinGW 必须显式传（libclang 默认 target
+    ///                         可能是 windows-msvc，与 MinGW 系统头语义不兼容）
     explicit Scanner(const std::vector<std::string>& includePaths,
                      const std::vector<std::string>& systemIncludePaths = {},
-                     const std::string& resourceDir = {});
+                     const std::string& resourceDir = {},
+                     const std::string& targetTriple = {});
     ~Scanner();
 
     ScanResult scanDirectory(const std::string& inputDir);

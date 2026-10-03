@@ -436,7 +436,8 @@ CXChildVisitResult Scanner::findFriendRegister(CXCursor cursor, CXCursor,
 // ── Scanner 实现 ────────────────────────────────────
 Scanner::Scanner(const std::vector<std::string>& includePaths,
                  const std::vector<std::string>& systemIncludePaths,
-                 const std::string& resourceDir)
+                 const std::string& resourceDir,
+                 const std::string& targetTriple)
     : m_index(clang_createIndex(0, 0))
 {
     for (const auto& p : includePaths) {
@@ -446,12 +447,18 @@ Scanner::Scanner(const std::vector<std::string>& includePaths,
         m_includeArgs.push_back("-isystem");
         m_includeArgs.push_back(p);
     }
-    // libclang 默认 target 可能是 windows-msvc（系统装了 VS Build Tools 时），但项目用
-    // MinGW g++ 编译，系统 include 路径也是 MinGW 的。用 MSVC 模式解析 MinGW 头会失败
-    //（__MINGW_EXTENSION / __declspec / VARARGS 等语义不兼容）。显式指定 MinGW target，
-    // 让 libclang 定义 __MINGW32__ / __GNUC__ 等内置宏并启用 MinGW 兼容语义。
-    m_includeArgs.push_back("-target");
-    m_includeArgs.push_back("x86_64-w64-mingw32");
+    // libclang 默认 target 与「检测出的系统 include 路径」可能不匹配（Windows+MinGW：
+    // libclang 默认 target 是 windows-msvc，而系统头是 MinGW 的——MSVC 模式解析 MinGW
+    // 头会失败：__MINGW_EXTENSION / __declspec / VARARGS 等语义不兼容）。
+    // targetTriple 非空时显式指定（CMake 按宿主编译器派生，见 ReflectionScanSetup.cmake）；
+    // 为空 = 用 libclang 默认——Linux/macOS 上默认 target 与本机系统头匹配，
+    // 跨平台硬编码 mingw 反而制造不匹配：libstdc++ 头在 mingw target 下条件编译
+    // 结构错乱，语义父链被幽灵 std 命名空间污染（类型被解析成 std::Shit::X，
+    // 聚合头生成 std__ 前缀文件名，跨平台生成 diff 不干净、CI 一致性校验误报）
+    if (!targetTriple.empty()) {
+        m_includeArgs.push_back("-target");
+        m_includeArgs.push_back(targetTriple);
+    }
     // MinGW 系统头通过 _CRTIMP 等宏使用 __declspec(dllimport)，需显式启用
     m_includeArgs.push_back("-fdeclspec");
     // clang_parseTranslationUnit2 解析 .h 时默认按 C 语言，-std=c++20 会冲突

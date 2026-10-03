@@ -16,6 +16,9 @@ void printUsage(const char* exeName) {
     std::cerr << "  --include <dir>    附加 include 路径（-I，可重复）\n";
     std::cerr << "  --system-include <dir>  系统 include 路径（-isystem，可重复）\n";
     std::cerr << "  --include-root <dir>    从 sourceFile 路径中移除的前缀，默认为 input dir\n";
+    std::cerr << "  --resource-dir <dir>    libclang resource 目录（builtin headers）\n";
+    std::cerr << "  --target <triple>       clang target 三元组（如 x86_64-w64-mingw32）；\n"
+                 "                          缺省用 libclang 默认（与本机系统头匹配）\n";
     std::cerr << "  --help             显示此帮助\n\n";
     std::cerr << "Example:\n";
     std::cerr << "  ReflectionScanner --input Engine/include/ShitEngine/Component \\\n";
@@ -31,6 +34,7 @@ struct Args {
     std::vector<std::string> systemIncludePaths;
     std::string includeRoot;
     std::string resourceDir;  ///< libclang resource dir（含 builtin headers）
+    std::string targetTriple; ///< clang target 三元组（空 = libclang 默认）
 };
 
 bool parseArgs(int argc, char* argv[], Args& args) {
@@ -52,6 +56,8 @@ bool parseArgs(int argc, char* argv[], Args& args) {
             args.includeRoot = argv[++i];
         } else if (arg == "--resource-dir" && i + 1 < argc) {
             args.resourceDir = argv[++i];
+        } else if (arg == "--target" && i + 1 < argc) {
+            args.targetTriple = argv[++i];
         } else {
             std::cerr << "Unknown option: " << arg << "\n";
             return false;
@@ -96,10 +102,12 @@ int main(int argc, char* argv[]) {
     std::cout << "  Root:     " << args.includeRoot << "\n";
     if (!args.resourceDir.empty())
         std::cout << "  Resource:" << args.resourceDir << "\n";
+    if (!args.targetTriple.empty())
+        std::cout << "  Target:   " << args.targetTriple << "\n";
     std::cout << "\n";
 
     // 扫描
-    Scanner scanner(args.includePaths, args.systemIncludePaths, args.resourceDir);
+    Scanner scanner(args.includePaths, args.systemIncludePaths, args.resourceDir, args.targetTriple);
     ScanResult result = scanner.scanDirectory(args.inputDir);
 
     // 修正 sourceFile 为相对于 includeRoot 的路径
