@@ -1029,7 +1029,16 @@ void MainWindow::instantiatePrefab(const QString &path, bool useDropPos, float l
     for (auto &go : scene->getGameObjects()) before.insert(go.get());
 
     undoBegin();
-    Shit::SceneSerializer::fromJson(doc, scene);
+    try {
+        Shit::SceneSerializer::fromJson(doc, scene);
+    } catch (const std::exception &e) {
+        // 损坏 .prefab 的兜底：fieldFromJson 已加逐分支类型守卫（不再抛 type_error），
+        // 这里防御 in-depth——异常逃出 Qt 槽会 std::terminate 崩掉编辑器；
+        // commit 关闭事务（半实例化状态可撤销，无差异则自动丢弃）
+        m_log->appendMessage(tr("实例化预置失败: %1").arg(QString::fromUtf8(e.what())), Qt::red);
+        undoCommit(tr("实例化预置（失败）"));
+        return;
+    }
     Shit::GameObject *created = nullptr;
     for (auto &go : scene->getGameObjects())
         if (!before.count(go.get())) { created = go.get(); break; }
@@ -1200,6 +1209,10 @@ void MainWindow::syncSceneSelection()
 
 bool MainWindow::saveScene()
 {
+    // 运行中先停止（恢复快照）再保存：序列化运行态会把物理瞬态位置、运行中
+    // 生成/销毁的对象写盘；停止后恢复 m_runSnapshot 又标 dirty，用户可能把
+    // 运行前状态再存一次或误判编辑丢失（newScene/openScene 同款守卫）
+    if (isPlaying()) setPlaying(false);
     if (m_scenePath.isEmpty())
         return saveSceneAs();
     return saveSceneTo(m_scenePath);
@@ -2008,19 +2021,45 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
     Shit::EngineContext::setCurrent(m_preview->context());
 
     switch (event->type()) {
-        case QEvent::KeyPress:
-        case QEvent::KeyRelease: {
+        case QEvent::KeyPress: {
             auto *ke = static_cast<QKeyEvent *>(event);
-            // 组合键（Ctrl+…）保留给编辑器快捷键（Ctrl+S 保存等），不转发给游戏
+            // 组合键（Ctrl+…）的按下保留给编辑器快捷键（Ctrl+S 保存等），不转发给游戏
             if (ke->modifiers() & Qt::ControlModifier)
                 return false;
             const SDL_Scancode sc = sdlScancodeForQtKey(ke->key());
             if (sc == SDL_SCANCODE_UNKNOWN) return false;
             SDL_Event ev{};
-            ev.type = (event->type() == QEvent::KeyPress) ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
+            ev.type = SDL_EVENT_KEY_DOWN;
             ev.key.scancode = sc;
             Shit::Input::HandleEvent(ev);
             return false;   // 不吞噬，Qt 照常处理
+        }
+        case QEvent::KeyRelease: {
+            auto *ke = static_cast<QKeyEvent *>(event);
+            // 释放不按 Ctrl 过滤：先按下后按 Ctrl 的键（如按住 W 再按 Ctrl）松开时
+            // 带 Ctrl 修饰，丢弃会使 SDL 收不到 KEY_UP → 引擎三态卡键（整个播放
+            // 会话保持按下、游戏一直移动）；多余 KEY_UP 对未按下键是无害 no-op
+            const SDL_Scancode sc = sdlScancodeForQtKey(ke->key());
+            if (sc == SDL_SCANCODE_UNKNOWN) return false;
+            SDL_Event ev{};
+            ev.type = SDL_EVENT_KEY_UP;
+            ev.key.scancode = sc;
+            Shit::Input::HandleEvent(ev);
+            return false;
+        }
+        case QEvent::FocusOut:
+        case QEvent::WindowDeactivate: {
+            // Alt+Tab / 失焦时 Qt 不补发 KeyRelease——已按下键在引擎三态里永久粘住
+            // 直到停止播放。对引擎当前所有按下键补发 KEY_UP（多余 KEY_UP 对未按下
+            // 键无害），恢复三态一致
+            for (int sc = 0; sc < SDL_SCANCODE_COUNT; ++sc) {
+                if (!Shit::Input::IsKeyPressed(static_cast<Shit::KeyCode>(sc))) continue;
+                SDL_Event ev{};
+                ev.type = SDL_EVENT_KEY_UP;
+                ev.key.scancode = static_cast<SDL_Scancode>(sc);
+                Shit::Input::HandleEvent(ev);
+            }
+            return false;
         }
         case QEvent::MouseButtonPress:
         case QEvent::MouseButtonRelease: {

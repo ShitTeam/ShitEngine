@@ -136,8 +136,10 @@ void SceneTree::selectObject(Shit::GameObject *object)
 {
     const QModelIndex idx = m_model->indexOf(object);
     if (idx.isValid()) {
+        // ClearAndSelect：程序化选中是独占语义（拾取/同步驱动）——用 Select（合并）
+        // 会让连续点选在树里累加多行高亮，批量删除随之误删之前点过的对象
         m_view->selectionModel()->setCurrentIndex(idx,
-            QItemSelectionModel::Select | QItemSelectionModel::Rows);
+            QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
         m_view->scrollTo(idx);
     }
 }
@@ -176,8 +178,15 @@ void SceneTree::contextMenuEvent(QContextMenuEvent *event)
 {
     const QModelIndex idx = m_view->indexAt(event->pos());
     Shit::GameObject *target = idx.isValid() ? m_model->gameObjectAt(idx) : nullptr;
-    if (target)
-        m_view->setCurrentIndex(idx);
+    if (target) {
+        // 右键点在未选中的行 → 独占选中（清旧选）；已选中的行 → 保留当前多选
+        //（Windows/Unity 语义——右键菜单的批量操作作用于整个选择）
+        auto *sm = m_view->selectionModel();
+        if (!sm->isSelected(idx))
+            sm->setCurrentIndex(idx, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+        else
+            sm->setCurrentIndex(idx, QItemSelectionModel::Current);
+    }
 
     auto *menu = new QMenu(this);
     auto *newMenu = menu->addMenu(tr("新建"));

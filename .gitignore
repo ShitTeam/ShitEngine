@@ -47,6 +47,10 @@ Editor/plans/
 test_marker.h
 test_regex.cpp
 test_regex.exe
+
+# 反射扫描 stamp（构建时间戳，不入库——全新 clone 时 stamp 与头文件同批 checkout，
+# mtime 关系不确定会让 Ninja 误判「输出已最新」而跳过扫描、沿用陈旧生成代码）
+Engine/generated/reflection/.reflect*-stamp
 test_scan/
 
 # fuck-u-code

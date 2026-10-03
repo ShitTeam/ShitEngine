@@ -129,6 +129,20 @@ bool EnginePreview::loadProjectConfig(const QString &configPath)
     Shit::EngineContext::setCurrent(m_context.get());
 
     clearSceneObjects();
+    // 卸载前清理插件注册的系统（与 reloadProjectPlugins 的 2.5 段同款）：
+    // Scene::m_systems 持有插件系统的裸指针（vtable 在 DLL 内），UnloadAll 释放
+    // DLL 后下一 tick 的 m_systems[i]->update() 会虚调用进已释放模块（UAF 崩溃）
+    {
+        auto *scene = Shit::SceneManager::GetCurrentScene();
+        if (scene) {
+            for (const auto& name : scene->getRegisteredSystemTypeNames()) {
+                const auto* ti = Shit::TypeRegistry::Get(name);
+                if (ti && !ti->source.empty())
+                    scene->unregisterSystem(name);
+            }
+            scene->flushPendingSystemRemovals();
+        }
+    }
     if (m_plugins) m_plugins->UnloadAll();
     m_plugins = std::make_unique<Shit::PluginManager>();
 
@@ -152,6 +166,18 @@ void EnginePreview::unloadPlugins()
     Shit::EngineContext::setCurrent(m_context.get());
 
     clearSceneObjects();
+    // 卸载前清理插件注册的系统（与 reloadProjectPlugins 的 2.5 段同款，防 vtable 悬垂 UAF）
+    {
+        auto *scene = Shit::SceneManager::GetCurrentScene();
+        if (scene) {
+            for (const auto& name : scene->getRegisteredSystemTypeNames()) {
+                const auto* ti = Shit::TypeRegistry::Get(name);
+                if (ti && !ti->source.empty())
+                    scene->unregisterSystem(name);
+            }
+            scene->flushPendingSystemRemovals();
+        }
+    }
     if (m_plugins) m_plugins->UnloadAll();
     m_plugins = std::make_unique<Shit::PluginManager>();
 }

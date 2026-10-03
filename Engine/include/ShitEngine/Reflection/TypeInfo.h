@@ -21,6 +21,7 @@ struct FieldMeta {
     float       step = 0.0f;      ///< 步长（0 表示默认）
     std::string category;         ///< 属性分组
     bool        readOnly = false; ///< 编辑器是否只读
+    bool        serializeAlways = false; ///< 只读但仍序列化（序列化载体字段用——readOnly 语义是"编辑器显示"，不应决定是否落盘）
     std::string unit;             ///< 显示单位（如 "px"、"m/s"）
 };
 

@@ -74,12 +74,15 @@ void DopeSheetWidget::refreshBlocks()
 {
     m_blocks.clear();
     if (!m_clip) { update(); return; }
-    const int n = static_cast<int>(m_clip->frames.size());
+    // 单一真值：frameSprites（每帧 {纹理路径+源矩形}，支持跨图集）。剪辑经
+    // expandFramesToSprites 保证非空（旧格式 frames 加载时已展开）
+    const int n = static_cast<int>(m_clip->frameSprites.size());
+    const bool perFrameDur = m_clip->frameDurations.size() == m_clip->frameSprites.size();
     for (int i = 0; i < n; ++i) {
         Block b;
         b.index = i;
-        b.frameId = m_clip->frames[static_cast<size_t>(i)];
-        b.duration = m_clip->frameDurations.size() == m_clip->frames.size()
+        b.frameId = i;   // 缩略图按块序号灌入（每帧用自己的纹理+矩形切块）
+        b.duration = perFrameDur
                          ? m_clip->frameDurations[static_cast<size_t>(i)]
                          : m_clip->duration;
         if (b.duration <= 0.0f) b.duration = 0.1f;
@@ -247,11 +250,12 @@ void DopeSheetWidget::mouseMoveEvent(QMouseEvent *event)
         float newDur = m_dragStartDur + static_cast<float>(dx / 100.0);
         newDur = std::max(static_cast<float>(kMinDur), newDur);
         const int idx = m_dragIndex;
-        // 同步到剪辑（仅当逐帧时长开启）
-        if (m_clip->frameDurations.size() != m_clip->frames.size()) {
-            m_clip->frameDurations.assign(m_clip->frames.size(), m_clip->duration);
+        // 同步到剪辑（仅当逐帧时长开启）——长度基准 = frameSprites 数（单一真值）
+        if (m_clip->frameDurations.size() != m_clip->frameSprites.size()) {
+            m_clip->frameDurations.assign(m_clip->frameSprites.size(), m_clip->duration);
         }
-        m_clip->frameDurations[static_cast<size_t>(idx)] = newDur;
+        if (idx >= 0 && idx < static_cast<int>(m_clip->frameDurations.size()))
+            m_clip->frameDurations[static_cast<size_t>(idx)] = newDur;
         refreshBlocks();
         update();
         return;
@@ -313,22 +317,31 @@ void DopeSheetWidget::wheelEvent(QWheelEvent *event)
 
 void DopeSheetWidget::applyReorder(int from, int to)
 {
-    if (!m_clip || from < 0 || from >= static_cast<int>(m_clip->frames.size())) return;
-    const int n = static_cast<int>(m_clip->frames.size());
-    // 从原位置移除
-    const int frameId = m_clip->frames[static_cast<size_t>(from)];
-    m_clip->frames.erase(m_clip->frames.begin() + from);
+    if (!m_clip || from < 0 || from >= static_cast<int>(m_clip->frameSprites.size())) return;
+    const int n = static_cast<int>(m_clip->frameSprites.size());
+    // 单一真值：操作 frameSprites；frames 按同序同步（保持帧索引记录与
+    // frameSprites 一一对应，双真值不再失联）
+    const Shit::AnimFrame frame = m_clip->frameSprites[static_cast<size_t>(from)];
+    m_clip->frameSprites.erase(m_clip->frameSprites.begin() + from);
+    int frameId = -1;
+    if (from < static_cast<int>(m_clip->frames.size())) {
+        frameId = m_clip->frames[static_cast<size_t>(from)];
+        m_clip->frames.erase(m_clip->frames.begin() + from);
+    }
     float dur = 0.0f;
-    if (m_clip->frameDurations.size() == static_cast<size_t>(n)) {
+    const bool hadPerFrame = m_clip->frameDurations.size() == static_cast<size_t>(n);
+    if (hadPerFrame) {
         dur = m_clip->frameDurations[static_cast<size_t>(from)];
         m_clip->frameDurations.erase(m_clip->frameDurations.begin() + from);
     }
-    // 计算插入位置：to 基于未移除布局数出；移除 from 后需校正偏移
-    int ins = (to > from) ? (to - 1) : to;
-    ins = std::clamp(ins, 0, n - 1);
-    // 插入
-    m_clip->frames.insert(m_clip->frames.begin() + ins, frameId);
-    if (m_clip->frameDurations.size() == static_cast<size_t>(n - 1)) {
+    // 插入槽位：to 基于未移除布局数出且已排除自身（mouseReleaseEvent 的 i==from
+    // continue），移除后即为正确槽位——原实现再减 1 属双重校正，[A B] 两帧
+    // 永远无法互换、向右拖动落点提前一格
+    const int ins = std::clamp(to, 0, n - 1);
+    m_clip->frameSprites.insert(m_clip->frameSprites.begin() + ins, frame);
+    if (frameId >= 0 && ins <= static_cast<int>(m_clip->frames.size()))
+        m_clip->frames.insert(m_clip->frames.begin() + ins, frameId);
+    if (hadPerFrame && m_clip->frameDurations.size() == static_cast<size_t>(n - 1)) {
         m_clip->frameDurations.insert(m_clip->frameDurations.begin() + ins, dur);
     }
     m_selected = ins;

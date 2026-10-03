@@ -81,7 +81,7 @@ namespace Shit {
 		SHIT_META(({.displayName = "Tile World Size", .tooltip = "每格世界尺寸（默认=瓦片像素；留 0 自动）"}))
 		Vector2 m_tileWorldSize{ 0.0f, 0.0f };
 		// 序列化载体：逗号分隔瓦片 id（含尺寸头 [cols,rows,...]），随 .scene 持久化
-		SHIT_META(({.displayName = "Grid Data", .tooltip = "序列化载体，由刷图工具自动维护", .readOnly = true}))
+		SHIT_META(({.displayName = "Grid Data", .tooltip = "序列化载体，由刷图工具自动维护", .readOnly = true, .serializeAlways = true}))
 		std::string m_gridData;
 
 		// 运行时网格（非反射，从 m_gridData 解析而来）

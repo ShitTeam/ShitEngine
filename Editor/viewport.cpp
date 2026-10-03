@@ -554,6 +554,12 @@ void Viewport::mousePressEvent(QMouseEvent *event)
 {
     const QPoint pos = event->pos();
 
+    // 播放中游戏逻辑可能销毁了选中对象：停止播放（setEditEnabled(true)）到下一帧
+    // syncSceneSelection 之间存在窗口，选中指针此刻悬垂——与绘制路径同款校验
+    //（drawGizmo 的 containsGameObject），直接解引用前先确认仍在场景（防 UAF）
+    if (m_selected && m_editScene && !m_editScene->containsGameObject(m_selected))
+        m_selected = nullptr;
+
     // 瓦片刷图。选中含 Tilemap 的对象时：左键+Shift 放置画笔瓦片、右键擦除。
     // 优先于 Gizmo/碰撞体手柄与拾取（编辑锁时禁用；仅场景视图可刷，运行视口无 m_editScene）
     if (m_editEnabled && m_selected && m_editScene && !m_frame.isNull() && m_drawRect.contains(pos)) {
@@ -921,6 +927,9 @@ void Viewport::keyPressEvent(QKeyEvent *event)
 
 void Viewport::frameSelected()
 {
+    // 与绘制路径同款校验：停止播放/undo 后选中对象可能已被销毁（防 UAF）
+    if (m_selected && m_editScene && !m_editScene->containsGameObject(m_selected))
+        m_selected = nullptr;
     auto *camera = editorCamera();
     auto *transform = m_selected ? m_selected->getComponent<Shit::TransformComponent>() : nullptr;
     if (!camera || !transform) return;

@@ -27,7 +27,7 @@ inline bool Register_Tilemap() {
         .Meta(Shit::FieldMeta{.displayName = "Tile World Size", .tooltip = "每格世界尺寸（默认=瓦片像素；留 0 自动）"})
         .Field("m_gridData",
             &Shit::Tilemap::m_gridData, "std::string")
-        .Meta(Shit::FieldMeta{.displayName = "Grid Data", .tooltip = "序列化载体，由刷图工具自动维护", .readOnly = true})
+        .Meta(Shit::FieldMeta{.displayName = "Grid Data", .tooltip = "序列化载体，由刷图工具自动维护", .readOnly = true, .serializeAlways = true})
         .Factory<Tilemap>()
         .Register<Tilemap>();
     return true;

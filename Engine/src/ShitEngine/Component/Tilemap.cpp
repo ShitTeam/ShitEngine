@@ -115,9 +115,13 @@ namespace Shit {
 					continue;
 				}
 
-				// 纹理源矩形（瓦片索引 → 纹理坐标）
-				src.x = static_cast<float>((tileId % tilesPerRow) * m_tileWidth);
-				src.y = static_cast<float>((tileId / tilesPerRow) * m_tileHeight);
+				// 纹理源矩形（瓦片索引 → 纹理坐标）。钳制上界：手改/损坏的网格数据可能含
+				// 超出纹理容量的 id——不钳制会让 src 越出纹理，SDL 拒绝并置错 → 每帧错误刷屏
+				const int rowsInTexture = static_cast<int>(texH) / m_tileHeight;
+				const int maxTileId = tilesPerRow * rowsInTexture - 1;
+				const int clampedId = (tileId > maxTileId) ? maxTileId : tileId;
+				src.x = static_cast<float>((clampedId % tilesPerRow) * m_tileWidth);
+				src.y = static_cast<float>((clampedId / tilesPerRow) * m_tileHeight);
 
 				dst.x = baseScreen.x + col * drawW;
 				dst.y = screenY;

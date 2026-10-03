@@ -418,6 +418,9 @@ void Inspector::setGameObject(Shit::GameObject *object)
         emit objectRenamed();             // undo commit（标签"重命名"）
     });
     m_readbacks.push_back([this, nameEdit] {
+        // 用户正在输入（有焦点未提交）时不回写：editingFinished 才提交，每帧 setText
+        // 会把未提交的输入抹掉（输入一个字符 ~16ms 后被旧值覆盖，改名基本不可用）
+        if (nameEdit->hasFocus()) return;
         // 播放中游戏逻辑改名 → 同步回显（blockSignals 防回显触发重命名提交）
         nameEdit->blockSignals(true);
         nameEdit->setText(QString::fromStdString(m_object->getName()));
@@ -437,6 +440,7 @@ void Inspector::setGameObject(Shit::GameObject *object)
         emit fieldCommitted();             // undo commit
     });
     m_readbacks.push_back([this, tagEdit] {
+        if (tagEdit->hasFocus()) return;   // 用户正在输入时不回写（同 nameEdit 守卫）
         tagEdit->blockSignals(true);
         tagEdit->setText(QString::fromStdString(m_object->getTag()));
         tagEdit->blockSignals(false);
@@ -1206,6 +1210,7 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
                     });
             m_form->addRow(name, pathField);
             m_readbacks.push_back([pathField, p] {
+                if (pathField->isEditing()) return;   // 用户正在手输时不回写（防抹掉未提交输入）
                 pathField->setPath(QString::fromStdString(*p));
             });
         }
@@ -1219,6 +1224,7 @@ void Inspector::addFieldRow(const Shit::FieldInfo &field, Shit::Component *obj)
             connect(edit, &QLineEdit::editingFinished, this, [this] { emit fieldCommitted(); });
             m_form->addRow(name, edit);
             m_readbacks.push_back([edit, obj, field] {
+                if (edit->hasFocus()) return;   // 用户正在输入时不回写（防光标跳行尾/抹掉输入）
                 edit->blockSignals(true);
                 edit->setText(QString::fromStdString(*reinterpret_cast<std::string *>(field.GetFieldPtr(obj))));
                 edit->blockSignals(false);

@@ -20,6 +20,36 @@ env:
 
 jobs:
 
+  # ── 反射代码一致性（防盲区）──
+  # 其余 job 用 BUILD_TOOLS=OFF 编译（使用已提交的 .gen.h）。若改了 SHIT_REFLECT 头
+  # 而忘记重新生成，那些 job 照样绿，但 FieldInfo 偏移会与实际结构错位 → 编辑器与
+  # 序列化按错误偏移 memcpy（内存破坏级）。此 job 以 BUILD_TOOLS=ON 重新生成并与
+  # 已提交版本对比，不一致直接红。
+  check-reflection:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build cmake g++ llvm-dev libclang-dev
+
+      - name: Configure (BUILD_TOOLS=ON)
+        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TOOLS=ON
+
+      - name: Regenerate reflection code
+        run: cmake --build build --target reflect
+
+      - name: Fail if generated code is stale
+        run: |
+          if ! git diff --exit-code Engine/generated; then
+            echo "::error::反射 .gen.h 与头文件不一致——修改 SHIT_REFLECT 头后未重新生成"
+            echo "::error::本地: cmake -B <build> -DBUILD_TOOLS=ON 后构建（自动重扫），或 cmake --build . --target run-reflectionscanner"
+            git diff --stat Engine/generated
+            exit 1
+          fi
+
   # ── Windows (MSVC) ──
   build-windows:
     runs-on: windows-2025
@@ -70,8 +100,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $tag = $env:GITHUB_REF_NAME
-          gh release view $tag 2>$null | Out-Null
-          if ($LASTEXITCODE -ne 0) { gh release create $tag --title $tag }
+          # 等待 release.yml 创建 Release（带 CHANGELOG 正文）——平台 job 只上传不创建，
+          # 避免 4 平台并发 create 与 release.yml 竞态（先创建者决定正文，CHANGELOG 会丢）
+          $ok = $false
+          for ($i = 0; $i -lt 30; ++$i) {
+            gh release view $tag 2>$null | Out-Null
+            if ($LASTEXITCODE -eq 0) { $ok = $true; break }
+            Start-Sleep -Seconds 10
+          }
+          if (-not $ok) { gh release create $tag --title $tag }   # 兜底：release.yml 未就绪时不让上传失败
           Compress-Archive -Path sdk -DestinationPath ShitEngine-Windows-x64.zip -Force
           gh release upload $tag ShitEngine-Windows-x64.zip --clobber
 
@@ -126,8 +163,14 @@ jobs:
         run: |
           tar -czf ShitEngine-Windows-MinGW-x64.tar.gz sdk
           $tag = $env:GITHUB_REF_NAME
-          gh release view $tag 2>$null | Out-Null
-          if ($LASTEXITCODE -ne 0) { gh release create $tag --title $tag }
+          # 等待 release.yml 创建（同 MSVC job：平台 job 只上传不创建，防竞态）
+          $ok = $false
+          for ($i = 0; $i -lt 30; ++$i) {
+            gh release view $tag 2>$null | Out-Null
+            if ($LASTEXITCODE -eq 0) { $ok = $true; break }
+            Start-Sleep -Seconds 10
+          }
+          if (-not $ok) { gh release create $tag --title $tag }
           gh release upload $tag ShitEngine-Windows-MinGW-x64.tar.gz --clobber
 
   # ── Linux (GCC) ──
@@ -191,7 +234,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tar -czf ShitEngine-Linux-x64.tar.gz sdk
-          gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1 || gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}"
+          # 等待 release.yml 创建（平台 job 只上传不创建，防并发 create 竞态丢 CHANGELOG 正文）
+          ok=0
+          for i in $(seq 1 30); do
+            if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then ok=1; break; fi
+            sleep 10
+          done
+          [ "$ok" = 1 ] || gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}"
           gh release upload "${GITHUB_REF_NAME}" ShitEngine-Linux-x64.tar.gz --clobber
 
   # ── macOS (Clang) ──
@@ -237,5 +286,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tar -czf ShitEngine-macOS-x64.tar.gz sdk
-          gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1 || gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}"
+          # 等待 release.yml 创建（平台 job 只上传不创建，防并发 create 竞态丢 CHANGELOG 正文）
+          ok=0
+          for i in $(seq 1 30); do
+            if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then ok=1; break; fi
+            sleep 10
+          done
+          [ "$ok" = 1 ] || gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}"
           gh release upload "${GITHUB_REF_NAME}" ShitEngine-macOS-x64.tar.gz --clobber
